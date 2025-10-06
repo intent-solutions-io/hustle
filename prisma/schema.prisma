@@ -1,0 +1,121 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String    @unique
+  emailVerified DateTime?
+  phone         String
+  password      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // NextAuth relations
+  accounts      Account[]
+  sessions      Session[]
+
+  // App relations
+  players       Player[]
+
+  @@map("users")
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  name      String
+  birthday  DateTime // Birthday for age calculation
+  position  String   // Primary position
+  teamClub  String   // Team/club name (free text)
+  photoUrl  String?  // Optional player photo path
+  parentId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent    User   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  games     Game[]
+}
+
+model Game {
+  id            String    @id @default(cuid())
+  playerId      String
+  date          DateTime  @default(now())
+  opponent      String
+  result        String    // "Win", "Loss", "Tie"
+  finalScore    String    // e.g., "3-2"
+  minutesPlayed Int
+
+  // Universal stats
+  goals         Int       @default(0)
+  assists       Int       @default(0)
+
+  // Goalkeeper stats (null if not goalkeeper)
+  saves         Int?
+  goalsAgainst  Int?
+  cleanSheet    Boolean?
+
+  // Verification
+  verified      Boolean   @default(false)
+  verifiedAt    DateTime?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  player        Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@index([verified])
+}
+
+// NextAuth.js Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
