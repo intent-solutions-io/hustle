@@ -208,3 +208,14 @@ See `CLAUDE.md` for detailed application documentation.
 **Last Updated:** 2025-10-05
 **Maintained By:** Jeremy Longshore
 **License:** See LICENSE file
+
+---
+
+## 🚀 Auto-Deployment Status
+
+✅ GitHub Actions configured for automatic deployment
+✅ Secrets stored in Google Secret Manager
+✅ Every push to `main` automatically deploys to Cloud Run
+
+**Live URL:** https://hustle-app-158864638007.us-central1.run.app
+
