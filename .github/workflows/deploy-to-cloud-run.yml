@@ -1,0 +1,91 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Manual trigger option
+
+env:
+  PROJECT_ID: hustle-dev-202510
+  REGION: us-central1
+  SERVICE_NAME: hustle-app
+
+jobs:
+  deploy:
+    name: Build and Deploy to Cloud Run
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run from source
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --source . \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --vpc-connector=hustle-vpc-connector \
+            --service-account=hustle-cloudrun-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --update-secrets="DATABASE_URL=database-url:latest,NEXTAUTH_SECRET=nextauth-secret:latest" \
+            --set-env-vars="NEXTAUTH_URL=https://hustle-app-158864638007.us-central1.run.app,NODE_ENV=production" \
+            --max-instances=10 \
+            --min-instances=0 \
+            --memory=512Mi \
+            --cpu=1 \
+            --timeout=300 \
+            --concurrency=80
+
+      - name: Wait for deployment
+        run: sleep 15
+
+      - name: Health check
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+
+          echo "🔍 Health check: $SERVICE_URL/api/healthcheck"
+
+          for i in {1..5}; do
+            if curl -f "$SERVICE_URL/api/healthcheck"; then
+              echo "✅ Deployment successful!"
+              echo "🚀 Live at: $SERVICE_URL"
+              exit 0
+            fi
+            echo "⏳ Waiting for service to be ready... (attempt $i/5)"
+            sleep 10
+          done
+
+          echo "❌ Health check failed after 5 attempts"
+          exit 1
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+
+          echo "════════════════════════════════════════════════"
+          echo "✅ DEPLOYMENT SUCCESSFUL"
+          echo "════════════════════════════════════════════════"
+          echo "🌐 Live URL: $SERVICE_URL"
+          echo "📦 Service: ${{ env.SERVICE_NAME }}"
+          echo "🌍 Region: ${{ env.REGION }}"
+          echo "⏱️  Deployed: $(date)"
+          echo "════════════════════════════════════════════════"
