@@ -296,11 +296,37 @@ export default function SurveySection() {
       const result = await response.json();
       console.log('[Survey] Submission successful:', result.submissionId);
 
+      // Verify we got a submission ID (confirms data was saved)
+      if (!result.submissionId) {
+        throw new Error('No submission ID received - data may not have saved');
+      }
+
       // Clear localStorage after successful submission
       localStorage.removeItem(STORAGE_KEY);
+      console.log('[Survey] localStorage cleared');
 
-      // Navigate to thank you page
-      router.push('/survey/complete');
+      // Wait a moment to ensure all state updates complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Navigate to thank you page with multiple fallback methods
+      console.log('[Survey] Redirecting to thank you page...');
+
+      // Try Next.js router first
+      try {
+        router.push('/survey/complete');
+
+        // Fallback: if router.push doesn't redirect within 500ms, use window.location
+        setTimeout(() => {
+          if (window.location.pathname !== '/survey/complete') {
+            console.log('[Survey] Router redirect slow, using window.location fallback');
+            window.location.href = '/survey/complete';
+          }
+        }, 500);
+      } catch (routerError) {
+        // If router fails, immediately use window.location
+        console.error('[Survey] Router failed, using window.location:', routerError);
+        window.location.href = '/survey/complete';
+      }
 
     } catch (error) {
       console.error('[Survey] Submission error:', error);
@@ -550,10 +576,10 @@ export default function SurveySection() {
               {isSaving ? (
                 <>
                   <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                  <span>Saving...</span>
+                  <span>{sectionNum === TOTAL_SECTIONS ? 'Submitting Survey...' : 'Saving...'}</span>
                 </>
               ) : sectionNum === TOTAL_SECTIONS ? (
-                'Submit Survey'
+                '✓ Submit Survey'
               ) : (
                 'Next →'
               )}
