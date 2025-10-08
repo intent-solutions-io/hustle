@@ -29,7 +29,7 @@ export function generateThankYouEmail({ recipientName }: Omit<ThankYouEmailProps
             margin: 0;
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(to bottom right, #faf5ff 0%, #ffffff 50%, #eff6ff 100%);
+            background-color: #f5f5f5;
             color: #333;
         }
         .email-container {
@@ -38,13 +38,13 @@ export function generateThankYouEmail({ recipientName }: Omit<ThankYouEmailProps
             background-color: #ffffff;
         }
         .header {
-            background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 100%);
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
             padding: 40px 30px;
             text-align: center;
         }
         .header h1 {
             margin: 0;
-            color: #5b21b6;
+            color: #ffffff;
             font-size: 32px;
             font-weight: 700;
             letter-spacing: 2px;
@@ -62,17 +62,17 @@ export function generateThankYouEmail({ recipientName }: Omit<ThankYouEmailProps
             margin: 0 0 20px 0;
         }
         .content strong {
-            color: #7c3aed;
+            color: #1f2937;
         }
         .next-steps {
-            background-color: #faf5ff;
-            border-left: 4px solid #a78bfa;
+            background-color: #f9fafb;
+            border-left: 4px solid #6b7280;
             padding: 20px;
             margin: 30px 0;
         }
         .next-steps h3 {
             margin: 0 0 15px 0;
-            color: #7c3aed;
+            color: #374151;
             font-size: 18px;
         }
         .next-steps ol {
@@ -94,7 +94,7 @@ export function generateThankYouEmail({ recipientName }: Omit<ThankYouEmailProps
             margin-bottom: 5px;
         }
         .signature-title {
-            color: #7c3aed;
+            color: #374151;
             font-weight: 600;
             margin-bottom: 3px;
         }
@@ -111,7 +111,7 @@ export function generateThankYouEmail({ recipientName }: Omit<ThankYouEmailProps
             display: inline-block;
             margin: 5px 10px 5px 0;
             padding: 8px 16px;
-            background-color: #a78bfa;
+            background-color: #6b7280;
             color: #ffffff !important;
             text-decoration: none;
             border-radius: 6px;
@@ -119,7 +119,7 @@ export function generateThankYouEmail({ recipientName }: Omit<ThankYouEmailProps
             transition: background-color 0.3s;
         }
         .contact-links a:hover {
-            background-color: #8b5cf6;
+            background-color: #4b5563;
         }
         .social-links {
             margin-top: 15px;
@@ -127,15 +127,15 @@ export function generateThankYouEmail({ recipientName }: Omit<ThankYouEmailProps
         .social-links a {
             display: inline-block;
             margin-right: 15px;
-            color: #7c3aed !important;
+            color: #374151 !important;
             text-decoration: none;
             font-weight: 500;
         }
         .social-links a:hover {
-            color: #6d28d9 !important;
+            color: #1f2937 !important;
         }
         .footer {
-            background-color: #faf5ff;
+            background-color: #f9fafb;
             padding: 30px;
             text-align: center;
             color: #666;
@@ -205,7 +205,7 @@ export function generateThankYouEmail({ recipientName }: Omit<ThankYouEmailProps
 
                 <p style="margin: 10px 0; font-size: 15px;"><strong>Progress Tracking & AI Analysis:</strong> Charts, trends, and eventually AI-powered insights that show growth over time. Perfect for recruitment packages or just seeing how far they&apos;ve come.</p>
 
-                <p style="margin: 15px 0 5px 0; font-size: 16px; font-weight: 600; color: #7c3aed;">But here&apos;s where it gets really exciting...</p>
+                <p style="margin: 15px 0 5px 0; font-size: 16px; font-weight: 600; color: #374151;">But here&apos;s where it gets really exciting...</p>
 
                 <p style="margin: 10px 0; font-size: 15px;"><strong>ONE Hub for Everything:</strong> We&apos;re building THE platform—one place where all their highlights live. No more hunting through your camera roll or 17 different apps. Upload once, and HUSTLE™ becomes your athlete&apos;s professional portfolio.</p>
 
@@ -230,8 +230,8 @@ export function generateThankYouEmail({ recipientName }: Omit<ThankYouEmailProps
                 </ol>
             </div>
 
-            <div class="next-steps" style="background-color: #fef3f2; border-left-color: #c084fc; margin-top: 30px;">
-                <h3 style="color: #7c3aed;">What does beta testing actually mean?</h3>
+            <div class="next-steps" style="background-color: #f3f4f6; border-left-color: #6b7280; margin-top: 30px;">
+                <h3 style="color: #374151;">What does beta testing actually mean?</h3>
                 <p style="margin: 15px 0 10px 0; font-size: 15px;">If you&apos;re selected, you&apos;ll be among the first 50-100 families to use HUSTLE™. Here&apos;s what that looks like:</p>
                 <p style="margin: 10px 0; font-size: 15px;"><strong>You&apos;ll test:</strong> Logging practices, games, and training sessions. Tracking stats, emotions, and progress. The parent verification system. How the app feels to use after a long tournament weekend.</p>
                 <p style="margin: 10px 0; font-size: 15px;"><strong>Your input shapes everything:</strong> Found a bug? Tell me. Have an idea for a feature? I&apos;m listening. Confused by something? That&apos;s exactly what I need to know. You&apos;re not just testing—you&apos;re co-building this with me.</p>
