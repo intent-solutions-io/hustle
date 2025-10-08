@@ -23,7 +23,6 @@ const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Hustle Survey <onboarding@r
 interface SendThankYouEmailParams {
   recipientEmail: string;
   recipientName?: string;
-  personalNote: string;
 }
 
 /**
@@ -35,7 +34,6 @@ interface SendThankYouEmailParams {
 export async function sendThankYouEmail({
   recipientEmail,
   recipientName,
-  personalNote,
 }: SendThankYouEmailParams): Promise<{ success: boolean; emailId?: string; error?: string }> {
   try {
     // Validate email address
@@ -58,7 +56,6 @@ export async function sendThankYouEmail({
     // Generate email content
     const { subject, html, text } = generateThankYouEmail({
       recipientName,
-      personalNote,
     });
 
     console.log(`[Email] Sending thank you email to: ${recipientEmail}`);

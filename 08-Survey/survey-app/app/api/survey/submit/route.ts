@@ -65,27 +65,9 @@ export async function POST(request: NextRequest) {
         // Extract user's name from survey data
         const userName = data.name || data.parentName || data.firstName || null;
 
-        // Get personal note from environment variable or use default
-        const personalNote = process.env.THANK_YOU_PERSONAL_NOTE || `
-Thank you so much for taking the time to complete our survey!
-
-Your feedback is incredibly valuable to us. As a parent managing youth sports, you understand the challenges firsthand, and your insights will directly shape how we build Hustle.
-
-We're committed to creating a tool that truly helps families like yours track games, celebrate progress, and stay organized—without adding more stress to your already busy schedule.
-
-I'm personally reviewing every survey response, and I'm excited about the patterns and needs I'm seeing. This is going to be something special.
-
-Stay tuned for beta testing invitations—we can't wait to get Hustle into your hands!
-
-Thanks again,
-Jeremy Longshore
-Founder, Hustle
-        `.trim();
-
         const emailResult = await sendThankYouEmail({
           recipientEmail: email,
           recipientName: userName,
-          personalNote,
         });
 
         emailSent = emailResult.success;
