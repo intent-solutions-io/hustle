@@ -33,7 +33,8 @@ export default function Login() {
       });
 
       if (result?.error) {
-        setError('Invalid email or password');
+        // Display the actual error message from NextAuth
+        setError(result.error);
       } else if (result?.ok) {
         router.push('/dashboard');
         router.refresh();
@@ -80,9 +81,18 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Error Message */}
               {error && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-                  <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                  <p className="text-sm text-red-600">{error}</p>
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                  {error.includes('verify your email') && (
+                    <p className="text-sm text-red-600 ml-6">
+                      <Link href="/resend-verification" className="underline font-medium hover:text-red-700">
+                        Resend verification email
+                      </Link>
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -110,9 +120,12 @@ export default function Login() {
                   <Label htmlFor="password" className="text-zinc-700 font-medium">
                     Password
                   </Label>
-                  <span className="text-sm text-zinc-400 italic">
-                    (reset coming soon)
-                  </span>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-zinc-600 hover:text-zinc-900 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
                 </div>
                 <div className="relative">
                   <Input
@@ -148,7 +161,7 @@ export default function Login() {
 
               {/* Register Link */}
               <p className="text-center text-sm text-zinc-600">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link href="/register" className="text-zinc-900 font-medium hover:underline">
                   Create Account
                 </Link>

@@ -19,7 +19,7 @@ model User {
   lastName      String
   email         String    @unique
   emailVerified DateTime?
-  phone         String
+  phone         String?   // Make phone optional
   password      String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -29,7 +29,9 @@ model User {
   sessions      Session[]
 
   // App relations
-  players       Player[]
+  players                  Player[]
+  passwordResetTokens      PasswordResetToken[]
+  emailVerificationTokens  EmailVerificationToken[]
 
   @@map("users")
 }
@@ -118,4 +120,36 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+// Password Reset Tokens
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expires])
+  @@map("password_reset_tokens")
+}
+
+// Email Verification Tokens
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expires])
+  @@map("email_verification_tokens")
 }
