@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
     // Hash password with bcrypt (10 rounds per CLAUDE.md security standards)
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user in database
+    // Create user in database with legal consent fields
+    const now = new Date();
     const user = await prisma.user.create({
       data: {
         firstName,
@@ -58,6 +59,12 @@ export async function POST(request: NextRequest) {
         email,
         phone: phone || null,
         password: hashedPassword,
+        // Legal compliance (COPPA) - set automatically on registration
+        agreedToTerms: true,
+        agreedToPrivacy: true,
+        isParentGuardian: true,
+        termsAgreedAt: now,
+        privacyAgreedAt: now,
       },
     });
 

@@ -288,6 +288,19 @@ export default function RegisterPage() {
               {isLoading ? 'Creating Account...' : 'Create Account'}
             </Button>
 
+            {/* Legal Consent Notice */}
+            <p className="text-center text-xs text-zinc-500 leading-relaxed">
+              By creating an account, you agree to our{' '}
+              <Link href="/terms" target="_blank" className="text-zinc-900 underline hover:text-zinc-700">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" target="_blank" className="text-zinc-900 underline hover:text-zinc-700">
+                Privacy Policy
+              </Link>
+              , and certify that you are 18+ and the parent/legal guardian of any minors whose data you enter.
+            </p>
+
             {/* Login Link */}
             <p className="text-center text-sm text-zinc-600">
               Already have an account?{' '}
