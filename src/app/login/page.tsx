@@ -61,7 +61,9 @@ export default function Login() {
             <div className="w-7 h-7 bg-zinc-900 rounded-md flex items-center justify-center">
               <span className="text-white font-bold text-xs">H</span>
             </div>
-            <span className="text-lg font-semibold text-zinc-900">HUSTLE</span>
+            <span className="text-lg font-semibold text-zinc-900">
+              HUSTLE<sup className="text-[0.5em] align-super">™</sup>
+            </span>
           </div>
         </div>
       </header>

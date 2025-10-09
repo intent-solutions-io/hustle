@@ -1,0 +1,51 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "Back to Home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - img [ref=e4]
+      - text: Back to Home
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - generic [ref=e10]: H
+          - generic [ref=e11]: Create Account
+        - generic [ref=e12]: Parent/Guardian Account Registration (athlete registration inside)
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]:
+            - text: First Name
+            - textbox "First Name" [ref=e17]: First
+          - generic [ref=e18]:
+            - text: Last Name
+            - textbox "Last Name" [ref=e19]: User
+        - generic [ref=e20]:
+          - text: Email Address
+          - textbox "Email Address" [ref=e21]: duplicate-test@example.com
+        - generic [ref=e22]:
+          - text: Phone Number
+          - textbox "Phone Number" [ref=e23]:
+            - /placeholder: +1234567890 or 1234567890
+            - text: "5551111111"
+        - generic [ref=e24]:
+          - text: Password
+          - generic [ref=e25]:
+            - textbox "Password" [ref=e26]: Password123!
+            - button [ref=e27] [cursor=pointer]:
+              - img [ref=e28]
+          - generic [ref=e34]: Strong
+        - generic [ref=e35]:
+          - text: Confirm Password
+          - textbox "Confirm Password" [ref=e36]: Password123!
+        - paragraph [ref=e38]: An account with this email already exists
+        - button "Create Account" [ref=e39] [cursor=pointer]
+        - paragraph [ref=e40]:
+          - text: Already have an account?
+          - link "Sign In" [ref=e41] [cursor=pointer]:
+            - /url: /login
+  - button "Open Next.js Dev Tools" [ref=e47] [cursor=pointer]:
+    - img [ref=e48]
+  - alert [ref=e51]
+```
