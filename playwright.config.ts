@@ -37,7 +37,7 @@ export default defineConfig({
 
   use: {
     // Base URL for testing
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:4000',
 
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
@@ -95,11 +95,10 @@ export default defineConfig({
   ],
 
   // Run your local dev server before starting the tests
-  // Uncomment this if you want Playwright to start the dev server automatically
-  // webServer: {
-  //   command: 'npm run dev',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120 * 1000,
-  // },
+  webServer: {
+    command: 'npm run dev -- -H 0.0.0.0 -p 4000',
+    url: 'http://localhost:4000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
+  },
 });

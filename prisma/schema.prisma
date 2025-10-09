@@ -24,6 +24,13 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Legal compliance (COPPA)
+  agreedToTerms        Boolean   @default(false)  // Terms of Service agreement
+  agreedToPrivacy      Boolean   @default(false)  // Privacy Policy agreement
+  isParentGuardian     Boolean   @default(false)  // 18+ parent/guardian certification
+  termsAgreedAt        DateTime? // When terms were agreed to
+  privacyAgreedAt      DateTime? // When privacy policy was agreed to
+
   // NextAuth relations
   accounts      Account[]
   sessions      Session[]

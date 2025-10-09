@@ -50,7 +50,9 @@ export default function AppSidebarSimple() {
           <div className='w-8 h-8 bg-zinc-900 rounded-md flex items-center justify-center'>
             <span className='text-white font-bold text-sm'>H</span>
           </div>
-          <span className='text-lg font-semibold'>HUSTLE</span>
+          <span className='text-lg font-semibold'>
+            HUSTLE<sup className="text-[0.5em] align-super">™</sup>
+          </span>
         </div>
       </SidebarHeader>
 

@@ -12,7 +12,9 @@ export default function Home() {
             <div className="w-8 h-8 bg-zinc-900 rounded-md flex items-center justify-center">
               <span className="text-white font-bold text-sm">H</span>
             </div>
-            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">HUSTLE</h1>
+            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">
+              HUSTLE<sup className="text-[0.5em] align-super">™</sup>
+            </h1>
           </div>
           <Link href="/login">
             <Button variant="ghost" className="text-zinc-600 hover:text-zinc-900 font-medium">
@@ -104,6 +106,8 @@ export default function Home() {
             <div className="flex flex-col md:flex-row items-center gap-8">
               <Link href="/login" className="text-sm text-zinc-600 hover:text-zinc-900">Sign In</Link>
               <Link href="/register" className="text-sm text-zinc-600 hover:text-zinc-900">Get Started</Link>
+              <Link href="/terms" className="text-sm text-zinc-600 hover:text-zinc-900">Terms of Service</Link>
+              <Link href="/privacy" className="text-sm text-zinc-600 hover:text-zinc-900">Privacy Policy</Link>
             </div>
             <div className="text-center space-y-2">
               <p className="text-sm text-zinc-500">
