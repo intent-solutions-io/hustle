@@ -1,3 +1,5 @@
+// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-require-imports */
 #!/usr/bin/env node
 /* eslint-disable no-console */
 const fs = require('fs');

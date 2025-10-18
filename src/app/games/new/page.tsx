@@ -33,7 +33,7 @@ export default function NewGamePage() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data.players)) {
-          const mapped: Player[] = data.players.map((player: any) => ({
+          const mapped: Player[] = data.players.map((player: Record<string, unknown>) => ({
             id: player.id,
             name: player.name,
             position: player.position

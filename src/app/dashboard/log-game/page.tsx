@@ -55,7 +55,7 @@ export default function LogGamePage() {
 
         const data = await response.json();
         const mappedPlayers: Player[] = Array.isArray(data.players)
-          ? data.players.map((player: any) => ({
+          ? data.players.map((player: Record<string, unknown>) => ({
               id: player.id,
               name: player.name,
               position: player.position

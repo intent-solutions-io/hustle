@@ -57,7 +57,7 @@ export default function Home() {
               </span>
             </div>
             <p className="text-base text-zinc-600 max-w-2xl mx-auto leading-relaxed">
-              We're actively building the platform athletes and families deserve.
+              We&apos;re actively building the platform athletes and families deserve.
               <strong className="text-zinc-900"> Want to try what we have so far?</strong> Create an account and explore the early features.
             </p>
 
@@ -194,7 +194,7 @@ export default function Home() {
                     </h3>
                   </div>
                   <p className="text-zinc-600">
-                    Not ready yet? Join our notification list and we'll update you on major launches and new features.
+                    Not ready yet? Join our notification list and we&apos;ll update you on major launches and new features.
                   </p>
                 </div>
                 <div className="pt-4">
