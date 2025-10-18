@@ -89,10 +89,16 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Build and push Docker image
+        run: |
+          gcloud builds submit --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
+            --project ${{ env.PROJECT_ID }} \
+            --dockerfile 06-Infrastructure/docker/Dockerfile
+
       - name: Deploy to Cloud Run (Production)
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --source . \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
             --platform managed \
