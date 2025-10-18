@@ -64,7 +64,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🚀 Deployed to staging: ${{ steps.staging-url.outputs.url }}`
+              body: `Deployed to staging: ${{ steps.staging-url.outputs.url }}`
             })
 
   deploy-production:
@@ -107,4 +107,4 @@ jobs:
             --region ${{ env.REGION }} \
             --format 'value(status.url)')
           curl -f $URL/api/healthcheck || exit 1
-          echo " Production deployment successful: $URL"
+          echo "Production deployment successful: $URL"
