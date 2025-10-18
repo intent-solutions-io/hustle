@@ -91,9 +91,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          gcloud builds submit --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
-            --project ${{ env.PROJECT_ID }} \
-            --dockerfile 06-Infrastructure/docker/Dockerfile
+          gcloud builds submit --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} .
 
       - name: Deploy to Cloud Run (Production)
         run: |
