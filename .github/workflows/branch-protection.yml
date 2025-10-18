@@ -1,9 +1,6 @@
 name: Branch Protection Strategy
 
 on:
-  push:
-    branches-ignore:
-      - main  # Don't run on main pushes (those go through deploy.yml)
   pull_request:
     branches: [main]
 
