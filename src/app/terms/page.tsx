@@ -27,7 +27,7 @@ export default function TermsOfService() {
             <section>
               <h2 className="text-xl font-semibold text-zinc-900 mb-3">1. Agreement to Terms</h2>
               <p className="text-zinc-700 leading-relaxed">
-                By accessing or using HUSTLE™ ("Service"), you agree to be bound by these Terms of Service.
+                By accessing or using HUSTLE™ (&quot;Service&quot;), you agree to be bound by these Terms of Service.
                 If you do not agree to these terms, you may not use the Service.
               </p>
             </section>
@@ -41,7 +41,7 @@ export default function TermsOfService() {
               <ul className="list-disc pl-6 text-zinc-700 space-y-1">
                 <li>You are at least 18 years old</li>
                 <li>You are the parent or legal guardian of any minors whose data you enter into the Service</li>
-                <li>You have the legal authority to consent to the collection and use of your child's information</li>
+                <li>You have the legal authority to consent to the collection and use of your child&apos;s information</li>
               </ul>
             </section>
 
@@ -75,8 +75,8 @@ export default function TermsOfService() {
               <h2 className="text-xl font-semibold text-zinc-900 mb-3">5. Privacy and Data Protection</h2>
               <p className="text-zinc-700 leading-relaxed">
                 Your use of the Service is also governed by our <Link href="/privacy" className="text-zinc-900 underline hover:text-zinc-700">Privacy Policy</Link>,
-                which is incorporated into these Terms by reference. We are committed to protecting children's privacy in compliance with COPPA
-                (Children's Online Privacy Protection Act).
+                which is incorporated into these Terms by reference. We are committed to protecting children&apos;s privacy in compliance with COPPA
+                (Children&apos;s Online Privacy Protection Act).
               </p>
             </section>
 
@@ -119,7 +119,7 @@ export default function TermsOfService() {
             <section>
               <h2 className="text-xl font-semibold text-zinc-900 mb-3">9. Disclaimer of Warranties</h2>
               <p className="text-zinc-700 leading-relaxed">
-                THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+                THE SERVICE IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.
                 WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, OR SECURE.
               </p>
             </section>

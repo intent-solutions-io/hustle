@@ -24,8 +24,8 @@
 .DS_Store
 *.pem
 
-# Claude-generated docs (gitignored per standards)
-/claudes-docs/
+# Claude-generated docs (now consolidated with main docs)
+# /001-claude-docs/ - This directory is now tracked in git
 
 # debug
 npm-debug.log*

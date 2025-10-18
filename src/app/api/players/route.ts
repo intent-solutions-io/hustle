@@ -15,7 +15,7 @@ export async function GET() {
     }
 
     // Only return players belonging to authenticated user
-    const players = await prisma.player.findMany({
+    const rawPlayers = await prisma.player.findMany({
       where: {
         parentId: session.user.id
       },
@@ -25,9 +25,36 @@ export async function GET() {
           select: {
             email: true
           }
+        },
+        games: {
+          where: {
+            verified: false
+          },
+          select: {
+            id: true
+          }
+        },
+        games: {
+          where: {
+            verified: false
+          },
+          select: {
+            id: true
+          }
         }
       }
     })
+
+    const players = rawPlayers.map((player) => ({
+      id: player.id,
+      name: player.name,
+      birthday: player.birthday,
+      position: player.position,
+      teamClub: player.teamClub,
+      photoUrl: player.photoUrl,
+      pendingGames: player.games.length,
+      parentEmail: player.parent?.email ?? null
+    }))
 
     return NextResponse.json({ players })
   } catch (error) {

@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
   SidebarRail
 } from '@/components/ui/sidebar';
-import { Home, Users, BarChart3, Settings, LogOut } from 'lucide-react';
+import { Home, Users, Calendar, BarChart3, Settings, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -27,6 +27,11 @@ const navItems = [
     title: 'Athletes',
     href: '/dashboard/athletes',
     icon: Users
+  },
+  {
+    title: 'Games',
+    href: '/dashboard/games',
+    icon: Calendar
   },
   {
     title: 'Analytics',

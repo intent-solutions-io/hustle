@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
+import { gameSchema } from '@/lib/validations/game-schema'
+import { sendEmail } from '@/lib/email'
+import { emailTemplates } from '@/lib/email-templates'
+
+// Simple in-memory rate limiting (production: use Redis)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX = 10; // 10 requests per minute
 
 // GET /api/games?playerId=xxx - Get all games for a player
 export async function GET(request: NextRequest) {
@@ -75,60 +83,94 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json()
-    const {
-      playerId,
-      date,
-      opponent,
-      result,
-      finalScore,
-      minutesPlayed,
-      goals,
-      assists,
-      saves,
-      goalsAgainst,
-      cleanSheet
-    } = body
+    // Rate limiting check
+    const userId = session.user.id;
+    const now = Date.now();
+    const userLimit = rateLimitMap.get(userId);
 
-    // Validation
-    if (!playerId || !opponent || !result || !finalScore || minutesPlayed === undefined) {
-      return NextResponse.json({
-        error: 'Missing required fields'
-      }, { status: 400 })
+    if (userLimit) {
+      if (now < userLimit.resetTime) {
+        if (userLimit.count >= RATE_LIMIT_MAX) {
+          return NextResponse.json(
+            { error: 'Rate limit exceeded. Please try again later.' },
+            { status: 429 }
+          );
+        }
+        userLimit.count++;
+      } else {
+        rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+      }
+    } else {
+      rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
     }
+
+    const body = await request.json();
+
+    // Handle finalScore format (e.g., "3-2") and convert to yourScore/opponentScore
+    if (body.finalScore && typeof body.finalScore === 'string' && !body.yourScore) {
+      const scores = body.finalScore.split('-');
+      if (scores.length === 2) {
+        body.yourScore = parseInt(scores[0]);
+        body.opponentScore = parseInt(scores[1]);
+      }
+    }
+
+    // Server-side Zod validation
+    const validationResult = gameSchema.safeParse(body);
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: validationResult.error.flatten().fieldErrors
+        },
+        { status: 400 }
+      );
+    }
+
+    const validatedData = validationResult.data;
 
     // Verify player exists AND belongs to authenticated user
     const player = await prisma.player.findUnique({
-      where: { id: playerId },
-      select: { parentId: true }
-    })
+      where: { id: validatedData.playerId },
+      select: {
+        parentId: true,
+        position: true,
+        name: true
+      }
+    });
 
     if (!player) {
       return NextResponse.json({
         error: 'Player not found'
-      }, { status: 404 })
+      }, { status: 404 });
     }
 
     if (player.parentId !== session.user.id) {
       return NextResponse.json({
         error: 'Forbidden - Not your player'
-      }, { status: 403 })
+      }, { status: 403 });
     }
 
-    // Create game log
+    // Create game log with defensive stats
     const game = await prisma.game.create({
       data: {
-        playerId,
-        date: date ? new Date(date) : new Date(),
-        opponent,
-        result,
-        finalScore,
-        minutesPlayed: parseInt(minutesPlayed),
-        goals: parseInt(goals) || 0,
-        assists: parseInt(assists) || 0,
-        saves: saves ? parseInt(saves) : null,
-        goalsAgainst: goalsAgainst ? parseInt(goalsAgainst) : null,
-        cleanSheet: cleanSheet !== undefined ? cleanSheet : null,
+        playerId: validatedData.playerId,
+        date: new Date(validatedData.date),
+        opponent: validatedData.opponent,
+        result: validatedData.result,
+        finalScore: `${validatedData.yourScore}-${validatedData.opponentScore}`,
+        minutesPlayed: validatedData.minutesPlayed,
+        goals: validatedData.goals,
+        assists: validatedData.assists ?? undefined,
+        tackles: validatedData.tackles ?? undefined,
+        interceptions: validatedData.interceptions ?? undefined,
+        clearances: validatedData.clearances ?? undefined,
+        blocks: validatedData.blocks ?? undefined,
+        aerialDuelsWon: validatedData.aerialDuelsWon ?? undefined,
+        saves: validatedData.saves ?? undefined,
+        goalsAgainst: validatedData.goalsAgainst ?? undefined,
+        cleanSheet: validatedData.cleanSheet ?? undefined,
         verified: false
       },
       include: {
@@ -139,16 +181,62 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    })
+    });
+
+    // Send verification email notification to parent
+    try {
+      const parentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { firstName: true, email: true }
+      });
+
+      const pendingCount = await prisma.game.count({
+        where: {
+          player: {
+            parentId: session.user.id
+          },
+          verified: false
+        }
+      });
+
+      if (parentUser?.email) {
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : 'http://localhost:4000';
+
+        const verifyUrl = `${baseUrl}/verify?playerId=${encodeURIComponent(validatedData.playerId)}`;
+
+        const emailTemplate = emailTemplates.gameVerificationRequest({
+          parentName: parentUser.firstName ?? 'Parent',
+          playerName: player?.name ?? 'Your athlete',
+          opponent: validatedData.opponent,
+          result: validatedData.result,
+          finalScore: `${validatedData.yourScore}-${validatedData.opponentScore}`,
+          minutesPlayed: validatedData.minutesPlayed,
+          verifyUrl,
+          pendingCount
+        });
+
+        await sendEmail({
+          to: parentUser.email,
+          subject: emailTemplate.subject,
+          html: emailTemplate.html,
+          text: emailTemplate.text
+        });
+      }
+    } catch (notificationError) {
+      console.error('[Game Notification] Failed to send verification email', notificationError);
+      // Non-blocking: continue even if email fails
+    }
 
     return NextResponse.json({
       success: true,
       game
-    }, { status: 201 })
+    }, { status: 201 });
   } catch (error) {
-    console.error('Error creating game:', error)
+    console.error('Error creating game:', error);
     return NextResponse.json({
       error: 'Failed to create game'
-    }, { status: 500 })
+    }, { status: 500 });
   }
 }

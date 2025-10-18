@@ -1,0 +1,24 @@
+{
+  "submissionId": "A-2024-0001",
+  "customer": {
+    "email": "maria.lopez@example.com",
+    "name": "Maria Lopez"
+  },
+  "equipment": {
+    "type": "vehicle",
+    "make": "Toyota",
+    "model": "Camry",
+    "year": 2018
+  },
+  "symptoms": [
+    "Check engine light illuminated",
+    "No noticeable drivability issues"
+  ],
+  "codes": [
+    {
+      "code": "P0455",
+      "description": "EVAP system large leak detected"
+    }
+  ],
+  "notes": "Customer reports fuel cap feels loose; no other concerns."
+}
