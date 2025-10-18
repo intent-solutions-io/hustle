@@ -24,13 +24,16 @@ coverage/
 # Archives & Docs
 99-Archive/
 claudes-docs/
+docs/
 01-Docs/
 03-Tests/
 04-Assets/
+05-Scripts/
 
 # Git
 .git/
 .gitignore
+.github/
 
 # IDE
 .vscode/
