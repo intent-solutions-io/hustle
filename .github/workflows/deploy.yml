@@ -57,7 +57,7 @@ jobs:
             --allow-unauthenticated \
             --set-env-vars "NODE_ENV=staging" \
             --set-env-vars "NEXTAUTH_URL=https://staging-hustlestats.io" \
-            --set-secrets "DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest,SENTRY_DSN=SENTRY_DSN:latest"
+            --set-secrets "DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest"
 
       - name: Get staging URL
         id: staging-url
@@ -122,7 +122,7 @@ jobs:
             --allow-unauthenticated \
             --set-env-vars "NODE_ENV=production" \
             --set-env-vars "NEXTAUTH_URL=https://hustlestats.io" \
-            --set-secrets "DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest,SENTRY_DSN=SENTRY_DSN:latest"
+            --set-secrets "DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest"
 
       - name: Verify deployment
         run: |
