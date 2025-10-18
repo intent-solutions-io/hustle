@@ -1,3 +1,5 @@
+// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-require-imports */
 const Groq = require("groq-sdk");
 
 const groq = new Groq({

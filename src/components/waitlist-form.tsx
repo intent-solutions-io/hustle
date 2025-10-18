@@ -55,10 +55,10 @@ export function WaitlistForm() {
         </div>
         <div className="space-y-2">
           <h3 className="text-2xl font-semibold text-zinc-900">
-            You're on the list!
+            You&apos;re on the list!
           </h3>
           <p className="text-zinc-600">
-            We'll notify you as soon as we're ready to launch.
+            We&apos;ll notify you as soon as we&apos;re ready to launch.
           </p>
         </div>
       </div>
@@ -119,7 +119,7 @@ export function WaitlistForm() {
       </Button>
 
       <p className="text-xs text-center text-zinc-500">
-        We'll never share your email. Unsubscribe anytime.
+        We&apos;ll never share your email. Unsubscribe anytime.
       </p>
     </form>
   );
