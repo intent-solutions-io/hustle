@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowRight, Shield, Users, TrendingUp } from 'lucide-react';
+import { ArrowRight, Shield, Users, TrendingUp, ExternalLink, Mail } from 'lucide-react';
+import { WaitlistForm } from '@/components/waitlist-form';
 
 export default function Home() {
   return (
@@ -48,19 +49,47 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Primary CTA */}
-          <div className="space-y-6">
-            <Link href="/register">
-              <Button
-                size="lg"
-                className="bg-zinc-900 hover:bg-zinc-800 text-white h-14 px-10 text-base font-medium rounded-lg shadow-sm hover:shadow-md transition-all"
+          {/* Early Access Notice */}
+          <div className="space-y-6 mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full border border-amber-200">
+              <span className="text-sm font-medium text-amber-800">
+                🚧 Currently in Development
+              </span>
+            </div>
+            <p className="text-base text-zinc-600 max-w-2xl mx-auto leading-relaxed">
+              We're actively building the platform athletes and families deserve.
+              <strong className="text-zinc-900"> Want to try what we have so far?</strong> Create an account and explore the early features.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link href="/register">
+                <Button
+                  size="lg"
+                  className="bg-zinc-900 hover:bg-zinc-800 text-white h-14 px-10 text-base font-medium rounded-lg shadow-sm hover:shadow-md transition-all"
+                >
+                  Try Early Access
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <a
+                href="https://intentsolutions.io/survey"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                Begin Tracking
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-14 px-10 text-base font-medium rounded-lg border-2 border-zinc-200 hover:border-zinc-900 transition-all"
+                >
+                  Share Feedback
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </Button>
+              </a>
+            </div>
+
             <p className="text-sm text-zinc-500">
-              Trusted by families at elite clubs nationwide
+              Early access available now • Your feedback shapes the future
             </p>
           </div>
         </div>
@@ -94,6 +123,84 @@ export default function Home() {
               <p className="text-zinc-600 text-sm leading-relaxed">
                 Shared visibility creates accountability and builds trust
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Two-Path CTA Section */}
+        <div className="border-t border-zinc-100 pt-16 pb-20">
+          <div className="text-center mb-12 md:mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-zinc-900 mb-3">
+              Choose Your Path
+            </h2>
+            <p className="text-zinc-600">
+              Jump in now or stay updated—your choice
+            </p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12 max-w-6xl mx-auto">
+            {/* Path 1: Try Now */}
+            <div className="bg-zinc-50 p-6 md:p-8 rounded-2xl border-2 border-zinc-900 relative">
+              <div className="absolute -top-3 left-8">
+                <span className="bg-zinc-900 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                  RECOMMENDED
+                </span>
+              </div>
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-bold text-zinc-900">
+                    Try It Now
+                  </h3>
+                  <p className="text-zinc-600">
+                    Create your account and start tracking player stats immediately. Help us shape the platform with your feedback.
+                  </p>
+                </div>
+                <ul className="space-y-3 text-sm text-zinc-700">
+                  <li className="flex items-start gap-2">
+                    <span className="text-zinc-900">✓</span>
+                    <span>Full access to current features</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-zinc-900">✓</span>
+                    <span>Help shape future development</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-zinc-900">✓</span>
+                    <span>Free during development</span>
+                  </li>
+                </ul>
+                <Link href="/register" className="block">
+                  <Button
+                    size="lg"
+                    className="w-full bg-zinc-900 hover:bg-zinc-800 text-white h-14 text-base font-medium rounded-lg shadow-sm hover:shadow-md transition-all"
+                  >
+                    Create Free Account
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                <p className="text-xs text-center text-zinc-500">
+                  No credit card required
+                </p>
+              </div>
+            </div>
+
+            {/* Path 2: Join Waitlist */}
+            <div className="bg-white p-6 md:p-8 rounded-2xl border-2 border-zinc-200">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-zinc-600" />
+                    <h3 className="text-2xl font-bold text-zinc-900">
+                      Get Notified
+                    </h3>
+                  </div>
+                  <p className="text-zinc-600">
+                    Not ready yet? Join our notification list and we'll update you on major launches and new features.
+                  </p>
+                </div>
+                <div className="pt-4">
+                  <WaitlistForm />
+                </div>
+              </div>
             </div>
           </div>
         </div>

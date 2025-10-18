@@ -1,0 +1,46 @@
+# Node
+node_modules/
+npm-debug.log
+.npm
+.env
+.env.*
+!.env.example
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.DS_Store
+*.pem
+*.log
+
+# Archives & Docs
+99-Archive/
+claudes-docs/
+01-Docs/
+03-Tests/
+04-Assets/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Terraform
+06-Infrastructure/terraform/.terraform/
+06-Infrastructure/terraform/terraform.tfstate*
+06-Infrastructure/terraform/tfplan
+06-Infrastructure/terraform/.creds/

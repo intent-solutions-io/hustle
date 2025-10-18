@@ -11,6 +11,8 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Enable SSL for production (Cloud SQL requires SSL)
+  // Add ?sslmode=require to DATABASE_URL in production
 }
 
 model User {
@@ -30,6 +32,9 @@ model User {
   isParentGuardian     Boolean   @default(false)  // 18+ parent/guardian certification
   termsAgreedAt        DateTime? // When terms were agreed to
   privacyAgreedAt      DateTime? // When privacy policy was agreed to
+
+  // Verification PIN hash for game stats verification
+  verificationPinHash  String?   // Bcrypt hash of 4-6 digit PIN
 
   // NextAuth relations
   accounts      Account[]
@@ -56,6 +61,10 @@ model Player {
 
   parent    User   @relation(fields: [parentId], references: [id], onDelete: Cascade)
   games     Game[]
+
+  // Performance optimization: Composite index for Athletes List query
+  // Enables efficient filtering by parentId and sorting by createdAt DESC
+  @@index([parentId, createdAt(sort: Desc)])
 }
 
 model Game {
@@ -63,13 +72,20 @@ model Game {
   playerId      String
   date          DateTime  @default(now())
   opponent      String
-  result        String    // "Win", "Loss", "Tie"
+  result        String    // "Win", "Loss", "Draw"
   finalScore    String    // e.g., "3-2"
   minutesPlayed Int
 
   // Universal stats
   goals         Int       @default(0)
   assists       Int       @default(0)
+
+  // Defensive stats (null if not defender)
+  tackles          Int?
+  interceptions    Int?
+  clearances       Int?
+  blocks           Int?
+  aerialDuelsWon   Int?
 
   // Goalkeeper stats (null if not goalkeeper)
   saves         Int?
@@ -159,4 +175,19 @@ model EmailVerificationToken {
   @@index([userId])
   @@index([expires])
   @@map("email_verification_tokens")
+}
+
+// Waitlist for early access signups
+model Waitlist {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  source    String?  // Where they came from (landing page, survey, etc.)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("waitlist")
 }

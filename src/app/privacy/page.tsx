@@ -27,7 +27,7 @@ export default function PrivacyPolicy() {
             <section>
               <h2 className="text-xl font-semibold text-zinc-900 mb-3">1. Introduction</h2>
               <p className="text-zinc-700 leading-relaxed">
-                HUSTLE™ ("we," "our," or "us") is committed to protecting your privacy and the privacy of your children.
+                HUSTLE™ (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is committed to protecting your privacy and the privacy of your children.
                 This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service.
               </p>
             </section>
@@ -36,13 +36,13 @@ export default function PrivacyPolicy() {
               <h2 className="text-xl font-semibold text-amber-900 mb-3">⚠️ COPPA Compliance Notice</h2>
               <p className="text-amber-900 leading-relaxed mb-2">
                 This Service is intended for use by parents and legal guardians to track athletic performance of children under 13.
-                We comply with the Children's Online Privacy Protection Act (COPPA) by:
+                We comply with the Children&apos;s Online Privacy Protection Act (COPPA) by:
               </p>
               <ul className="list-disc pl-6 text-amber-900 space-y-1">
-                <li>Requiring verifiable parental consent before collecting children's information</li>
+                <li>Requiring verifiable parental consent before collecting children&apos;s information</li>
                 <li>Collecting only information necessary to provide the Service</li>
                 <li>Not requiring children to provide more information than necessary</li>
-                <li>Providing parents with the ability to review, delete, and control their child's information</li>
+                <li>Providing parents with the ability to review, delete, and control their child&apos;s information</li>
                 <li>Maintaining reasonable security procedures to protect collected information</li>
               </ul>
             </section>
@@ -59,7 +59,7 @@ export default function PrivacyPolicy() {
 
               <h3 className="text-lg font-medium text-zinc-800 mt-4 mb-2">From/About Athletes (with parental consent):</h3>
               <ul className="list-disc pl-6 text-zinc-700 space-y-1">
-                <li>Athlete's name and date of birth</li>
+                <li>Athlete&apos;s name and date of birth</li>
                 <li>Team/club affiliation</li>
                 <li>Playing position</li>
                 <li>Optional: Profile photo</li>
@@ -93,7 +93,7 @@ export default function PrivacyPolicy() {
             <section>
               <h2 className="text-xl font-semibold text-zinc-900 mb-3">4. Information Sharing and Disclosure</h2>
               <p className="text-zinc-700 leading-relaxed mb-2">
-                We do NOT sell, rent, or share your child's personal information with third parties for marketing purposes.
+                We do NOT sell, rent, or share your child&apos;s personal information with third parties for marketing purposes.
                 We may share information only in the following circumstances:
               </p>
               <ul className="list-disc pl-6 text-zinc-700 space-y-1">
@@ -111,8 +111,8 @@ export default function PrivacyPolicy() {
               </p>
               <ul className="list-disc pl-6 text-zinc-700 space-y-1">
                 <li><strong>Review:</strong> Access all information we have collected about your child</li>
-                <li><strong>Delete:</strong> Request deletion of your child's information at any time</li>
-                <li><strong>Refuse:</strong> Refuse further collection or use of your child's information</li>
+                <li><strong>Delete:</strong> Request deletion of your child&apos;s information at any time</li>
+                <li><strong>Refuse:</strong> Refuse further collection or use of your child&apos;s information</li>
                 <li><strong>Modify:</strong> Correct or update any inaccurate information</li>
               </ul>
               <p className="text-zinc-700 leading-relaxed mt-3">
@@ -202,7 +202,7 @@ export default function PrivacyPolicy() {
               <p className="text-sm text-zinc-500 italic">
                 By using HUSTLE™, you acknowledge that you have read, understood, and agree to this Privacy Policy.
                 If you are using the Service on behalf of a minor, you certify that you are the parent or legal guardian
-                and have the authority to consent to the collection and use of the child's information.
+                and have the authority to consent to the collection and use of the child&apos;s information.
               </p>
             </section>
           </div>

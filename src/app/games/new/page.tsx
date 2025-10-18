@@ -32,10 +32,15 @@ export default function NewGamePage() {
     fetch('/api/players')
       .then(res => res.json())
       .then(data => {
-        if (data.players) {
-          setPlayers(data.players)
-          if (data.players.length > 0) {
-            setFormData(prev => ({ ...prev, playerId: data.players[0].id }))
+        if (Array.isArray(data.players)) {
+          const mapped: Player[] = data.players.map((player: any) => ({
+            id: player.id,
+            name: player.name,
+            position: player.position
+          }))
+          setPlayers(mapped)
+          if (mapped.length > 0) {
+            setFormData(prev => ({ ...prev, playerId: mapped[0].id }))
           }
         }
       })

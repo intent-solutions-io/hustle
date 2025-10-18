@@ -1,0 +1,25 @@
+{
+  "submissionId": "D-2024-0004",
+  "customer": {
+    "email": "olivia.jackson@example.com",
+    "name": "Olivia Jackson"
+  },
+  "equipment": {
+    "type": "hvac",
+    "make": "Carrier",
+    "model": "Infinity 19VS",
+    "year": 2019
+  },
+  "symptoms": [
+    "Insufficient cooling on second floor",
+    "Supply vents lukewarm during peak afternoon heat",
+    "Outdoor unit cycling every 5 minutes"
+  ],
+  "codes": [
+    {
+      "code": "EC",
+      "description": "Low system charge"
+    }
+  ],
+  "notes": "Technician measured subcooling at 3°F; ambient 95°F. Indoor coil recently cleaned."
+}

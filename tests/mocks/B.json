@@ -1,0 +1,29 @@
+{
+  "submissionId": "B-2024-0002",
+  "customer": {
+    "email": "calvin.nguyen@example.com",
+    "name": "Calvin Nguyen"
+  },
+  "equipment": {
+    "type": "vehicle",
+    "make": "Ford",
+    "model": "F-150",
+    "year": 2015
+  },
+  "symptoms": [
+    "Rough idle only on cold mornings",
+    "Customer reports intermittent misfire",
+    "Previous shop claimed both ignition coils and fuel filter replaced recently"
+  ],
+  "codes": [
+    {
+      "code": "P0300",
+      "description": "Random/multiple cylinder misfire detected"
+    },
+    {
+      "code": "P0171",
+      "description": "System too lean (Bank 1)"
+    }
+  ],
+  "notes": "Owner unsure if premium or regular fuel was used last fill. Service history paperwork incomplete."
+}

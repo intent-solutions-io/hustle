@@ -1,0 +1,25 @@
+{
+  "submissionId": "C-2024-0003",
+  "customer": {
+    "email": "krista.patel@example.com",
+    "name": "Krista Patel"
+  },
+  "equipment": {
+    "type": "generator",
+    "make": "Honda",
+    "model": "EU7000iS",
+    "year": 2021
+  },
+  "symptoms": [
+    "Runs smoothly for 20 minutes then stalls",
+    "Restart possible only after cooling for 10 minutes",
+    "Campground altitude approximately 6,000 ft"
+  ],
+  "codes": [
+    {
+      "code": "54",
+      "description": "Fuel injection system malfunction"
+    }
+  ],
+  "notes": "Unit recently serviced; customer suspects heat-soak causing vapor lock."
+}

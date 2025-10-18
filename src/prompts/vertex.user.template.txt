@@ -1,0 +1,21 @@
+SUBMISSION_ID: {{submissionId}}
+
+CUSTOMER_JSON:
+{{customer_json}}
+
+EQUIPMENT_JSON:
+{{equipment_json}}
+
+SYMPTOMS_TEXT:
+{{symptoms_text}}
+
+CODES_JSON:
+{{codes_json}}
+
+NOTES_TEXT:
+{{notes_text}}
+
+CONFIDENCE_THRESHOLD_PCT: {{confidence_threshold_pct:=85}}
+
+14_POINT_LAYOUT_BASE:
+{{fourteen_point_layout}}

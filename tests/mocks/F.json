@@ -1,0 +1,29 @@
+{
+  "submissionId": "F-2024-0006",
+  "customer": {
+    "email": "jamal.rivers@example.com",
+    "name": "Jamal Rivers"
+  },
+  "equipment": {
+    "type": "vehicle",
+    "make": "Freightliner",
+    "model": "Cascadia",
+    "year": 2017
+  },
+  "symptoms": [
+    "DEF warning light returns 50 miles after reset",
+    "Engine power derates on highway grades",
+    "Fuel economy dropped from 7.3 mpg to 5.9 mpg"
+  ],
+  "codes": [
+    {
+      "code": "P20EE",
+      "description": "SCR NOx catalyst efficiency below threshold"
+    },
+    {
+      "code": "P207F",
+      "description": "Reductant quality performance"
+    }
+  ],
+  "notes": "DEF sourced from truck stop bulk tank; driver observed crystal buildup around injector."
+}

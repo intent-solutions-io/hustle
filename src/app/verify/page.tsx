@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from 'react'
 
+interface PlayerOption {
+  id: string
+  name: string
+  pendingCount: number
+}
+
 interface Game {
   id: string
   date: string
@@ -22,39 +28,86 @@ interface Game {
 }
 
 export default function VerifyPage() {
+  const [players, setPlayers] = useState<PlayerOption[]>([])
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [games, setGames] = useState<Game[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loadingPlayers, setLoadingPlayers] = useState(true)
+  const [loadingGames, setLoadingGames] = useState(false)
   const [verifyingGameId, setVerifyingGameId] = useState<string | null>(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
   useEffect(() => {
-    fetchUnverifiedGames()
+    const initialParams = new URLSearchParams(window.location.search)
+    const initialPlayerId = initialParams.get('playerId')
+
+    const loadPlayers = async () => {
+      try {
+        const response = await fetch('/api/players')
+        if (!response.ok) {
+          throw new Error('Unable to load athletes')
+        }
+        const data = await response.json()
+        const rawPlayers: Array<{ id: string; name: string; pendingGames?: number }> = Array.isArray(data.players)
+          ? data.players
+          : []
+
+        const mapped: PlayerOption[] = rawPlayers.map((player) => ({
+          id: player.id,
+          name: player.name,
+          pendingCount: typeof player.pendingGames === 'number' ? player.pendingGames : 0
+        }))
+        setPlayers(mapped)
+
+        if (initialPlayerId && mapped.some((p) => p.id === initialPlayerId)) {
+          setSelectedPlayerId(initialPlayerId)
+          return
+        }
+
+        const firstWithPending = mapped.find((player) => player.pendingCount > 0)
+        if (firstWithPending) {
+          setSelectedPlayerId(firstWithPending.id)
+        } else if (mapped.length > 0) {
+          setSelectedPlayerId(mapped[0].id)
+        } else {
+          setSelectedPlayerId(null)
+        }
+      } catch (err) {
+        console.error('Failed to load players', err)
+        setError('Unable to load athletes for verification')
+      } finally {
+        setLoadingPlayers(false)
+      }
+    }
+
+    loadPlayers()
   }, [])
 
-  const fetchUnverifiedGames = async () => {
-    try {
-      // In production, get playerId from auth context
-      const playerId = new URLSearchParams(window.location.search).get('playerId')
-
+  useEffect(() => {
+    const fetchUnverifiedGames = async (playerId: string | null) => {
       if (!playerId) {
-        setLoading(false)
+        setGames([])
         return
       }
 
-      const response = await fetch(`/api/games?playerId=${playerId}`)
-      const data = await response.json()
-
-      // Filter for unverified games only
-      const unverified = (data.games || []).filter((g: Game) => !g.verified)
-      setGames(unverified)
-    } catch (error) {
-      console.error('Failed to fetch games:', error)
-    } finally {
-      setLoading(false)
+      try {
+        setLoadingGames(true)
+        const response = await fetch(`/api/games?playerId=${encodeURIComponent(playerId)}`)
+        const data = await response.json()
+        const unverified = (data.games || []).filter((g: Game) => !g.verified)
+        setGames(unverified)
+        window.history.replaceState(null, '', `?playerId=${playerId}`)
+      } catch (err) {
+        console.error('Failed to fetch games:', err)
+        setError('Unable to fetch games for verification')
+      } finally {
+        setLoadingGames(false)
+      }
     }
-  }
+
+    fetchUnverifiedGames(selectedPlayerId)
+  }, [selectedPlayerId])
 
   const handleVerify = async (gameId: string) => {
     setError('')
@@ -89,9 +142,7 @@ export default function VerifyPage() {
     }
   }
 
-  const playerId = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('playerId')
-
-  if (loading) {
+  if (loadingPlayers) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p className="text-gray-600">Loading...</p>
@@ -105,10 +156,31 @@ export default function VerifyPage() {
         <div className="bg-white shadow-md rounded-lg p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Verify Game Logs</h1>
 
-          {!playerId && (
+          {players.length > 0 ? (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select athlete</label>
+              <select
+                value={selectedPlayerId ?? ''}
+                onChange={(event) => {
+                  setSelectedPlayerId(event.target.value || null)
+                  setVerifyingGameId(null)
+                  setPin('')
+                  setSuccess('')
+                  setError('')
+                }}
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {players.map((player) => (
+                  <option key={player.id} value={player.id}>
+                    {player.name} {player.pendingCount > 0 ? `(${player.pendingCount} pending)` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
               <p className="text-yellow-800">
-                No player selected. Add <code className="bg-yellow-100 px-2 py-1 rounded">?playerId=xxx</code> to the URL.
+                Add your first athlete to start logging games and verification requests.
               </p>
             </div>
           )}
@@ -125,7 +197,13 @@ export default function VerifyPage() {
             </div>
           )}
 
-          {games.length === 0 && playerId && (
+          {loadingGames && selectedPlayerId && (
+            <div className="text-center py-8">
+              <p className="text-gray-600 text-lg">Loading pending games…</p>
+            </div>
+          )}
+
+          {games.length === 0 && !loadingGames && selectedPlayerId && (
             <div className="text-center py-8">
               <p className="text-gray-600 text-lg">
                 ✓ All games are verified!
@@ -136,7 +214,7 @@ export default function VerifyPage() {
             </div>
           )}
 
-          {games.length > 0 && (
+          {games.length > 0 && !loadingGames && (
             <div className="space-y-4">
               <p className="text-gray-600 mb-4">
                 You have {games.length} game{games.length !== 1 ? 's' : ''} pending verification.

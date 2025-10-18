@@ -337,5 +337,92 @@ Didn't change your password? Contact us immediately at support@hustle-app.com
 © 2025 Hustle
       `.trim()
     };
+  },
+
+  /**
+   * Notification sent to parent when a new game requires verification
+   */
+  gameVerificationRequest: (options: {
+    parentName: string;
+    playerName: string;
+    opponent: string;
+    result: string;
+    finalScore: string;
+    minutesPlayed: number;
+    verifyUrl: string;
+    pendingCount: number;
+  }) => {
+    const {
+      parentName,
+      playerName,
+      opponent,
+      result,
+      finalScore,
+      minutesPlayed,
+      verifyUrl,
+      pendingCount
+    } = options;
+
+    return {
+      subject: `Action required: Verify ${playerName}'s game vs ${opponent}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${baseStyles}
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">™</sup></h1>
+            </div>
+            <div class="content">
+              <h1>Hi ${parentName}, action needed!</h1>
+              <p>A new game log for <strong>${playerName}</strong> is waiting for your verification.</p>
+              <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; background: #f9fafb;">
+                <p style="margin: 0; font-weight: 600;">Game Summary</p>
+                <ul style="margin: 12px 0 0 18px; padding: 0; color: #4b5563;">
+                  <li>Opponent: <strong>${opponent}</strong></li>
+                  <li>Result: <strong>${result}</strong></li>
+                  <li>Score: <strong>${finalScore}</strong></li>
+                  <li>Minutes Played: <strong>${minutesPlayed}</strong></li>
+                </ul>
+              </div>
+              <p style="text-align: center; margin: 30px 0;">
+                <a href="${verifyUrl}" class="button">Verify This Game</a>
+              </p>
+              <p>Verifying locks in the stats and adds them to your athlete's official record.</p>
+              <div class="warning">
+                <p style="margin: 0;">You currently have <strong>${pendingCount}</strong> game${pendingCount === 1 ? '' : 's'} awaiting verification.</p>
+                <p style="margin: 8px 0 0 0;">Games must be verified within 14 days of the event.</p>
+              </div>
+            </div>
+            <div class="footer">
+              <p>Thanks for keeping ${playerName}'s performance data honest and recruiter-ready.</p>
+              <p style="margin-top: 10px;">© 2025 Hustle. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `
+Hi ${parentName},
+
+A new game log for ${playerName} vs ${opponent} is waiting for your verification.
+
+Result: ${result}
+Score: ${finalScore}
+Minutes Played: ${minutesPlayed}
+
+Verify now: ${verifyUrl}
+
+You currently have ${pendingCount} game${pendingCount === 1 ? '' : 's'} awaiting verification. Remember to verify within 14 days.
+
+Thanks for keeping ${playerName}'s performance data accurate.
+© 2025 Hustle
+      `.trim()
+    };
   }
 };
