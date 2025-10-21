@@ -49,8 +49,8 @@ export default function AppSidebarSimple() {
   const pathname = usePathname();
 
   return (
-    <Sidebar>
-      <SidebarHeader className='p-4 border-b'>
+    <Sidebar className="bg-zinc-50 border-r border-zinc-200">
+      <SidebarHeader className='p-4 border-b border-zinc-200'>
         <div className='flex items-center gap-2'>
           <div className='w-8 h-8 bg-zinc-900 rounded-md flex items-center justify-center'>
             <span className='text-white font-bold text-sm'>H</span>
@@ -89,7 +89,7 @@ export default function AppSidebarSimple() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className='p-4 border-t'>
+      <SidebarFooter className='p-4 border-t border-zinc-200'>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
