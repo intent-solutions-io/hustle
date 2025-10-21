@@ -111,7 +111,7 @@ export const emailTemplates = {
             </div>
             <div class="content">
               <h1>Welcome to Hustle, ${name}!</h1>
-              <p>Thanks for creating your account. You're one step away from tracking elite athletic performance.</p>
+              <p>Thanks for creating your account. You&apos;re one step away from tracking elite athletic performance.</p>
               <p>Please verify your email address by clicking the button below:</p>
               <p style="text-align: center;">
                 <a href="${verificationUrl}" class="button">Verify Email Address</a>
@@ -119,9 +119,9 @@ export const emailTemplates = {
               <p>Or copy and paste this link into your browser:</p>
               <div class="link-box">${verificationUrl}</div>
               <div class="warning">
-                <p style="margin: 0;"><span class="expires">⏱ This link expires in 24 hours</span></p>
+                <p style="margin: 0;"><span class="expires">This link expires in 24 hours</span></p>
               </div>
-              <p>Once verified, you'll be able to:</p>
+              <p>Once verified, you&apos;ll be able to:</p>
               <ul>
                 <li>Add player profiles for your athletes</li>
                 <li>Track game statistics and performance</li>
@@ -130,8 +130,8 @@ export const emailTemplates = {
               </ul>
             </div>
             <div class="footer">
-              <p>If you didn't create this account, you can safely ignore this email.</p>
-              <p style="margin-top: 10px;">© 2025 Hustle. All rights reserved.</p>
+              <p>If you didn&apos;t create this account, you can safely ignore this email.</p>
+              <p style="margin-top: 10px;">&copy; 2025 Hustle. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -146,9 +146,9 @@ ${verificationUrl}
 
 This link expires in 24 hours.
 
-If you didn't create this account, you can safely ignore this email.
+If you did not create this account, you can safely ignore this email.
 
-© 2025 Hustle
+(c) 2025 Hustle
       `.trim()
     };
   },
@@ -182,7 +182,7 @@ If you didn't create this account, you can safely ignore this email.
               <p>Or copy and paste this link into your browser:</p>
               <div class="link-box">${resetUrl}</div>
               <div class="warning">
-                <p style="margin: 0;"><span class="expires">⏱ This link expires in 1 hour</span></p>
+                <p style="margin: 0;"><span class="expires">This link expires in 1 hour</span></p>
               </div>
               <p><strong>Security reminder:</strong></p>
               <ul>
@@ -192,8 +192,8 @@ If you didn't create this account, you can safely ignore this email.
               </ul>
             </div>
             <div class="footer">
-              <p><strong>Didn't request a password reset?</strong><br>
-              If you didn't make this request, you can safely ignore this email. Your password will not be changed.</p>
+              <p><strong>Didn&apos;t request a password reset?</strong><br>
+              If you didn&apos;t make this request, you can safely ignore this email. Your password will not be changed.</p>
               <p style="margin-top: 10px;">© 2025 Hustle. All rights reserved.</p>
             </div>
           </div>
@@ -211,9 +211,9 @@ ${resetUrl}
 
 This link expires in 1 hour.
 
-Didn't request a password reset? You can safely ignore this email.
+Did not request a password reset? You can safely ignore this email.
 
-© 2025 Hustle
+(c) 2025 Hustle
       `.trim()
     };
   },
@@ -223,7 +223,7 @@ Didn't request a password reset? You can safely ignore this email.
    */
   welcome: (name: string) => {
     return {
-      subject: 'Welcome to Hustle - Let\'s Get Started!',
+      subject: 'Welcome to Hustle - Let Us Get Started!',
       html: `
         <!DOCTYPE html>
         <html>
@@ -238,9 +238,9 @@ Didn't request a password reset? You can safely ignore this email.
               <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
             </div>
             <div class="content">
-              <h1>🎉 Welcome Aboard, ${name}!</h1>
+              <h1>Welcome Aboard, ${name}!</h1>
               <p>Your email is verified and your account is ready to go!</p>
-              <p>Here's how to get started:</p>
+              <p>Here&apos;s how to get started:</p>
               <ol>
                 <li><strong>Add Your First Player</strong> - Create a profile for your athlete with their position and team details</li>
                 <li><strong>Log Game Stats</strong> - Track minutes played, goals, assists, and more after each game</li>
@@ -265,7 +265,7 @@ Welcome Aboard, ${name}!
 
 Your email is verified and your account is ready to go!
 
-Here's how to get started:
+Here is how to get started:
 
 1. Add Your First Player - Create a profile for your athlete
 2. Log Game Stats - Track performance after each game
@@ -276,7 +276,7 @@ Visit your dashboard: ${process.env.NEXTAUTH_URL}/dashboard
 
 Need help? Reply to this email or visit our help center.
 
-© 2025 Hustle
+(c) 2025 Hustle
       `.trim()
     };
   },
@@ -301,15 +301,15 @@ Need help? Reply to this email or visit our help center.
               <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
             </div>
             <div class="content">
-              <h1>✓ Password Changed Successfully</h1>
+              <h1>Password Changed Successfully</h1>
               <p>The password for your account (<strong>${email}</strong>) has been changed.</p>
               <p>This change was made on ${new Date().toLocaleString('en-US', {
                 dateStyle: 'long',
                 timeStyle: 'short'
               })}.</p>
               <div class="warning">
-                <p style="margin: 0;"><strong>⚠️ Didn't change your password?</strong><br>
-                If you didn't make this change, please contact us immediately at <a href="mailto:support@hustle-app.com">support@hustle-app.com</a></p>
+                <p style="margin: 0;"><strong>Didn&apos;t change your password?</strong><br>
+                If you didn&apos;t make this change, please contact us immediately at <a href="mailto:support@hustle-app.com">support@hustle-app.com</a></p>
               </div>
               <p>Your account security is important to us. Remember to:</p>
               <ul>
@@ -319,7 +319,7 @@ Need help? Reply to this email or visit our help center.
               </ul>
             </div>
             <div class="footer">
-              <p>© 2025 Hustle. All rights reserved.</p>
+              <p>&copy; 2025 Hustle. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -332,9 +332,9 @@ The password for your account (${email}) has been changed.
 
 Changed on: ${new Date().toLocaleString()}
 
-Didn't change your password? Contact us immediately at support@hustle-app.com
+Did not change your password? Contact us immediately at support@hustle-app.com
 
-© 2025 Hustle
+(c) 2025 Hustle
       `.trim()
     };
   },
