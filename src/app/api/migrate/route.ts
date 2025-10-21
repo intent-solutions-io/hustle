@@ -147,6 +147,21 @@ export async function POST() {
 
     console.log('[Migration] Created tables successfully');
 
+    // Add missing columns to existing tables (safe to run multiple times)
+    const alterTableStatements = [
+      // Add birthday column to Player table if it doesn't exist
+      `ALTER TABLE "Player" ADD COLUMN IF NOT EXISTS "birthday" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+    ];
+
+    for (const sql of alterTableStatements) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+        console.log('[Migration] Alter table executed successfully');
+      } catch (error) {
+        console.log(`[Migration] Column may already exist or error: ${error instanceof Error ? error.message.substring(0, 100) : 'Unknown'}`);
+      }
+    }
+
     // Create indexes
     const indexStatements = [
       'CREATE UNIQUE INDEX IF NOT EXISTS "users_email_key" ON "users"("email")',
