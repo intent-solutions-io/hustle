@@ -107,7 +107,7 @@ export const emailTemplates = {
         <body>
           <div class="container">
             <div class="header">
-              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">™</sup></h1>
+              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
             </div>
             <div class="content">
               <h1>Welcome to Hustle, ${name}!</h1>
@@ -170,7 +170,7 @@ If you didn't create this account, you can safely ignore this email.
         <body>
           <div class="container">
             <div class="header">
-              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">™</sup></h1>
+              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
             </div>
             <div class="content">
               <h1>Password Reset Request</h1>
@@ -235,7 +235,7 @@ Didn't request a password reset? You can safely ignore this email.
         <body>
           <div class="container">
             <div class="header">
-              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">™</sup></h1>
+              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
             </div>
             <div class="content">
               <h1>🎉 Welcome Aboard, ${name}!</h1>
@@ -298,7 +298,7 @@ Need help? Reply to this email or visit our help center.
         <body>
           <div class="container">
             <div class="header">
-              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">™</sup></h1>
+              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
             </div>
             <div class="content">
               <h1>✓ Password Changed Successfully</h1>
@@ -376,7 +376,7 @@ Didn't change your password? Contact us immediately at support@hustle-app.com
         <body>
           <div class="container">
             <div class="header">
-              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">™</sup></h1>
+              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
             </div>
             <div class="content">
               <h1>Hi ${parentName}, action needed!</h1>
