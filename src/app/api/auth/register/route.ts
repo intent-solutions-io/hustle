@@ -68,17 +68,23 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    console.log('[Registration] User created successfully, generating verification token...');
+
     // Generate email verification token
     const verificationToken = await generateEmailVerificationToken(user.id);
+    console.log('[Registration] Verification token generated');
 
     // Create verification URL
     const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken.token}`;
+    console.log('[Registration] Verification URL created');
 
     // Send verification email
+    console.log('[Registration] Preparing email template...');
     const emailTemplate = emailTemplates.emailVerification(
       user.firstName,
       verificationUrl
     );
+    console.log('[Registration] Email template prepared, sending...');
 
     const emailResult = await sendEmail({
       to: user.email,
@@ -90,6 +96,8 @@ export async function POST(request: NextRequest) {
     if (!emailResult.success) {
       console.error('[Registration] Failed to send verification email:', emailResult.error);
       // Don't fail registration if email fails - user can request resend
+    } else {
+      console.log('[Registration] Verification email sent successfully');
     }
 
     // Return success (don't expose user ID or sensitive data)
