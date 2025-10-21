@@ -22,6 +22,7 @@ declare module "next-auth" {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true, // Required for NextAuth v5 with custom domains
   providers: [
     CredentialsProvider({
       name: "credentials",
