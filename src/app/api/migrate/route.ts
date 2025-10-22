@@ -151,6 +151,13 @@ export async function POST() {
     const alterTableStatements = [
       // Add birthday column to Player table if it doesn't exist
       `ALTER TABLE "Player" ADD COLUMN IF NOT EXISTS "birthday" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+
+      // Add defensive stats columns to Game table if they don't exist
+      `ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "tackles" INTEGER`,
+      `ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "interceptions" INTEGER`,
+      `ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "clearances" INTEGER`,
+      `ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "blocks" INTEGER`,
+      `ALTER TABLE "Game" ADD COLUMN IF NOT EXISTS "aerialDuelsWon" INTEGER`,
     ];
 
     for (const sql of alterTableStatements) {
