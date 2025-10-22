@@ -120,9 +120,8 @@ jobs:
             --project ${{ env.PROJECT_ID }} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=production" \
-            --set-env-vars "NEXTAUTH_URL=https://hustlestats.io" \
-            --set-secrets "DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest"
+            --set-env-vars "NODE_ENV=production,NEXTAUTH_URL=https://hustlestats.io,EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>" \
+            --set-secrets "DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
 
       - name: Verify deployment
         run: |
