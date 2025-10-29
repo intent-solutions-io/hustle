@@ -10,7 +10,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail
+  SidebarRail,
+  useSidebar
 } from '@/components/ui/sidebar';
 import { Home, Users, Calendar, BarChart3, Settings, LogOut } from 'lucide-react';
 import Link from 'next/link';
@@ -47,6 +48,14 @@ const navItems = [
 
 export default function AppSidebarSimple() {
   const pathname = usePathname();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  // Close mobile sidebar when navigating
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   return (
     <Sidebar className="bg-zinc-50 border-r border-zinc-200">
@@ -76,7 +85,11 @@ export default function AppSidebarSimple() {
                       isActive={isActive}
                       tooltip={item.title}
                     >
-                      <Link href={item.href} className='flex items-center gap-2'>
+                      <Link
+                        href={item.href}
+                        className='flex items-center gap-2'
+                        onClick={handleLinkClick}
+                      >
                         <Icon className='h-4 w-4' />
                         <span>{item.title}</span>
                       </Link>
@@ -93,7 +106,12 @@ export default function AppSidebarSimple() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={() => signOut({ callbackUrl: '/' })}
+              onClick={() => {
+                if (isMobile) {
+                  setOpenMobile(false);
+                }
+                signOut({ callbackUrl: '/' });
+              }}
               className='flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50'
             >
               <LogOut className='h-4 w-4' />
