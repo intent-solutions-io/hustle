@@ -157,6 +157,8 @@ gcloud sql connect hustle-db --project=hustleapp-production
 
 **User**
 - id, firstName, lastName, email, emailVerified, phone, password (bcrypt)
+- Legal compliance: agreedToTerms, agreedToPrivacy, isParentGuardian (COPPA)
+- Verification PIN: verificationPinHash (bcrypt, 4-6 digit PIN for game stats verification)
 - NextAuth relations: accounts[], sessions[]
 - App relations: players[]
 
@@ -178,6 +180,9 @@ gcloud sql connect hustle-db --project=hustleapp-production
 - Account, Session, VerificationToken (standard NextAuth v5 schema)
 - PasswordResetToken (custom model for password reset flow)
 - EmailVerificationToken (custom model for email verification flow)
+
+**Other Models**
+- Waitlist (early access signup tracking with email, name, source)
 
 ### Directory Structure
 
@@ -332,6 +337,11 @@ DOMAIN=hustlestats.io
 
 **Configuration**: `/src/lib/auth.ts`
 
+**Critical Settings**:
+- `trustHost: true` - **REQUIRED** for NextAuth v5 with custom domains and Cloud Run
+- Email verification enforced - users cannot log in until `emailVerified` is set (line 56-58)
+- bcrypt for password hashing (not bcryptjs, despite both being installed)
+
 ```typescript
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -339,6 +349,7 @@ import bcrypt from "bcrypt";
 import { prisma } from "./prisma";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true, // REQUIRED for custom domains and Cloud Run
   providers: [
     CredentialsProvider({
       credentials: {
@@ -363,6 +374,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           throw new Error("Invalid credentials");
         }
 
+        // Email verification check (ENFORCED)
+        if (!user.emailVerified) {
+          throw new Error("Please verify your email before logging in");
+        }
+
         return {
           id: user.id,
           email: user.email,
@@ -379,6 +395,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
     signIn: "/login",
     error: "/login",
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.firstName = user.firstName;
+        token.lastName = user.lastName;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.firstName = token.firstName as string;
+        session.user.lastName = token.lastName as string;
+      }
+      return session;
+    },
   },
 });
 ```
@@ -521,15 +555,18 @@ export async function GET() {
 
 - **Turbopack**: Build and dev use `--turbopack` flag (faster than webpack)
 - **Standalone Output**: Next.js configured with `output: 'standalone'` for Docker deployment
+- **trustHost Required**: NextAuth v5 requires `trustHost: true` for custom domains (in `/src/lib/auth.ts:25`)
 - **NextAuth Session**: Use server-side `await auth()`, not client-side `useSession()` in layouts
 - **Prisma Client**: Always regenerate after schema changes (`npx prisma generate`)
 - **Cache Issues**: Clear `.next` directory if Prisma client seems outdated after schema changes
 - **Development Port**: Runs on port 4000 by default (avoiding conflicts with other services)
-- **Password Security**: Never store plaintext passwords, always use bcrypt (10 rounds)
-- **Email Verification Required**: Users cannot log in until email is verified (enforced in auth.ts)
+- **Production Port**: Docker container exposes port 8080 for Cloud Run
+- **Password Security**: Use bcrypt (10 rounds), not bcryptjs (both installed but bcrypt preferred)
+- **Email Verification Required**: Users cannot log in until email is verified (enforced in auth.ts:56-58)
 - **Token Expiration**: Email verification and password reset tokens expire after 24 hours
 - **Sentry**: Configured for production error tracking, disabled in development
 - **Testing Philosophy**: Unit tests for utilities/validation, E2E tests for critical user flows
+- **Build Warnings Suppressed**: `eslint.ignoreDuringBuilds` and `typescript.ignoreBuildErrors` set to true in `next.config.ts`
 
 ## Testing
 
@@ -548,21 +585,29 @@ Before deployment, verify:
 
 ### Docker Architecture
 
-Multi-stage Dockerfile (`06-Infrastructure/docker/Dockerfile`):
+Multi-stage Dockerfile (located in project root: `Dockerfile`):
 1. **base**: Node.js 22 Alpine base image
 2. **deps**: Install dependencies only (`npm ci`)
-3. **builder**: Generate Prisma client, build Next.js app
+3. **builder**: Generate Prisma client, build Next.js app with Turbopack
 4. **runner**: Production image with standalone output
-   - Non-root user (nextjs:nodejs)
-   - Only necessary files copied
+   - Non-root user (nextjs:nodejs, UID 1001)
+   - Only necessary files copied (standalone build, static assets, Prisma client)
    - Exposes port 8080 for Cloud Run
+   - Environment: `NODE_ENV=production`, `NEXT_TELEMETRY_DISABLED=1`
 
 ```bash
 # Build image
-docker build -f 06-Infrastructure/docker/Dockerfile -t hustle-app .
+docker build -t hustle-app .
 
 # Run locally
 docker run -p 8080:8080 --env-file .env.local hustle-app
+
+# Test production build locally
+docker run -p 8080:8080 \
+  -e DATABASE_URL="postgresql://..." \
+  -e NEXTAUTH_SECRET="..." \
+  -e NEXTAUTH_URL="http://localhost:8080" \
+  hustle-app
 ```
 
 ### Google Cloud Run
@@ -617,8 +662,18 @@ Key changes:
 - View UI with `npm run test:e2e:ui` for debugging
 - Watch tests run in browser with `npm run test:e2e:headed`
 
-**Key Test Files**:
-- `/03-Tests/e2e/04-complete-user-journey.spec.ts` - Full signup to game logging flow
+**Test Structure**:
+```
+03-Tests/e2e/
+├── auth/
+│   ├── 01-registration.spec.ts      # User registration flow
+│   └── 02-login.spec.ts             # Login flow
+├── 01-authentication.spec.ts        # Auth integration
+├── 02-dashboard.spec.ts             # Dashboard access
+├── 03-player-management.spec.ts     # Player CRUD operations
+├── 04-complete-user-journey.spec.ts # End-to-end user flow
+└── 05-login-healthcheck.spec.ts     # Quick smoke test
+```
 
 ### Integration Tests
 - Coming soon: API integration tests with MSW (Mock Service Worker)
@@ -663,6 +718,12 @@ All API routes follow RESTful conventions:
 - **System**:
   - `GET /api/healthcheck` - Health check endpoint
   - `GET /api/hello` - Test endpoint
+
+- **Waitlist**: `/api/waitlist`
+  - `POST /api/waitlist` - Add email to early access waitlist
+
+- **Admin**: `/api/admin/*`
+  - `POST /api/admin/verify-user` - Manually verify user email (admin only)
 
 All protected routes must use `await auth()` at the start to verify session.
 
@@ -712,6 +773,6 @@ NEXT_PUBLIC_WEBSITE_DOMAIN="http://localhost:4000"  # Website URL
 
 ---
 
-**Last Updated**: 2025-10-12
-**Version**: 2.1.0
+**Last Updated**: 2025-10-29
+**Version**: 2.2.0
 **Status**: Active Development

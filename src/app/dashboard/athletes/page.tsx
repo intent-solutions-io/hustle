@@ -34,11 +34,19 @@ export default async function AthletesPage() {
     redirect('/login');
   }
 
-  // Fetch all players for the logged-in parent
-  const players: Player[] = await prisma.player.findMany({
-    where: { parentId: session.user.id },
-    orderBy: { createdAt: 'desc' }
-  });
+  // Fetch all players for the logged-in parent with error handling
+  let players: Player[] = [];
+  let error: string | null = null;
+
+  try {
+    players = await prisma.player.findMany({
+      where: { parentId: session.user.id },
+      orderBy: { createdAt: 'desc' }
+    });
+  } catch (err) {
+    console.error('Error fetching players:', err);
+    error = 'Unable to load athletes. Please try again later.';
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -58,8 +66,25 @@ export default async function AthletesPage() {
         </Link>
       </div>
 
-      {/* Content Area */}
-      {players.length === 0 ? (
+      {/* Error State */}
+      {error ? (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="text-5xl mb-4">⚠️</div>
+            <h3 className="text-lg font-semibold text-red-900 mb-2">
+              Error Loading Athletes
+            </h3>
+            <p className="text-sm text-red-700 mb-6 max-w-sm">
+              {error}
+            </p>
+            <Link href="/dashboard/athletes">
+              <Button className="bg-red-600 hover:bg-red-700">
+                Try Again
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : players.length === 0 ? (
         /* Empty State */
         <Card className="border-zinc-200 border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
