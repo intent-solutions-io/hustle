@@ -13,41 +13,15 @@ echo "=================================="
 # Set defaults
 OUTPUT_DIR="020-audio/music"
 SPECS_DIR="docs/imported"
+DRY_RUN="${DRY_RUN:-false}"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Check for Lyria specifications
-LYRIA_SPEC=""
-if [ -f "$SPECS_DIR/023-DR-REFF-lyria-cue-sheet.md" ]; then
-    LYRIA_SPEC="$SPECS_DIR/023-DR-REFF-lyria-cue-sheet.md"
-elif [ -f "deps/nwsl/docs/023-DR-REFF-lyria-cue-sheet.md" ]; then
-    LYRIA_SPEC="deps/nwsl/docs/023-DR-REFF-lyria-cue-sheet.md"
-fi
-
-if [ -z "$LYRIA_SPEC" ]; then
-    echo "⚠️ WARNING: No Lyria specification found"
-    echo "Creating placeholder audio instead..."
-
-    # Generate 60.04 seconds of silence as placeholder
-    ffmpeg -f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=48000" \
-        -t 60.04 \
-        "$OUTPUT_DIR/master_mix.wav" -y
-
-    echo "✅ Placeholder audio created at $OUTPUT_DIR/master_mix.wav"
-    exit 0
-fi
-
-echo "📋 Using Lyria spec: $LYRIA_SPEC"
-
-# Parse cue sheet for timing
-echo "🎼 Parsing cue sheet..."
-
-# In production, this would make actual Vertex AI API calls
-# For now, we'll simulate or use placeholders
-
-# Check if we're in dry run mode
-if [ "${DRY_RUN:-false}" = "true" ]; then
+# ============================================
+# 1) DRY RUN CHECK FIRST (before spec checks)
+# ============================================
+if [ "${DRY_RUN}" = "true" ]; then
     echo "🔧 DRY RUN MODE - Creating placeholder audio"
 
     # Create silent master mix
@@ -59,9 +33,29 @@ if [ "${DRY_RUN:-false}" = "true" ]; then
     log_vertex_op "Lyria" "generate_score" "lyria-instrumental-v1" "dry-run-$(date +%s)"
 
     echo "✅ Placeholder master_mix.wav created (60.04s silent audio)"
+    exit 0
+fi
 
+# ============================================
+# 2) PRODUCTION MODE - ALWAYS CALL VERTEX AI
+# ============================================
+echo "🎵 PRODUCTION MODE - Generating orchestral score with Vertex AI Lyria..."
+
+# Check for Lyria specifications (optional - warn if missing but don't exit)
+LYRIA_SPEC=""
+if [ -f "$SPECS_DIR/023-DR-REFF-lyria-cue-sheet.md" ]; then
+    LYRIA_SPEC="$SPECS_DIR/023-DR-REFF-lyria-cue-sheet.md"
+    echo "📋 Using Lyria spec: $LYRIA_SPEC"
+elif [ -f "deps/nwsl/docs/023-DR-REFF-lyria-cue-sheet.md" ]; then
+    LYRIA_SPEC="deps/nwsl/docs/023-DR-REFF-lyria-cue-sheet.md"
+    echo "📋 Using Lyria spec: $LYRIA_SPEC"
 else
-    echo "🎵 Generating orchestral score with Vertex AI Lyria..."
+    echo "⚠️ WARNING: No Lyria specification found - using built-in defaults"
+fi
+
+# ============================================
+# 3) CALL VERTEX AI LYRIA API
+# ============================================
 
     # Prepare request payload
     REQUEST_FILE=$(mktemp)
@@ -148,6 +142,18 @@ EOF_REQUEST
     rm -f "$REQUEST_FILE" "$RESPONSE_FILE"
 
     echo "✅ Lyria render step complete"
+
+# ============================================
+# 4) GRACEFUL FALLBACK - Only if output missing
+# ============================================
+if [ ! -s "$OUTPUT_DIR/master_mix.wav" ]; then
+    echo "⚠️ WARNING: API output missing - creating minimal fallback placeholder"
+    ffmpeg -f lavfi -i "sine=frequency=440:duration=60.04" \
+        -af "volume=0.1,afade=t=in:st=0:d=2,afade=t=out:st=58:d=2" \
+        -ar 48000 -ac 2 \
+        "$OUTPUT_DIR/master_mix.wav" -y
+
+    log_vertex_op "Lyria" "generate_score" "lyria-fallback" "fallback-$(date +%s)" "fallback" "N/A"
 fi
 
 # Generate stems if needed
