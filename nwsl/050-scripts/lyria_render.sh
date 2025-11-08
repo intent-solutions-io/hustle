@@ -209,6 +209,7 @@ echo ""
 echo "✅ Lyria render complete!"
 
 # Write render report
+mkdir -p docs
 cat > "docs/lyria_render_report.md" << EOF
 # Lyria Render Report
 **Date:** $(date +%Y-%m-%d\ %H:%M:%S)
