@@ -41,6 +41,7 @@ jobs:
           echo "REGION=us-central1" >> $GITHUB_ENV
           echo "GCS_BUCKET=gs://${{ secrets.GCP_PROJECT_ID }}-media" >> $GITHUB_ENV
           echo "DRY_RUN=${{ inputs.dry_run }}" >> $GITHUB_ENV
+          echo "DOCS_DIR=./docs" >> $GITHUB_ENV
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -219,6 +220,30 @@ jobs:
               echo "⚠️ Master video not found"
           fi
 
+      - name: Query Vertex AI logs
+        if: always()
+        working-directory: nwsl
+        timeout-minutes: 5
+        run: |
+          echo "🔍 Querying Vertex AI logs for observability..."
+
+          # Make script executable
+          chmod +x 050-scripts/query_vertex_logs.sh
+
+          # Run query with CI export
+          CI=true GITHUB_RUN_ID="${{ github.run_id }}" \
+            PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}" \
+            HOURS_BACK=1 \
+            ./050-scripts/query_vertex_logs.sh || {
+              echo "⚠️ Log query failed - continuing anyway"
+            }
+
+          # List any error documentation created
+          if ls docs/*-LS-STAT-*.md 2>/dev/null; then
+              echo "📝 Error documentation found:"
+              ls -la docs/*-LS-STAT-*.md
+          fi
+
       - name: Upload artifacts to GCS
         if: always()
         run: |
@@ -255,8 +280,9 @@ jobs:
         run: |
           echo "📝 Writing CI documentation..."
 
-          # Calculate next document number
-          NEXT=$(printf "%03d" $(($(ls nwsl/000-docs 2>/dev/null | sed -n 's/^\([0-9][0-9][0-9]\)-.*/\1/p' | sort -n | tail -1)+1)))
+          # Calculate next document number (force base-10 to avoid octal interpretation)
+          LAST_NUM=$(ls nwsl/000-docs 2>/dev/null | sed -n 's/^\([0-9][0-9][0-9]\)-.*/\1/p' | sort -n | tail -1)
+          NEXT=$(printf "%03d" $((10#${LAST_NUM:-0} + 1)))
 
           # Write CI runbook
           cat > "nwsl/000-docs/${NEXT}-OD-DEPL-ci-runbook.md" << EOF
