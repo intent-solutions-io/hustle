@@ -48,25 +48,15 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      # Check out the NWSL repo as read-only dependency
-      - name: Checkout NWSL repo (read-only)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/nwsl  # Assumes same org
-          ref: main
-          token: ${{ secrets.ORG_READ_TOKEN }}
-          path: deps/nwsl
-
       - name: Verify CI Gate
         run: |
-          cd deps/nwsl
+          cd nwsl
           bash -eux gate.sh
-
 
       - name: Set path variables
         run: |
           echo "SRC_ROOT=$(pwd)" >> $GITHUB_ENV
-          echo "NWSL_ROOT=$(pwd)/deps/nwsl" >> $GITHUB_ENV
+          echo "NWSL_ROOT=$(pwd)/nwsl" >> $GITHUB_ENV
           echo "DOCS_ROOT=$(pwd)/docs" >> $GITHUB_ENV
           echo "ASSETS_ROOT=$(pwd)/001-assets" >> $GITHUB_ENV
 
@@ -185,9 +175,9 @@ jobs:
           echo "🎬 Assembling master video..."
 
           # Use the overlay pipeline from NWSL repo if it exists
-          if [ -f "deps/nwsl/050-scripts/ffmpeg_overlay_pipeline.sh" ]; then
+          if [ -f "nwsl/050-scripts/ffmpeg_overlay_pipeline.sh" ]; then
               echo "Using NWSL overlay pipeline..."
-              bash -eux "deps/nwsl/050-scripts/ffmpeg_overlay_pipeline.sh" \
+              bash -eux "nwsl/050-scripts/ffmpeg_overlay_pipeline.sh" \
                   "030-video/assembly/video_with_music.mp4" \
                   "060-renders/final/master_16x9.mp4" || true
           else
@@ -263,7 +253,7 @@ jobs:
           - **Run Mode:** GitHub Actions with WIF
           - **Dry Run:** ${{ inputs.dry_run }}
           - **Project ID:** ${{ secrets.GCP_PROJECT_ID }}
-          - **NWSL Repo SHA:** $(git -C deps/nwsl rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          - **NWSL Repo SHA:** $(git -C nwsl rev-parse --short HEAD 2>/dev/null || echo "unknown")
           - **HUSTLE Repo SHA:** ${{ github.sha }}
 
           ## Artifacts
