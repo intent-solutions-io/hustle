@@ -22,19 +22,85 @@ mkdir -p "$OUTPUT_DIR"
 
 echo "Using Veo model: $MODEL_ID"
 
-# Define segments with durations and descriptions
+# Define segments with durations
 declare -a SEGMENT_NUMS=("01" "02" "03" "04" "05" "06" "07" "08")
 declare -a SEGMENT_DURS=("8.0" "8.0" "8.0" "8.0" "8.0" "8.0" "8.0" "4.01")
-declare -a SEGMENT_PROMPTS=(
-    "Opening: Professional soccer stadium exterior at night, dramatic lighting with rain falling, moody atmosphere, cinematic documentary style, establishing shot, no people speaking"
-    "Press conference room with empty podium, microphones ready, waiting reporters, tense anticipation, documentary footage style, no dialogue"
-    "Female soccer players warming up on practice field, stretching and training montage, professional athletes preparing, observational documentary style, no people speaking"
-    "Modern courthouse exterior, legal documents and briefcases, serious professional atmosphere, establishing shot, documentary cinematography, no dialogue"
-    "Women's soccer championship celebration, confetti falling, crowds cheering in stands, joyful victory atmosphere, documentary footage, no people speaking"
-    "Empty conference room with abandoned negotiation papers, overhead fluorescent lighting, sense of stalled progress, documentary style, no dialogue"
-    "Female soccer players kneeling together on field in solidarity, team unity moment, powerful emotional scene, documentary cinematography, no people speaking"
-    "Professional soccer stadium at golden hour sunset, contemplative closing shot, beautiful cinematography, peaceful resolution, documentary style, no dialogue"
-)
+
+# ============================================
+# CANON PROMPT LOADING FROM APPROVED SEGMENT FILES
+# ============================================
+# Load prompts from canonical segment specification files
+# Format: 000-docs/00N-DR-REFF-veo-seg-0N.md
+# These files are the SINGLE SOURCE OF TRUTH for video prompts
+
+load_canon_prompt() {
+    local seg_num="$1"
+    local canon_file_patterns=(
+        "000-docs/00${seg_num#0}-DR-REFF-veo-seg-${seg_num}.md"  # Local canon
+        "$SPECS_DIR/00${seg_num#0}-DR-REFF-veo-seg-${seg_num}.md"  # Imported canon
+        "$NWSL_SPECS/00${seg_num#0}-DR-REFF-veo-seg-${seg_num}.md"  # NWSL repo
+    )
+
+    local canon_file=""
+    for pattern in "${canon_file_patterns[@]}"; do
+        if [ -f "$pattern" ]; then
+            canon_file="$pattern"
+            break
+        fi
+    done
+
+    if [ -z "$canon_file" ]; then
+        echo "ERROR: Canon file not found for SEG-${seg_num}" >&2
+        echo "Searched:" >&2
+        for pattern in "${canon_file_patterns[@]}"; do
+            echo "  - $pattern" >&2
+        done
+        return 1
+    fi
+
+    # Extract prompt from markdown (skip YAML frontmatter, get content)
+    # Frontmatter ends with '---', content starts after
+    local prompt
+    prompt=$(awk '
+        BEGIN { in_content=0; content="" }
+        /^---$/ {
+            if (NR == 1) { in_frontmatter=1; next }
+            if (in_frontmatter) { in_frontmatter=0; in_content=1; next }
+        }
+        in_content && NF > 0 {
+            # Stop at certain markers
+            if (/^Conditioning:/ || /^Aspect:/ || /^Audio:/ || /^Repro:/ || /^NotesForPost:/ || /^## Text Overlays/) {
+                exit
+            }
+            # Accumulate content
+            if (content != "") content = content " "
+            content = content $0
+        }
+        END { print content }
+    ' "$canon_file" | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
+
+    if [ -z "$prompt" ]; then
+        echo "ERROR: No prompt content extracted from $canon_file" >&2
+        return 1
+    fi
+
+    echo "$prompt"
+}
+
+# Load all prompts from canon files
+echo "📚 Loading prompts from canonical segment files..."
+declare -a SEGMENT_PROMPTS=()
+for seg_num in "${SEGMENT_NUMS[@]}"; do
+    echo "  Loading SEG-${seg_num} from canon..."
+    prompt=$(load_canon_prompt "$seg_num") || {
+        echo "  ❌ Failed to load SEG-${seg_num} prompt from canon"
+        echo "  Using emergency fallback (generic placeholder)"
+        prompt="Create PHOTOREALISTIC video shot on RED camera documentary style. Professional cinematography, no dialogue, no people speaking."
+    }
+    SEGMENT_PROMPTS+=("$prompt")
+    echo "  ✅ SEG-${seg_num}: ${#prompt} characters"
+done
+echo ""
 
 # ============================================
 # 1) DRY RUN CHECK FIRST
@@ -258,6 +324,7 @@ echo "📊 Total duration: ${TOTAL_DURATION}s (expected: 60.01s)"
 # ============================================
 # 5) WRITE REPORT
 # ============================================
+mkdir -p docs
 cat > "docs/veo_render_report.md" << EOF
 # Veo Render Report
 **Date:** $(date +%Y-%m-%d\ %H:%M:%S)
