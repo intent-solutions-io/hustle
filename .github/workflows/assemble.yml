@@ -91,7 +91,7 @@ jobs:
           ls -la docs/imported/
 
       - name: Generate placeholder media (if dry run)
-        if: ${{ inputs.dry_run == 'true' }}
+        if: ${{ inputs.dry_run }}
         run: |
           echo "🎬 Generating placeholder media for dry run..."
 
@@ -128,13 +128,13 @@ jobs:
           ls -la 020-audio/music/
 
       - name: Lyria render (instrumental only)
-        if: ${{ inputs.dry_run != 'true' }}
+        if: ${{ !inputs.dry_run }}
         run: |
           echo "🎵 Rendering Lyria score..."
           bash -eux 050-scripts/lyria_render.sh || echo "⚠️ Lyria render script not found - skipping"
 
       - name: Veo renders
-        if: ${{ inputs.dry_run != 'true' }}
+        if: ${{ !inputs.dry_run }}
         run: |
           echo "🎬 Rendering Veo segments..."
           bash -eux 050-scripts/veo_render.sh || echo "⚠️ Veo render script not found - skipping"
