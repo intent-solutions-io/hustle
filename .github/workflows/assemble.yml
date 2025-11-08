@@ -90,6 +90,12 @@ jobs:
           echo "✅ Import complete"
           ls -la docs/imported/
 
+      - name: Install ffmpeg
+        if: ${{ inputs.dry_run }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Generate placeholder media (if dry run)
         if: ${{ inputs.dry_run }}
         run: |
