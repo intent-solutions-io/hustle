@@ -78,39 +78,63 @@ gen_segment() {
     echo "  🎥 Generating SEG-${seg_num} (${duration}s)..."
     echo "  📝 Prompt: ${prompt:0:80}..."
 
-    # Build request body
+    # Build request body with explicit durationSeconds
+    local dur_secs
+    if [[ "$duration" == "4.01" ]]; then
+        dur_secs=4
+    else
+        dur_secs=8
+    fi
+
     local request_body
     request_body=$(jq -n \
         --arg prompt "$prompt" \
         --arg aspect "16:9" \
-        --arg resolution "1080p" \
+        --arg resolution "1080" \
+        --argjson duration "$dur_secs" \
         '{
             instances: [{
-                prompt: $prompt,
-                aspectRatio: $aspect
+                prompt: $prompt
             }],
             parameters: {
+                aspectRatio: $aspect,
                 resolution: $resolution,
+                durationSeconds: $duration,
+                generateAudio: false,
                 sampleCount: 1
             }
         }')
 
-    # Submit LRO to Vertex AI
+    # Submit LRO to Vertex AI with error capture
     echo "  📤 Submitting to Vertex AI Veo..."
-    local op_name
-    op_name="$(curl -sS --fail-with-body \
+    local response_file=$(mktemp)
+    local http_code
+    http_code=$(curl -sS -w "%{http_code}" -o "$response_file" \
         --connect-timeout 10 \
         --max-time 60 \
-        --retry 3 \
-        --retry-all-errors \
         -X POST \
         -H "Authorization: Bearer $(gcloud auth print-access-token)" \
         -H "Content-Type: application/json" \
         "https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models/${MODEL_ID}:predictLongRunning" \
-        -d "$request_body" | jq -r '.name')" || {
-            echo "  ❌ Failed to submit SEG-${seg_num}"
-            return 1
-        }
+        -d "$request_body")
+
+    # Check HTTP status
+    if [ "$http_code" -ne 200 ]; then
+        echo "  ❌ Veo API returned HTTP $http_code"
+        echo "  📄 Error response:"
+        jq '.' "$response_file" 2>/dev/null || cat "$response_file"
+        rm -f "$response_file"
+        return 1
+    fi
+
+    local op_name
+    op_name=$(jq -r '.name' "$response_file")
+    rm -f "$response_file"
+
+    if [ -z "$op_name" ] || [ "$op_name" = "null" ]; then
+        echo "  ❌ No operation name in response"
+        return 1
+    fi
 
     echo "  📍 Operation: $op_name"
 
