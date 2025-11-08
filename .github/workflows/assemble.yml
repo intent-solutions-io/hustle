@@ -137,13 +137,13 @@ jobs:
         if: ${{ !inputs.dry_run }}
         run: |
           echo "🎵 Rendering Lyria score..."
-          bash -eux 050-scripts/lyria_render.sh || echo "⚠️ Lyria render script not found - skipping"
+          cd nwsl && bash -eux 050-scripts/lyria_render.sh || echo "⚠️ Lyria render script not found - skipping"
 
       - name: Veo renders
         if: ${{ !inputs.dry_run }}
         run: |
           echo "🎬 Rendering Veo segments..."
-          bash -eux 050-scripts/veo_render.sh || echo "⚠️ Veo render script not found - skipping"
+          cd nwsl && bash -eux 050-scripts/veo_render.sh || echo "⚠️ Veo render script not found - skipping"
 
       - name: Assembly preflight check
         run: |
@@ -153,7 +153,7 @@ jobs:
           READY=true
 
           for i in {01..08}; do
-              FILE="030-video/shots/SEG-${i}_best.mp4"
+              FILE="nwsl/030-video/shots/SEG-${i}_best.mp4"
               if [ ! -f "$FILE" ]; then
                   echo "❌ Missing: $FILE"
                   READY=false
@@ -162,11 +162,11 @@ jobs:
               fi
           done
 
-          if [ ! -f "020-audio/music/master_mix.wav" ]; then
-              echo "❌ Missing: 020-audio/music/master_mix.wav"
+          if [ ! -f "nwsl/020-audio/music/master_mix.wav" ]; then
+              echo "❌ Missing: nwsl/020-audio/music/master_mix.wav"
               READY=false
           else
-              echo "✅ Found: 020-audio/music/master_mix.wav"
+              echo "✅ Found: nwsl/020-audio/music/master_mix.wav"
           fi
 
           if [ "$READY" = false ]; then
@@ -223,18 +223,23 @@ jobs:
           RUN_PATH="ci/${{ github.run_id }}_${{ github.run_attempt }}"
 
           # Upload renders if they exist
-          if [ -d "060-renders" ]; then
-              gcloud storage cp -r 060-renders "gs://${{ secrets.GCP_PROJECT_ID }}-media/$RUN_PATH/" || true
+          if [ -d "nwsl/060-renders" ]; then
+              gcloud storage cp -r nwsl/060-renders "gs://${{ secrets.GCP_PROJECT_ID }}-media/$RUN_PATH/" || true
           fi
 
           # Upload shots if they exist
-          if [ -d "030-video/shots" ]; then
-              gcloud storage cp -r 030-video/shots "gs://${{ secrets.GCP_PROJECT_ID }}-media/$RUN_PATH/" || true
+          if [ -d "nwsl/030-video/shots" ]; then
+              gcloud storage cp -r nwsl/030-video/shots "gs://${{ secrets.GCP_PROJECT_ID }}-media/$RUN_PATH/" || true
           fi
 
           # Upload audio if it exists
-          if [ -d "020-audio/music" ]; then
-              gcloud storage cp -r 020-audio/music "gs://${{ secrets.GCP_PROJECT_ID }}-media/$RUN_PATH/" || true
+          if [ -d "nwsl/020-audio/music" ]; then
+              gcloud storage cp -r nwsl/020-audio/music "gs://${{ secrets.GCP_PROJECT_ID }}-media/$RUN_PATH/" || true
+          fi
+
+          # Upload vertex operations log if it exists
+          if [ -f "nwsl/vertex_ops.log" ]; then
+              gcloud storage cp nwsl/vertex_ops.log "gs://${{ secrets.GCP_PROJECT_ID }}-media/$RUN_PATH/" || true
           fi
 
           echo "✅ Upload complete"
@@ -246,10 +251,10 @@ jobs:
           echo "📝 Writing CI documentation..."
 
           # Calculate next document number
-          NEXT=$(printf "%03d" $(($(ls docs 2>/dev/null | sed -n 's/^\([0-9][0-9][0-9]\)-.*/\1/p' | sort -n | tail -1)+1)))
+          NEXT=$(printf "%03d" $(($(ls nwsl/000-docs 2>/dev/null | sed -n 's/^\([0-9][0-9][0-9]\)-.*/\1/p' | sort -n | tail -1)+1)))
 
           # Write CI runbook
-          cat > "docs/${NEXT}-OD-DEPL-ci-runbook.md" << EOF
+          cat > "nwsl/000-docs/${NEXT}-OD-DEPL-ci-runbook.md" << EOF
           # CI Runbook - GitHub Actions Execution
           **Date:** $(date +%Y-%m-%d)
           **Run ID:** ${{ github.run_id }}
@@ -270,7 +275,7 @@ jobs:
           - Workflow completed at: $(date +%Y-%m-%d\ %H:%M:%S)
           EOF
 
-          echo "✅ Documentation written to docs/${NEXT}-OD-DEPL-ci-runbook.md"
+          echo "✅ Documentation written to nwsl/000-docs/${NEXT}-OD-DEPL-ci-runbook.md"
 
       - name: Upload workflow artifacts
         if: always()
@@ -278,6 +283,8 @@ jobs:
         with:
           name: nwsl-documentary-${{ github.run_id }}
           path: |
-            060-renders/
-            docs/*-OD-DEPL-*.md
-            vertex_ops.log
+            nwsl/060-renders/
+            nwsl/030-video/shots/
+            nwsl/020-audio/music/
+            nwsl/000-docs/*-OD-DEPL-*.md
+            nwsl/vertex_ops.log
