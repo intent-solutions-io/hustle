@@ -227,20 +227,33 @@ jobs:
 
           echo "✅ All required files present"
 
+      - name: Process overlays
+        run: |
+          echo "🎨 Processing overlay files..."
+          cd nwsl
+
+          # Sync overlay canon to working directory
+          if [ -f "050-scripts/overlay_sync.sh" ]; then
+              bash -eux 050-scripts/overlay_sync.sh
+          fi
+
+          # Build ASS file from overlay canon
+          if [ -f "050-scripts/overlay_build.sh" ]; then
+              bash -eux 050-scripts/overlay_build.sh
+          fi
+
       - name: Assemble master
         run: |
-          echo "🎬 Assembling master video..."
+          echo "🎬 Assembling master video with 9 segments..."
+          cd nwsl
 
-          # Use the overlay pipeline from NWSL repo if it exists
-          if [ -f "nwsl/050-scripts/ffmpeg_overlay_pipeline.sh" ]; then
-              echo "Using NWSL overlay pipeline..."
-              bash -eux "nwsl/050-scripts/ffmpeg_overlay_pipeline.sh" \
-                  "030-video/assembly/video_with_music.mp4" \
-                  "060-renders/final/master_16x9.mp4" || true
+          # Use the new 9-segment assembly script
+          if [ -f "050-scripts/ffmpeg_assembly_9seg.sh" ]; then
+              echo "Using 9-segment assembly pipeline..."
+              bash -eux "050-scripts/ffmpeg_assembly_9seg.sh"
           else
-              echo "Using fallback assembly..."
-              bash -eux 050-scripts/ffmpeg_overlay_pipeline.sh --master 16x9 || \
-                  echo "⚠️ Assembly script not found - skipping"
+              echo "❌ Assembly script not found: 050-scripts/ffmpeg_assembly_9seg.sh"
+              exit 1
           fi
 
       - name: Quality control
@@ -248,21 +261,39 @@ jobs:
           echo "📊 Running quality control checks..."
 
           # Check if output exists
-          if [ -f "060-renders/final/master_16x9.mp4" ]; then
+          OUTPUT_FILE="nwsl/060-renders/final/master_16x9.mp4"
+          if [ -f "$OUTPUT_FILE" ]; then
+              echo "✅ Master video found at: $OUTPUT_FILE"
+
               # Video properties
+              echo "Video properties:"
               ffprobe -v error -select_streams v:0 \
                   -show_entries stream=width,height,r_frame_rate \
                   -of default=noprint_wrappers=1 \
-                  "060-renders/final/master_16x9.mp4"
+                  "$OUTPUT_FILE"
 
               # Duration
-              ffprobe -v error -show_entries format=duration \
+              DURATION=$(ffprobe -v error -show_entries format=duration \
                   -of default=noprint_wrappers=1:nokey=1 \
-                  "060-renders/final/master_16x9.mp4"
+                  "$OUTPUT_FILE")
+              echo "Duration: ${DURATION}s"
+
+              # File size
+              SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
+              echo "File size: $SIZE"
+
+              # Check acceptance criteria
+              SIZE_BYTES=$(stat -c%s "$OUTPUT_FILE" 2>/dev/null || stat -f%z "$OUTPUT_FILE")
+              if [ "$SIZE_BYTES" -gt 52428800 ]; then
+                  echo "✅ File size > 50MB - good quality"
+              else
+                  echo "⚠️ File size < 50MB - may have quality issues"
+              fi
 
               echo "✅ Master video created successfully"
           else
-              echo "⚠️ Master video not found"
+              echo "❌ Master video not found at: $OUTPUT_FILE"
+              exit 1
           fi
 
       - name: Query Vertex AI logs
