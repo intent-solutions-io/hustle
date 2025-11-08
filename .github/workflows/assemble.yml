@@ -106,7 +106,7 @@ jobs:
           mkdir -p 030-video/shots
 
           # Generate placeholder video segments
-          for i in {01..08}; do
+          for i in {1..8}; do
               N=$(printf "%02d" $i)
               echo "Creating placeholder SEG-${N}..."
 
