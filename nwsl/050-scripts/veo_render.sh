@@ -15,9 +15,12 @@ OUTPUT_DIR="030-video/shots"
 SPECS_DIR="docs/imported"
 NWSL_SPECS="deps/nwsl/docs"
 DRY_RUN="${DRY_RUN:-false}"
+VEO_MODEL_ID="${VEO_MODEL_ID:-veo-3.0-generate-001}"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
+
+echo "Using Veo model: $VEO_MODEL_ID"
 
 # Define segments (matching 025-DR-REFF-veo-seg-details.md)
 declare -A SEGMENTS=(
@@ -148,31 +151,106 @@ EOF_REQUEST
 EOF_REQUEST
     fi
 
-    # Call Vertex AI Veo Video Generation API
-    echo "  📞 Calling Vertex AI Veo API..."
+    # Call Vertex AI Veo Video Generation API (long-running)
+    echo "  📞 Calling Vertex AI Veo API (predictLongRunning)..."
     OP_ID="veo-seg-${SEG_NUM}-$(date +%s)-${GITHUB_RUN_ID:-local}"
+
+    # Update request to include 1080p resolution
+    REQUEST_FILE_UPDATED=$(mktemp)
+    jq '.parameters.resolution = "1080p"' "$REQUEST_FILE" > "$REQUEST_FILE_UPDATED"
 
     RESPONSE_FILE=$(mktemp)
     HTTP_CODE=$(curl -w "%{http_code}" -o "$RESPONSE_FILE" -X POST \
         -H "Authorization: Bearer $(gcloud auth print-access-token)" \
         -H "Content-Type: application/json" \
-        "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/veo-2:predict" \
-        -d @"$REQUEST_FILE")
+        "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/${VEO_MODEL_ID}:predictLongRunning" \
+        -d @"$REQUEST_FILE_UPDATED")
+
+    rm -f "$REQUEST_FILE_UPDATED"
 
     if [ "$HTTP_CODE" -eq 200 ]; then
-        echo "  ✅ Veo API call successful"
+        echo "  ✅ Veo API call initiated (long-running operation)"
 
-        # Extract video samples from response
-        NUM_SAMPLES=$(jq '.predictions | length' "$RESPONSE_FILE")
-        echo "  📹 Received $NUM_SAMPLES video samples"
+        # Extract operation name for polling
+        OPERATION_NAME=$(jq -r '.name' "$RESPONSE_FILE")
+
+        if [ -n "$OPERATION_NAME" ] && [ "$OPERATION_NAME" != "null" ]; then
+            echo "  📍 Operation: $OPERATION_NAME"
+            echo "  ⏳ Polling operation until complete..."
+
+            # Poll operation with exponential backoff (max 10 minutes)
+            MAX_POLLS=60
+            POLL_COUNT=0
+            POLL_DELAY=10
+
+            while [ $POLL_COUNT -lt $MAX_POLLS ]; do
+                sleep $POLL_DELAY
+
+                POLL_RESPONSE=$(mktemp)
+                POLL_HTTP=$(curl -w "%{http_code}" -o "$POLL_RESPONSE" -s \
+                    -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+                    "https://${REGION}-aiplatform.googleapis.com/v1/${OPERATION_NAME}")
+
+                if [ "$POLL_HTTP" -eq 200 ]; then
+                    DONE=$(jq -r '.done' "$POLL_RESPONSE")
+
+                    if [ "$DONE" = "true" ]; then
+                        echo "  ✅ Operation complete!"
+
+                        # Check for error in operation
+                        ERROR=$(jq -r '.error' "$POLL_RESPONSE")
+                        if [ -n "$ERROR" ] && [ "$ERROR" != "null" ]; then
+                            echo "  ❌ Operation failed with error:"
+                            echo "$ERROR" | jq '.'
+                            rm -f "$POLL_RESPONSE"
+                            HTTP_CODE=500
+                            break
+                        fi
+
+                        # Extract video samples from completed operation
+                        # Copy response to main response file for downstream processing
+                        cp "$POLL_RESPONSE" "$RESPONSE_FILE"
+                        rm -f "$POLL_RESPONSE"
+                        break
+                    else
+                        POLL_COUNT=$((POLL_COUNT + 1))
+                        echo "  ⏳ Still processing... (poll $POLL_COUNT/$MAX_POLLS)"
+                    fi
+                else
+                    echo "  ⚠️ Poll failed with HTTP $POLL_HTTP"
+                    POLL_COUNT=$((POLL_COUNT + 1))
+                fi
+
+                rm -f "$POLL_RESPONSE"
+
+                # Increase delay slightly after each poll (exponential backoff)
+                POLL_DELAY=$((POLL_DELAY + 2))
+            done
+
+            if [ $POLL_COUNT -ge $MAX_POLLS ]; then
+                echo "  ❌ Operation timed out after $MAX_POLLS polls"
+                HTTP_CODE=408
+            fi
+        else
+            echo "  ❌ No operation name in response"
+            HTTP_CODE=500
+        fi
+
+        # Extract video samples from completed operation response
+        if [ "$HTTP_CODE" -eq 200 ]; then
+            NUM_SAMPLES=$(jq '.response.predictions | length' "$RESPONSE_FILE" 2>/dev/null || echo "0")
+            echo "  📹 Received $NUM_SAMPLES video samples"
+        else
+            NUM_SAMPLES=0
+        fi
 
         BEST_VIDEO=""
         BEST_SCORE=0
 
-        # Download and evaluate each sample
+        # Download and evaluate each sample (handle long-running response format)
         for i in $(seq 0 $((NUM_SAMPLES - 1))); do
-                VIDEO_B64=$(jq -r ".predictions[$i].videoContent // .predictions[$i].content" "$RESPONSE_FILE")
-                VIDEO_URL=$(jq -r ".predictions[$i].videoUrl // .predictions[$i].url" "$RESPONSE_FILE")
+                VIDEO_B64=$(jq -r ".response.predictions[$i].videoContent // .predictions[$i].videoContent // .response.predictions[$i].content // .predictions[$i].content" "$RESPONSE_FILE")
+                VIDEO_URL=$(jq -r ".response.predictions[$i].videoUrl // .predictions[$i].videoUrl // .response.predictions[$i].url // .predictions[$i].url" "$RESPONSE_FILE")
 
                 TEMP_VIDEO=$(mktemp --suffix=.mp4)
 
@@ -209,7 +287,7 @@ EOF_REQUEST
             if [ -n "$BEST_VIDEO" ] && [ -f "$BEST_VIDEO" ]; then
                 cp "$BEST_VIDEO" "$OUTPUT_FILE"
                 echo "  ✅ Best sample selected and saved to $OUTPUT_FILE"
-                log_vertex_op "Veo" "generate_segment" "veo-2" "$OP_ID" "success" "$HTTP_CODE"
+                log_vertex_op "Veo" "generate_segment" "$VEO_MODEL_ID" "$OP_ID" "success" "$HTTP_CODE"
                 rm -f "$BEST_VIDEO"
             else
                 echo "  ❌ ERROR: No valid video samples received"
@@ -217,7 +295,7 @@ EOF_REQUEST
                 ffmpeg -f lavfi -i "testsrc=duration=${DURATION}:size=1920x1080:rate=24" \
                     -vf "drawtext=text='SEG-${SEG_NUM} FALLBACK':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" \
                     -pix_fmt yuv420p "$OUTPUT_FILE" -y
-                log_vertex_op "Veo" "generate_segment" "veo-2" "$OP_ID" "fallback" "$HTTP_CODE"
+                log_vertex_op "Veo" "generate_segment" "$VEO_MODEL_ID" "$OP_ID" "fallback" "$HTTP_CODE"
             fi
         else
             echo "  ❌ ERROR: Veo API call failed with HTTP $HTTP_CODE"
@@ -230,7 +308,7 @@ EOF_REQUEST
                 -vf "drawtext=text='SEG-${SEG_NUM} FALLBACK':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" \
                 -pix_fmt yuv420p "$OUTPUT_FILE" -y
 
-            log_vertex_op "Veo" "generate_segment" "veo-2" "$OP_ID" "failed" "$HTTP_CODE"
+            log_vertex_op "Veo" "generate_segment" "$VEO_MODEL_ID" "$OP_ID" "failed" "$HTTP_CODE"
         fi
 
     # Cleanup temp files

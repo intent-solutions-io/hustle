@@ -54,18 +54,24 @@ else
 fi
 
 # ============================================
-# 3) CALL VERTEX AI LYRIA API
+# 3) CALL VERTEX AI LYRIA API (TWO 30s CALLS)
 # ============================================
+echo "📞 Calling Vertex AI Lyria API for 60s audio (2x30s calls)..."
 
-    # Prepare request payload
-    REQUEST_FILE=$(mktemp)
-    cat > "$REQUEST_FILE" << 'EOF_REQUEST'
+# Lyria returns 30s per call, so we need 2 calls and crossfade
+TEMP_AUDIO_1=$(mktemp --suffix=_part1.wav)
+TEMP_AUDIO_2=$(mktemp --suffix=_part2.wav)
+
+# First 30s call
+echo "  🎵 Generating first 30s segment..."
+OP_ID_1="lyria-part1-$(date +%s)-${GITHUB_RUN_ID:-local}"
+
+REQUEST_FILE_1=$(mktemp)
+cat > "$REQUEST_FILE_1" << 'EOF_REQUEST'
 {
   "instances": [{
-    "prompt": "Cinematic orchestral documentary score, emotional and powerful, E minor transitioning to G major, suitable for women's sports documentary about NWSL strike and labor negotiations, instrumental only with no vocals, orchestral strings brass and percussion",
-    "duration": 60,
-    "temperature": 0.7,
-    "seed": 42
+    "prompt": "Cinematic orchestral documentary score, emotional and powerful, E minor transitioning to G major, suitable for women's sports documentary about NWSL strike and labor negotiations, instrumental only with no vocals, orchestral strings brass and percussion, first movement",
+    "negative_prompt": "vocals, spoken word, dialogue, singing, voice, narration"
   }],
   "parameters": {
     "sampleCount": 1
@@ -73,75 +79,92 @@ fi
 }
 EOF_REQUEST
 
-    # Call Vertex AI Lyria Music Generation API
-    echo "📞 Calling Vertex AI Lyria API..."
-    OP_ID="lyria-$(date +%s)-${GITHUB_RUN_ID:-local}"
+RESPONSE_FILE_1=$(mktemp)
+HTTP_CODE_1=$(curl -w "%{http_code}" -o "$RESPONSE_FILE_1" -X POST \
+    -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+    -H "Content-Type: application/json" \
+    "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/lyria-002:predict" \
+    -d @"$REQUEST_FILE_1")
 
-    RESPONSE_FILE=$(mktemp)
-    HTTP_CODE=$(curl -w "%{http_code}" -o "$RESPONSE_FILE" -X POST \
-        -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-        -H "Content-Type: application/json" \
-        "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/lyria-music-generation-v1:predict" \
-        -d @"$REQUEST_FILE")
-
-    if [ "$HTTP_CODE" -eq 200 ]; then
-        echo "✅ Lyria API call successful"
-
-        # Extract audio data from response (base64 encoded)
-        # The response format is typically: {"predictions": [{"audioContent": "base64data"}]}
-        AUDIO_B64=$(jq -r '.predictions[0].audioContent // .predictions[0].content' "$RESPONSE_FILE")
-
-        if [ -n "$AUDIO_B64" ] && [ "$AUDIO_B64" != "null" ]; then
-            # Decode base64 to WAV file
-            echo "$AUDIO_B64" | base64 -d > "$OUTPUT_DIR/master_mix.wav"
-            echo "✅ Audio decoded and saved to $OUTPUT_DIR/master_mix.wav"
-
-            # Log the successful operation
-            log_vertex_op "Lyria" "generate_score" "lyria-music-generation-v1" "$OP_ID" "success" "$HTTP_CODE"
-        else
-            echo "⚠️ Warning: No audio content in response, attempting alternative extraction..."
-
-            # Try alternative response format
-            AUDIO_URL=$(jq -r '.predictions[0].audioUrl // .predictions[0].url' "$RESPONSE_FILE")
-            if [ -n "$AUDIO_URL" ] && [ "$AUDIO_URL" != "null" ]; then
-                # Download from GCS URL
-                gsutil cp "$AUDIO_URL" "$OUTPUT_DIR/master_mix.wav"
-                echo "✅ Audio downloaded from $AUDIO_URL"
-                log_vertex_op "Lyria" "generate_score" "lyria-music-generation-v1" "$OP_ID" "success" "$HTTP_CODE"
-            else
-                echo "❌ ERROR: Could not extract audio from response"
-                echo "Response content:"
-                cat "$RESPONSE_FILE" | jq '.'
-
-                # Fallback to test tone
-                echo "📝 Falling back to test tone..."
-                ffmpeg -f lavfi -i "sine=frequency=440:duration=60.04" \
-                    -af "volume=0.1,afade=t=in:st=0:d=2,afade=t=out:st=58:d=2" \
-                    -ar 48000 -ac 2 \
-                    "$OUTPUT_DIR/master_mix.wav" -y
-
-                log_vertex_op "Lyria" "generate_score" "lyria-music-generation-v1" "$OP_ID" "fallback" "$HTTP_CODE"
-            fi
-        fi
+if [ "$HTTP_CODE_1" -eq 200 ]; then
+    echo "  ✅ First 30s call successful"
+    AUDIO_B64_1=$(jq -r '.predictions[0].audioContent // .predictions[0].content' "$RESPONSE_FILE_1")
+    if [ -n "$AUDIO_B64_1" ] && [ "$AUDIO_B64_1" != "null" ]; then
+        echo "$AUDIO_B64_1" | base64 -d > "$TEMP_AUDIO_1"
+        log_vertex_op "Lyria" "generate_score_part1" "lyria-002" "$OP_ID_1" "success" "$HTTP_CODE_1"
     else
-        echo "❌ ERROR: Lyria API call failed with HTTP $HTTP_CODE"
-        echo "Response:"
-        cat "$RESPONSE_FILE" | jq '.' || cat "$RESPONSE_FILE"
-
-        # Fallback to test tone
-        echo "📝 Falling back to test tone for pipeline continuity..."
-        ffmpeg -f lavfi -i "sine=frequency=440:duration=60.04" \
-            -af "volume=0.1,afade=t=in:st=0:d=2,afade=t=out:st=58:d=2" \
-            -ar 48000 -ac 2 \
-            "$OUTPUT_DIR/master_mix.wav" -y
-
-        log_vertex_op "Lyria" "generate_score" "lyria-music-generation-v1" "$OP_ID" "failed" "$HTTP_CODE"
+        echo "  ❌ No audio content in first response"
+        HTTP_CODE_1=500
     fi
+else
+    echo "  ❌ First Lyria call failed with HTTP $HTTP_CODE_1"
+    cat "$RESPONSE_FILE_1" | jq '.' || cat "$RESPONSE_FILE_1"
+fi
+
+# Second 30s call
+echo "  🎵 Generating second 30s segment..."
+OP_ID_2="lyria-part2-$(date +%s)-${GITHUB_RUN_ID:-local}"
+
+REQUEST_FILE_2=$(mktemp)
+cat > "$REQUEST_FILE_2" << 'EOF_REQUEST'
+{
+  "instances": [{
+    "prompt": "Cinematic orchestral documentary score continuation, emotional and powerful, building to climax, suitable for women's sports documentary about NWSL strike and labor negotiations, instrumental only with no vocals, orchestral strings brass and percussion, second movement",
+    "negative_prompt": "vocals, spoken word, dialogue, singing, voice, narration"
+  }],
+  "parameters": {
+    "sampleCount": 1
+  }
+}
+EOF_REQUEST
+
+RESPONSE_FILE_2=$(mktemp)
+HTTP_CODE_2=$(curl -w "%{http_code}" -o "$RESPONSE_FILE_2" -X POST \
+    -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+    -H "Content-Type: application/json" \
+    "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/lyria-002:predict" \
+    -d @"$REQUEST_FILE_2")
+
+if [ "$HTTP_CODE_2" -eq 200 ]; then
+    echo "  ✅ Second 30s call successful"
+    AUDIO_B64_2=$(jq -r '.predictions[0].audioContent // .predictions[0].content' "$RESPONSE_FILE_2")
+    if [ -n "$AUDIO_B64_2" ] && [ "$AUDIO_B64_2" != "null" ]; then
+        echo "$AUDIO_B64_2" | base64 -d > "$TEMP_AUDIO_2"
+        log_vertex_op "Lyria" "generate_score_part2" "lyria-002" "$OP_ID_2" "success" "$HTTP_CODE_2"
+    else
+        echo "  ❌ No audio content in second response"
+        HTTP_CODE_2=500
+    fi
+else
+    echo "  ❌ Second Lyria call failed with HTTP $HTTP_CODE_2"
+    cat "$RESPONSE_FILE_2" | jq '.' || cat "$RESPONSE_FILE_2"
+fi
+
+# Crossfade and concatenate if both succeeded
+if [ "$HTTP_CODE_1" -eq 200 ] && [ "$HTTP_CODE_2" -eq 200 ] && [ -f "$TEMP_AUDIO_1" ] && [ -f "$TEMP_AUDIO_2" ]; then
+    echo "  🎚️ Crossfading at 28-30s and concatenating to 60.04s..."
+
+    # Crossfade 2s at the join (28-30s of first clip)
+    ffmpeg -i "$TEMP_AUDIO_1" -i "$TEMP_AUDIO_2" \
+        -filter_complex "[0:a][1:a]acrossfade=d=2:c1=tri:c2=tri" \
+        -t 60.04 \
+        "$OUTPUT_DIR/master_mix.wav" -y
+
+    echo "  ✅ 60.04s master audio created with crossfade"
 
     # Cleanup temp files
-    rm -f "$REQUEST_FILE" "$RESPONSE_FILE"
+    rm -f "$TEMP_AUDIO_1" "$TEMP_AUDIO_2" "$REQUEST_FILE_1" "$REQUEST_FILE_2" "$RESPONSE_FILE_1" "$RESPONSE_FILE_2"
 
-    echo "✅ Lyria render step complete"
+    HTTP_CODE=200
+else
+    echo "  ⚠️ One or both Lyria calls failed, cannot crossfade"
+    HTTP_CODE=$HTTP_CODE_1
+
+    # Cleanup
+    rm -f "$TEMP_AUDIO_1" "$TEMP_AUDIO_2" "$REQUEST_FILE_1" "$REQUEST_FILE_2" "$RESPONSE_FILE_1" "$RESPONSE_FILE_2"
+fi
+
+echo "✅ Lyria render step complete"
 
 # ============================================
 # 4) GRACEFUL FALLBACK - Only if output missing
