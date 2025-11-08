@@ -1,39 +1,25 @@
 #!/usr/bin/env bash
-# veo_render.sh - Phase 2: Load prompts from canon, fail fast on errors
+# veo_render.sh - Generate video segments with Vertex AI Veo
 set -euo pipefail
 
-# Source dependencies and set defaults
+# Enforce working directory
+[[ -d 050-scripts ]] || { echo "[FATAL] run from repo root (nwsl)"; exit 1; }
+
+# Source dependencies
 source ./gate.sh
 source 050-scripts/_lro.sh
+
+# Set DOCS_DIR
 : "${DOCS_DIR:=./docs}"
 
-echo "🎬 Veo Render - Video Segments (Phase 2)"
-echo "========================================"
-
-# Set defaults
-OUTPUT_DIR="030-video/shots"
-DRY_RUN="${DRY_RUN:-false}"
-MODEL_ID="${MODEL_ID:-veo-3.0-generate-001}"
-PROJECT_ID="${PROJECT_ID:-hustleapp-production}"
-
-# Create output directory
-mkdir -p "$OUTPUT_DIR"
-
-echo "Using Veo model: $MODEL_ID"
+echo "🎬 Veo Render - Video Segments"
+echo "=============================="
 echo "Canon directory: $DOCS_DIR"
 
-# Define segments with durations
-declare -a SEGMENT_NUMS=("01" "02" "03" "04" "05" "06" "07" "08")
-declare -a SEGMENT_DURS=("8" "8" "8" "8" "8" "8" "8" "4")
-
-# ============================================
-# CANON PATH FUNCTIONS
-# ============================================
+# Canon path functions - segment N maps to file %03d = (3+N)
 canon_seg_path() {
     local n="$1"
-    # Convert 01-08 to 004-011 range
-    local file_num=$((3 + ${n#0}))
-    printf "%s/%03d-DR-REFF-veo-seg-%02d.md" "${DOCS_DIR}" "$file_num" "${n#0}"
+    printf "%s/%03d-DR-REFF-veo-seg-%02d.md" "${DOCS_DIR}" "$((3+n))" "$n"
 }
 
 load_prompt() {
@@ -41,27 +27,20 @@ load_prompt() {
     local p
     p="$(canon_seg_path "$n")"
 
-    if [[ ! -f "$p" ]]; then
-        echo "[FATAL] Missing canon file: $p" >&2
-        exit 1
-    fi
+    [[ -f "$p" ]] || { echo "[FATAL] missing canon: $p" >&2; exit 1; }
 
     echo "  Loading prompt from: $p" >&2
 
-    # Extract prompt content from markdown (skip frontmatter and metadata)
-    # Look for content between frontmatter and section markers
+    # Extract prompt content after --- delimiter, before Conditioning:
     awk '
         BEGIN { in_content=0; content="" }
         /^---$/ {
-            if (NR == 1) { in_frontmatter=1; next }
-            if (in_frontmatter) { in_frontmatter=0; in_content=1; next }
+            if (!in_content) { in_content=1; next }
         }
         in_content && NF > 0 {
-            # Stop at certain markers
-            if (/^(Conditioning:|Aspect:|Audio:|Repro:|NotesForPost:|## Text Overlays)/) {
+            if (/^(Conditioning:|Aspect:|Audio:|Repro:|NotesForPost:)/) {
                 exit
             }
-            # Accumulate content
             if (content != "") content = content " "
             content = content $0
         }
@@ -69,42 +48,26 @@ load_prompt() {
     ' "$p" | sed 's/  */ /g' | sed 's/^ *//;s/ *$//'
 }
 
-# ============================================
-# DRY RUN CHECK
-# ============================================
-if [ "${DRY_RUN}" = "true" ]; then
-    echo "🔧 DRY RUN MODE - Creating placeholder videos"
+# Model configuration
+: "${PROJECT_ID:?missing}"
+: "${REGION:=us-central1}"
+: "${DRY_RUN:=false}"
 
-    for i in "${!SEGMENT_NUMS[@]}"; do
-        SEG_NUM="${SEGMENT_NUMS[$i]}"
-        DURATION="${SEGMENT_DURS[$i]}"
-        OUTPUT_FILE="$OUTPUT_DIR/SEG-${SEG_NUM}_best.mp4"
+MODEL_ID="veo-3.0-generate-001"
+VEO_MODEL="projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/${MODEL_ID}"
+OUTPUT_DIR="030-video/shots"
 
-        echo "  Creating placeholder for SEG-${SEG_NUM} (${DURATION}s)..."
-        ffmpeg -f lavfi -i "color=c=black:s=1920x1080:d=$DURATION" \
-            -r 24 \
-            -vf "drawtext=text='SEG-${SEG_NUM} PLACEHOLDER':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" \
-            "$OUTPUT_FILE" -y
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
 
-        log_vertex_op "Veo" "generate_segment" "dry-run" "dry-run-seg-${SEG_NUM}"
-    done
-
-    echo "✅ All placeholder videos created"
-    exit 0
-fi
-
-# ============================================
-# PRODUCTION MODE - VEO API FUNCTIONS
-# ============================================
-echo "🎬 PRODUCTION MODE - Generating segments with Vertex AI Veo..."
-
+# Veo API functions
 submit_veo() {
     local prompt="$1"
     local dur="$2"
     local seg_num="$3"
 
-    echo "  📤 Submitting to Veo API..."
-    echo "  Prompt length: ${#prompt} characters"
+    echo "  📤 Submitting to Veo API..." >&2
+    echo "  Prompt length: ${#prompt} characters" >&2
 
     # Build request body
     local body
@@ -133,7 +96,7 @@ submit_veo() {
         -X POST \
         -H "Authorization: Bearer $(gcloud auth print-access-token)" \
         -H "Content-Type: application/json" \
-        "https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models/${MODEL_ID}:predictLongRunning" \
+        "https://${REGION}-aiplatform.googleapis.com/v1/${VEO_MODEL}:predictLongRunning" \
         -d "$body")
 
     if [[ "$http_code" != "200" ]]; then
@@ -186,9 +149,9 @@ poll_veo() {
     while (( t < max_time )); do
         local r
         r=$(curl -sS -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-            "https://us-central1-aiplatform.googleapis.com/v1/${op}")
+            "https://${REGION}-aiplatform.googleapis.com/v1/${op}")
 
-        if [[ "$(jq -r '.done // false' <<<"$r")" == "true" ]]; then
+        if [[ "$(jq -r '.done // false' <<<""$r")" == "true" ]]; then
             echo "$r"
             return 0
         fi
@@ -207,8 +170,9 @@ poll_veo() {
 }
 
 gen_segment() {
-    local seg_num="$1"
+    local n="$1"
     local dur="$2"
+    local seg_num=$(printf %02d "$n")
     local out="$OUTPUT_DIR/SEG-${seg_num}_best.mp4"
 
     echo ""
@@ -216,7 +180,7 @@ gen_segment() {
 
     # Load prompt from canon
     local prompt
-    prompt="$(load_prompt "$seg_num")"
+    prompt="$(load_prompt "$n")"
 
     if [[ -z "$prompt" ]]; then
         echo "  ❌ Empty prompt for SEG-${seg_num}" >&2
@@ -238,7 +202,7 @@ gen_segment() {
     }
 
     # Extract GCS URI
-    uri="$(jq -r '.response.gcsOutputUri // .response.predictions[0].gcsUri // .predictions[0].gcsUri // empty' <<<"$res")"
+    uri="$(jq -r '.response.gcsOutputUri // .response.predictions[0].gcsUri // .predictions[0].gcsUri // empty' <<<""$res")"
 
     if [[ -z "$uri" ]]; then
         echo "  ❌ No GCS URI in response for SEG-${seg_num}" >&2
@@ -271,20 +235,50 @@ gen_segment() {
     log_vertex_op "Veo" "generate_segment" "$MODEL_ID" "veo-seg-${seg_num}-$(date +%s)" "success" "200"
 }
 
-# ============================================
-# MAIN EXECUTION
-# ============================================
+# DRY RUN CHECK
+if [[ "$DRY_RUN" == "true" ]]; then
+    echo "🔧 DRY RUN MODE - Creating placeholder videos"
+
+    for n in 1 2 3 4 5 6 7; do
+        SEG_NUM=$(printf %02d "$n")
+        OUTPUT_FILE="$OUTPUT_DIR/SEG-${SEG_NUM}_best.mp4"
+
+        echo "  Creating placeholder for SEG-${SEG_NUM} (8s)..."
+        ffmpeg -f lavfi -i "color=c=black:s=1920x1080:d=8" \
+            -r 24 \
+            -vf "drawtext=text='SEG-${SEG_NUM} PLACEHOLDER':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" \
+            "$OUTPUT_FILE" -y 2>/dev/null
+
+        log_vertex_op "Veo" "generate_segment" "dry-run" "dry-run-seg-${SEG_NUM}"
+    done
+
+    # SEG-08 (4s)
+    echo "  Creating placeholder for SEG-08 (4s)..."
+    ffmpeg -f lavfi -i "color=c=black:s=1920x1080:d=4" \
+        -r 24 \
+        -vf "drawtext=text='SEG-08 PLACEHOLDER':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" \
+        "$OUTPUT_DIR/SEG-08_best.mp4" -y 2>/dev/null
+
+    log_vertex_op "Veo" "generate_segment" "dry-run" "dry-run-seg-08"
+
+    echo "✅ All placeholder videos created"
+    exit 0
+fi
+
+# PRODUCTION MODE
+echo "🎬 PRODUCTION MODE - Generating segments with Vertex AI Veo..."
+
 main() {
     echo ""
     echo "🎬 Generating all segments..."
 
     # Generate segments 1-7 (8 seconds each)
     for n in 1 2 3 4 5 6 7; do
-        gen_segment "$(printf %02d "$n")" 8
+        gen_segment "$n" 8
     done
 
     # Generate segment 8 (4 seconds)
-    gen_segment "08" 4
+    gen_segment 8 4
 
     echo ""
     echo "✅ All segments generated successfully!"

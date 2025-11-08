@@ -96,6 +96,51 @@ jobs:
           echo "✅ Import complete"
           ls -la docs/imported/
 
+      - name: Verify canon files
+        run: |
+          echo "🔍 Verifying canon files for Veo segments..."
+
+          # Create docs symlink to nwsl/000-docs
+          cd nwsl
+          if [ -d "000-docs" ]; then
+            ln -sf 000-docs docs
+            echo "✅ Created symlink: docs → 000-docs"
+          fi
+
+          # Check for required canon files
+          CANON_OK=true
+          for i in {01..08}; do
+            FILE_NUM=$((10#$i + 3))
+            CANON_FILE=$(printf "docs/%03d-DR-REFF-veo-seg-%02d.md" $FILE_NUM $i)
+
+            if [ -f "$CANON_FILE" ]; then
+              echo "✅ Found: $CANON_FILE"
+              # Show first few lines for verification
+              head -3 "$CANON_FILE"
+            else
+              echo "❌ Missing: $CANON_FILE"
+              CANON_OK=false
+            fi
+          done
+
+          # Also check overlay canon
+          if [ -f "000-docs/6767-DR-REFF-overlays-16x9.md" ]; then
+            echo "✅ Found overlay canon: 000-docs/6767-DR-REFF-overlays-16x9.md"
+          else
+            echo "❌ Missing overlay canon"
+            CANON_OK=false
+          fi
+
+          if [ "$CANON_OK" = false ]; then
+            echo "❌ Canon files missing - cannot proceed"
+            echo "Listing all docs:"
+            ls -la 000-docs/ || echo "000-docs not found"
+            ls -la docs/ || echo "docs not found"
+            exit 1
+          fi
+
+          echo "✅ All canon files verified"
+
       - name: Install ffmpeg
         if: always()
         run: |
