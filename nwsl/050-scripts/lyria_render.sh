@@ -55,31 +55,28 @@ else
 fi
 
 # ============================================
-# 3) SINGLE SYNCHRONOUS API CALL (sample_count=2)
+# 3) TWO SYNCHRONOUS API CALLS (Lyria returns 1 clip per call)
 # ============================================
 echo ""
-echo "📞 Calling Vertex AI Lyria API with sample_count=2 (sync predict)..."
+echo "📞 Making TWO Lyria API calls for 60s audio..."
 
 OP_ID="lyria-sync-$(date +%s)-${GITHUB_RUN_ID:-local}"
-
-# Build request with documented schema
-REQUEST_BODY='{
-  "instances": [{
-    "prompt": "Cinematic orchestral documentary score, emotional and powerful, E minor transitioning to G major, suitable for womens sports documentary about NWSL strike and labor negotiations, instrumental only with no vocals, orchestral strings brass and percussion, 60 second duration split into 8 musical cues",
-    "negative_prompt": "vocals, spoken word, dialogue, singing, voice, narration"
-  }],
-  "parameters": {
-    "sample_count": 2
-  }
-}'
 
 # Lyria endpoint (synchronous predict)
 LYRIA_ENDPOINT="https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models/${MODEL_ID}:predict"
 
-# Make synchronous API call with error capture
-echo "  📤 Submitting to Vertex AI Lyria (synchronous)..."
-RESPONSE_FILE=$(mktemp)
-HTTP_CODE=$(curl -sS -w "%{http_code}" -o "$RESPONSE_FILE" \
+# Shared request body (no sample_count - Lyria returns 1 clip per call)
+REQUEST_BODY='{
+  "instances": [{
+    "prompt": "Cinematic orchestral documentary score, emotional and powerful, E minor transitioning to G major, suitable for womens sports documentary about NWSL strike and labor negotiations, instrumental only with no vocals, orchestral strings brass and percussion, 60 second duration split into 8 musical cues",
+    "negative_prompt": "vocals, spoken word, dialogue, singing, voice, narration"
+  }]
+}'
+
+# ==== CALL 1 ====
+echo "  📤 Call 1: Generating first 30s clip..."
+RESPONSE_FILE_1=$(mktemp)
+HTTP_CODE_1=$(curl -sS -w "%{http_code}" -o "$RESPONSE_FILE_1" \
     --connect-timeout 10 \
     --max-time 120 \
     -X POST \
@@ -88,58 +85,65 @@ HTTP_CODE=$(curl -sS -w "%{http_code}" -o "$RESPONSE_FILE" \
     "$LYRIA_ENDPOINT" \
     -d "$REQUEST_BODY")
 
-# Check HTTP status
-if [ "$HTTP_CODE" -ne 200 ]; then
-    echo "  ❌ Lyria API returned HTTP $HTTP_CODE"
-    echo "  📄 Error response:"
-    jq '.' "$RESPONSE_FILE" 2>/dev/null || cat "$RESPONSE_FILE"
-    rm -f "$RESPONSE_FILE"
+if [ "$HTTP_CODE_1" -ne 200 ]; then
+    echo "  ❌ Call 1 failed: HTTP $HTTP_CODE_1"
+    jq '.' "$RESPONSE_FILE_1" 2>/dev/null || cat "$RESPONSE_FILE_1"
+    rm -f "$RESPONSE_FILE_1"
     exit 1
 fi
+echo "  ✅ Call 1 successful (HTTP 200)"
 
-echo "  ✅ Lyria API call successful (HTTP 200)"
+# ==== CALL 2 ====
+echo "  📤 Call 2: Generating second 30s clip..."
+RESPONSE_FILE_2=$(mktemp)
+HTTP_CODE_2=$(curl -sS -w "%{http_code}" -o "$RESPONSE_FILE_2" \
+    --connect-timeout 10 \
+    --max-time 120 \
+    -X POST \
+    -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+    -H "Content-Type: application/json" \
+    "$LYRIA_ENDPOINT" \
+    -d "$REQUEST_BODY")
 
-# ============================================
-# 4) EXTRACT INLINE BASE64 AUDIO
-# ============================================
-echo "  📦 Extracting audio from response..."
-
-# Get number of predictions
-NUM_PREDICTIONS=$(jq '.predictions | length' "$RESPONSE_FILE")
-echo "  📹 Received $NUM_PREDICTIONS audio clips"
-
-if [ "$NUM_PREDICTIONS" -lt 2 ]; then
-    echo "  ❌ Expected 2 clips, got $NUM_PREDICTIONS"
-    jq '.' "$RESPONSE_FILE"
-    rm -f "$RESPONSE_FILE"
+if [ "$HTTP_CODE_2" -ne 200 ]; then
+    echo "  ❌ Call 2 failed: HTTP $HTTP_CODE_2"
+    jq '.' "$RESPONSE_FILE_2" 2>/dev/null || cat "$RESPONSE_FILE_2"
+    rm -f "$RESPONSE_FILE_1" "$RESPONSE_FILE_2"
     exit 1
 fi
+echo "  ✅ Call 2 successful (HTTP 200)"
 
-# Extract and decode first two clips
+# ============================================
+# 4) EXTRACT INLINE BASE64 AUDIO FROM BOTH RESPONSES
+# ============================================
+echo "  📦 Extracting audio from both responses..."
+
 TEMP_AUDIO_1=$(mktemp --suffix=_part1.wav)
 TEMP_AUDIO_2=$(mktemp --suffix=_part2.wav)
 
+# Extract clip 1
 echo "  📥 Decoding clip 1..."
-AUDIO_B64_1=$(jq -r '.predictions[0].audioContent // .predictions[0].bytesBase64Encoded // empty' "$RESPONSE_FILE")
+AUDIO_B64_1=$(jq -r '.predictions[0].audioContent // .predictions[0].bytesBase64Encoded // empty' "$RESPONSE_FILE_1")
 if [ -z "$AUDIO_B64_1" ]; then
-    echo "  ❌ No audioContent in predictions[0]"
-    jq '.predictions[0]' "$RESPONSE_FILE"
-    rm -f "$RESPONSE_FILE" "$TEMP_AUDIO_1" "$TEMP_AUDIO_2"
+    echo "  ❌ No audioContent in response 1"
+    jq '.predictions[0]' "$RESPONSE_FILE_1"
+    rm -f "$RESPONSE_FILE_1" "$RESPONSE_FILE_2" "$TEMP_AUDIO_1" "$TEMP_AUDIO_2"
     exit 1
 fi
 echo "$AUDIO_B64_1" | base64 -d > "$TEMP_AUDIO_1"
 
+# Extract clip 2
 echo "  📥 Decoding clip 2..."
-AUDIO_B64_2=$(jq -r '.predictions[1].audioContent // .predictions[1].bytesBase64Encoded // empty' "$RESPONSE_FILE")
+AUDIO_B64_2=$(jq -r '.predictions[0].audioContent // .predictions[0].bytesBase64Encoded // empty' "$RESPONSE_FILE_2")
 if [ -z "$AUDIO_B64_2" ]; then
-    echo "  ❌ No audioContent in predictions[1]"
-    jq '.predictions[1]' "$RESPONSE_FILE"
-    rm -f "$RESPONSE_FILE" "$TEMP_AUDIO_1" "$TEMP_AUDIO_2"
+    echo "  ❌ No audioContent in response 2"
+    jq '.predictions[0]' "$RESPONSE_FILE_2"
+    rm -f "$RESPONSE_FILE_1" "$RESPONSE_FILE_2" "$TEMP_AUDIO_1" "$TEMP_AUDIO_2"
     exit 1
 fi
 echo "$AUDIO_B64_2" | base64 -d > "$TEMP_AUDIO_2"
 
-rm -f "$RESPONSE_FILE"
+rm -f "$RESPONSE_FILE_1" "$RESPONSE_FILE_2"
 
 # Get durations
 DUR_1=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$TEMP_AUDIO_1")
@@ -221,10 +225,10 @@ cat > "docs/lyria_render_report.md" << EOF
 - Implementation: Two ~32.8s clips with 2s crossfade
 
 ## API Response
-- Clips Received: 2
+- API Calls Made: 2 (Lyria returns 1 clip per call)
 - Clip 1 Duration: ${DUR_1}s
 - Clip 2 Duration: ${DUR_2}s
-- HTTP Status: 200
+- HTTP Status: 200 (both calls)
 
 ## Output Files
 - Master: $OUTPUT_DIR/master_mix.wav ($(ls -lh "$OUTPUT_DIR/master_mix.wav" 2>/dev/null | awk '{print $5}' || echo "N/A"))
