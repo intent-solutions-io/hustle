@@ -8,8 +8,13 @@ on:
         default: true
         type: boolean
 
+concurrency:
+  group: assemble-production
+  cancel-in-progress: true
+
 jobs:
   run:
+    timeout-minutes: 120
     permissions:
       id-token: write
       contents: read
@@ -94,7 +99,7 @@ jobs:
         if: always()
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg jq
 
       - name: Generate placeholder media (if dry run)
         if: ${{ inputs.dry_run }}
@@ -135,15 +140,15 @@ jobs:
 
       - name: Lyria render (instrumental only)
         if: ${{ !inputs.dry_run }}
-        run: |
-          echo "🎵 Rendering Lyria score..."
-          cd nwsl && bash -eux 050-scripts/lyria_render.sh || echo "⚠️ Lyria render script not found - skipping"
+        timeout-minutes: 20
+        working-directory: nwsl
+        run: bash -eux 050-scripts/lyria_render.sh
 
       - name: Veo renders
         if: ${{ !inputs.dry_run }}
-        run: |
-          echo "🎬 Rendering Veo segments..."
-          cd nwsl && bash -eux 050-scripts/veo_render.sh || echo "⚠️ Veo render script not found - skipping"
+        timeout-minutes: 60
+        working-directory: nwsl
+        run: bash -eux 050-scripts/veo_render.sh
 
       - name: Assembly preflight check
         run: |
