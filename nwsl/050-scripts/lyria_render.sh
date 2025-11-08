@@ -87,7 +87,33 @@ HTTP_CODE_1=$(curl -sS -w "%{http_code}" -o "$RESPONSE_FILE_1" \
 
 if [ "$HTTP_CODE_1" -ne 200 ]; then
     echo "  ❌ Call 1 failed: HTTP $HTTP_CODE_1"
+    echo "  📄 Error response:"
     jq '.' "$RESPONSE_FILE_1" 2>/dev/null || cat "$RESPONSE_FILE_1"
+
+    # Write error documentation
+    mkdir -p docs
+    ERROR_DOC="docs/$(date +%s)-LS-STAT-lyria-api-error.md"
+    cat > "$ERROR_DOC" << EOF
+# Lyria API Error Report
+**Date:** $(date +%Y-%m-%d\ %H:%M:%S)
+**Run ID:** ${GITHUB_RUN_ID:-local}
+**Call:** 1 of 2
+**HTTP Code:** $HTTP_CODE_1
+
+## Request
+\`\`\`json
+$REQUEST_BODY
+\`\`\`
+
+## Error Response
+\`\`\`json
+$(jq '.' "$RESPONSE_FILE_1" 2>/dev/null || cat "$RESPONSE_FILE_1")
+\`\`\`
+
+## Status: FATAL - Lyria audio generation failed
+EOF
+    echo "  📝 Error documented in $ERROR_DOC"
+
     rm -f "$RESPONSE_FILE_1"
     exit 1
 fi
@@ -107,7 +133,33 @@ HTTP_CODE_2=$(curl -sS -w "%{http_code}" -o "$RESPONSE_FILE_2" \
 
 if [ "$HTTP_CODE_2" -ne 200 ]; then
     echo "  ❌ Call 2 failed: HTTP $HTTP_CODE_2"
+    echo "  📄 Error response:"
     jq '.' "$RESPONSE_FILE_2" 2>/dev/null || cat "$RESPONSE_FILE_2"
+
+    # Write error documentation
+    mkdir -p docs
+    ERROR_DOC="docs/$(date +%s)-LS-STAT-lyria-api-error.md"
+    cat > "$ERROR_DOC" << EOF
+# Lyria API Error Report
+**Date:** $(date +%Y-%m-%d\ %H:%M:%S)
+**Run ID:** ${GITHUB_RUN_ID:-local}
+**Call:** 2 of 2
+**HTTP Code:** $HTTP_CODE_2
+
+## Request
+\`\`\`json
+$REQUEST_BODY
+\`\`\`
+
+## Error Response
+\`\`\`json
+$(jq '.' "$RESPONSE_FILE_2" 2>/dev/null || cat "$RESPONSE_FILE_2")
+\`\`\`
+
+## Status: FATAL - Lyria audio generation failed
+EOF
+    echo "  📝 Error documented in $ERROR_DOC"
+
     rm -f "$RESPONSE_FILE_1" "$RESPONSE_FILE_2"
     exit 1
 fi
