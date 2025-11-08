@@ -1,5 +1,5 @@
 #!/bin/bash
-# veo_render.sh - Generate video segments using Vertex AI Veo 3.1
+# veo_render.sh - Generate video segments using Vertex AI Veo 2
 # Part of HUSTLE repo - pulls specs from imported NWSL docs
 
 set -euo pipefail
@@ -7,13 +7,14 @@ set -euo pipefail
 # Source the gate
 source ./gate.sh
 
-echo "🎬 Veo 3.1 Render - Video Segments"
-echo "==================================="
+echo "🎬 Veo 2 Render - Video Segments"
+echo "================================"
 
 # Set defaults
 OUTPUT_DIR="030-video/shots"
 SPECS_DIR="docs/imported"
 NWSL_SPECS="deps/nwsl/docs"
+DRY_RUN="${DRY_RUN:-false}"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -65,8 +66,10 @@ for SEG_NUM in 01 02 03 04 05 06 07 08; do
     echo "  Duration: ${DURATION}s"
     echo "  Scene: $DESCRIPTION"
 
-    # Check if we're in dry run mode
-    if [ "${DRY_RUN:-false}" = "true" ]; then
+    # ============================================
+    # 1) DRY RUN CHECK FIRST (per segment)
+    # ============================================
+    if [ "${DRY_RUN}" = "true" ]; then
         echo "  🔧 DRY RUN MODE - Creating placeholder"
 
         # Create placeholder video with scene description
@@ -76,39 +79,43 @@ for SEG_NUM in 01 02 03 04 05 06 07 08; do
             "$OUTPUT_FILE" -y
 
         # Log the operation
-        log_vertex_op "Veo" "generate_segment" "veo-3.1-latest" "dry-run-seg-${SEG_NUM}"
+        log_vertex_op "Veo" "generate_segment" "veo-2" "dry-run-seg-${SEG_NUM}"
 
         echo "  ✅ Placeholder created"
+        continue  # Skip to next segment
+    fi
 
+    # ============================================
+    # 2) PRODUCTION MODE - CALL VERTEX AI VEO API
+    # ============================================
+    echo "  🎨 PRODUCTION MODE - Generating with Vertex AI Veo..."
+
+    # Find reference image for this segment (optional)
+    REF_IMAGE=""
+    REF_DIR="001-assets/refs/imagen/SEG-${SEG_NUM}"
+    if [ -d "$REF_DIR" ]; then
+        # Find key reference image
+        REF_IMAGE=$(find "$REF_DIR" -name "*key*.png" -o -name "*chosen*.png" | head -1)
+        if [ -z "$REF_IMAGE" ]; then
+            # Fallback to any PNG in the directory
+            REF_IMAGE=$(find "$REF_DIR" -name "*.png" | head -1)
+        fi
+    fi
+
+    if [ -n "$REF_IMAGE" ] && [ -f "$REF_IMAGE" ]; then
+        echo "  📸 Using reference image: $REF_IMAGE"
+        REF_IMAGE_B64=$(base64 -w 0 "$REF_IMAGE")
+        REF_STRENGTH=0.65
     else
-        echo "  🎨 Generating with Vertex AI Veo..."
+        echo "  ⚠️ No reference image found for SEG-${SEG_NUM}, generating without reference"
+        REF_IMAGE_B64=""
+        REF_STRENGTH=0
+    fi
 
-        # Find reference image for this segment
-        REF_IMAGE=""
-        REF_DIR="001-assets/refs/imagen/SEG-${SEG_NUM}"
-        if [ -d "$REF_DIR" ]; then
-            # Find key reference image
-            REF_IMAGE=$(find "$REF_DIR" -name "*key*.png" -o -name "*chosen*.png" | head -1)
-            if [ -z "$REF_IMAGE" ]; then
-                # Fallback to any PNG in the directory
-                REF_IMAGE=$(find "$REF_DIR" -name "*.png" | head -1)
-            fi
-        fi
-
-        if [ -n "$REF_IMAGE" ] && [ -f "$REF_IMAGE" ]; then
-            echo "  📸 Using reference image: $REF_IMAGE"
-            REF_IMAGE_B64=$(base64 -w 0 "$REF_IMAGE")
-            REF_STRENGTH=0.65
-        else
-            echo "  ⚠️ No reference image found for SEG-${SEG_NUM}, generating without reference"
-            REF_IMAGE_B64=""
-            REF_STRENGTH=0
-        fi
-
-        # Prepare request payload
-        REQUEST_FILE=$(mktemp)
-        if [ -n "$REF_IMAGE_B64" ]; then
-            cat > "$REQUEST_FILE" << EOF_REQUEST
+    # Prepare request payload
+    REQUEST_FILE=$(mktemp)
+    if [ -n "$REF_IMAGE_B64" ]; then
+        cat > "$REQUEST_FILE" << EOF_REQUEST
 {
   "instances": [{
     "prompt": "Documentary footage: ${DESCRIPTION}, cinematic quality, observational style, NO people speaking, NO dialogue, NO narration, visual storytelling only",
@@ -125,8 +132,8 @@ for SEG_NUM in 01 02 03 04 05 06 07 08; do
   }
 }
 EOF_REQUEST
-        else
-            cat > "$REQUEST_FILE" << EOF_REQUEST
+    else
+        cat > "$REQUEST_FILE" << EOF_REQUEST
 {
   "instances": [{
     "prompt": "Documentary footage: ${DESCRIPTION}, cinematic quality, observational style, NO people speaking, NO dialogue, NO narration, visual storytelling only",
@@ -139,31 +146,31 @@ EOF_REQUEST
   }
 }
 EOF_REQUEST
-        fi
+    fi
 
-        # Call Vertex AI Veo Video Generation API
-        echo "  📞 Calling Vertex AI Veo API..."
-        OP_ID="veo-seg-${SEG_NUM}-$(date +%s)-${GITHUB_RUN_ID:-local}"
+    # Call Vertex AI Veo Video Generation API
+    echo "  📞 Calling Vertex AI Veo API..."
+    OP_ID="veo-seg-${SEG_NUM}-$(date +%s)-${GITHUB_RUN_ID:-local}"
 
-        RESPONSE_FILE=$(mktemp)
-        HTTP_CODE=$(curl -w "%{http_code}" -o "$RESPONSE_FILE" -X POST \
-            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-            -H "Content-Type: application/json" \
-            "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/veo-2:predict" \
-            -d @"$REQUEST_FILE")
+    RESPONSE_FILE=$(mktemp)
+    HTTP_CODE=$(curl -w "%{http_code}" -o "$RESPONSE_FILE" -X POST \
+        -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+        -H "Content-Type: application/json" \
+        "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/veo-2:predict" \
+        -d @"$REQUEST_FILE")
 
-        if [ "$HTTP_CODE" -eq 200 ]; then
-            echo "  ✅ Veo API call successful"
+    if [ "$HTTP_CODE" -eq 200 ]; then
+        echo "  ✅ Veo API call successful"
 
-            # Extract video samples from response
-            NUM_SAMPLES=$(jq '.predictions | length' "$RESPONSE_FILE")
-            echo "  📹 Received $NUM_SAMPLES video samples"
+        # Extract video samples from response
+        NUM_SAMPLES=$(jq '.predictions | length' "$RESPONSE_FILE")
+        echo "  📹 Received $NUM_SAMPLES video samples"
 
-            BEST_VIDEO=""
-            BEST_SCORE=0
+        BEST_VIDEO=""
+        BEST_SCORE=0
 
-            # Download and evaluate each sample
-            for i in $(seq 0 $((NUM_SAMPLES - 1))); do
+        # Download and evaluate each sample
+        for i in $(seq 0 $((NUM_SAMPLES - 1))); do
                 VIDEO_B64=$(jq -r ".predictions[$i].videoContent // .predictions[$i].content" "$RESPONSE_FILE")
                 VIDEO_URL=$(jq -r ".predictions[$i].videoUrl // .predictions[$i].url" "$RESPONSE_FILE")
 
@@ -226,11 +233,22 @@ EOF_REQUEST
             log_vertex_op "Veo" "generate_segment" "veo-2" "$OP_ID" "failed" "$HTTP_CODE"
         fi
 
-        # Cleanup temp files
-        rm -f "$REQUEST_FILE" "$RESPONSE_FILE"
+    # Cleanup temp files
+    rm -f "$REQUEST_FILE" "$RESPONSE_FILE"
 
-        echo "  ✅ Segment render step complete"
+    # ============================================
+    # 3) GRACEFUL FALLBACK - Only if output missing
+    # ============================================
+    if [ ! -s "$OUTPUT_FILE" ]; then
+        echo "  ⚠️ WARNING: API output missing for SEG-${SEG_NUM} - creating fallback placeholder"
+        ffmpeg -f lavfi -i "testsrc=duration=${DURATION}:size=1920x1080:rate=24" \
+            -vf "drawtext=text='SEG-${SEG_NUM} FALLBACK':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" \
+            -pix_fmt yuv420p "$OUTPUT_FILE" -y
+
+        log_vertex_op "Veo" "generate_segment" "veo-2-fallback" "fallback-seg-${SEG_NUM}" "fallback" "N/A"
     fi
+
+    echo "  ✅ Segment render step complete"
 done
 
 # Verify all segments
