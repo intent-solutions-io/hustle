@@ -35,11 +35,14 @@
 
 00:59.00 - 01:00.00   [fade to black, silence]
 
+01:00.00 - 01:04.00   @asphaltcowb0y
+
 ---
 
 ## Style Notes
 - Font: Helvetica Neue Medium
-- Color: White text
+- Color: White text (main overlays)
+- Watermark: #B3B3B3 (70% white), size 22, bottom-right margin 60px
 - Shadow: 40% black drop shadow
 - Transitions: 0.7s fade in/out
 - Currency: Escaped with backslash (\$)
