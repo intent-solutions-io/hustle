@@ -1,0 +1,21 @@
+segment,start_time,end_time,duration_ms,text,escaped_text,font_size,position_y,special_notes
+SEG-01,0.00,8.02,8020,,,48,918,No overlays for innocence scene
+SEG-02,10.00,11.00,1000,"Jessica Berman — NWSL Commissioner (since 2022).","Jessica Berman — NWSL Commissioner (since 2022).",48,918,
+SEG-02,13.00,14.00,1000,"The league's Board of Governors (club ownership representatives) controls major decisions.","The league'\''s Board of Governors (club ownership representatives) controls major decisions.",48,918,
+SEG-03,17.00,18.00,1000,"Michele Kang - Washington Spirit","Michele Kang - Washington Spirit",48,918,
+SEG-03,20.00,21.00,1000,"Spent $30 million+ on women's soccer","Spent \$30 million+ on women'\''s soccer",48,918,CRITICAL: Dollar escape
+SEG-03,22.00,22.50,500,"Why no answer?","Why no answer?",48,918,Short display
+SEG-04,25.00,26.00,1000,"Angie Long - Kansas City Current","Angie Long - Kansas City Current",48,918,
+SEG-04,28.00,29.00,1000,"Built a $117 million stadium...","Built a \$117 million stadium...",48,918,CRITICAL: Dollar escape
+SEG-04,30.00,31.00,1000,"...only to let males play","...only to let males play",48,918,
+SEG-05,33.00,34.00,1000,"The Wilf Family - Orlando Pride","The Wilf Family - Orlando Pride",48,918,
+SEG-05,35.00,36.00,1000,"What excuse will they use?","What excuse will they use?",48,918,
+SEG-05,37.00,38.00,1000,"Money, probably.","Money, probably.",48,918,
+SEG-06,41.00,42.00,1000,"NWSL Policy on Transgender Athletes (2021).","NWSL Policy on Transgender Athletes (2021).",48,918,
+SEG-06,44.00,46.00,2000,"Eligibility for transgender women: declare female identity and keep serum testosterone <10 nmol/L for ≥12 months; compliance is tested.","Eligibility for transgender women: declare female identity and keep serum testosterone <10 nmol/L for ≥12 months; compliance is tested.",44,918,Smaller font for long text
+SEG-06,46.50,47.50,1000,"Suppression can be via medication or surgical castration.","Suppression can be via medication or surgical castration.",48,918,
+SEG-07,49.00,50.00,1000,"Thousands of young girls...","Thousands of young girls...",48,918,
+SEG-07,51.00,52.00,1000,"Is it all about the money?","Is it all about the money?",48,918,
+SEG-07,54.00,55.00,1000,"What happened to women...","What happened to women...",48,918,
+SEG-08,57.00,58.00,1000,"Why won't you answer them?","Why won'\''t you answer them?",52,918,Bold and larger
+WATERMARK,0.00,60.04,60040,"@asphaltcowb0y","@asphaltcowb0y",24,1026,40% opacity throughout
