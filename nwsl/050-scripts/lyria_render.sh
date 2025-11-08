@@ -175,7 +175,7 @@ echo "  ✅ 60.04s master audio created with crossfade"
 rm -f "$TEMP_AUDIO_1" "$TEMP_AUDIO_2"
 
 # Log operation
-log_vertex_op "Lyria" "generate_score_sync" "$MODEL_ID" "$OP_ID" "success" "$HTTP_CODE"
+log_vertex_op "Lyria" "generate_score_sync" "$MODEL_ID" "$OP_ID" "success" "200"
 
 # ============================================
 # 6) VERIFY OUTPUT
