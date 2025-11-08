@@ -151,7 +151,7 @@ poll_veo() {
         r=$(curl -sS -H "Authorization: Bearer $(gcloud auth print-access-token)" \
             "https://${REGION}-aiplatform.googleapis.com/v1/${op}")
 
-        if [[ "$(jq -r '.done // false' <<<""$r")" == "true" ]]; then
+        if [[ "$(jq -r '.done // false' <<<"$r")" == "true" ]]; then
             echo "$r"
             return 0
         fi
@@ -202,7 +202,7 @@ gen_segment() {
     }
 
     # Extract GCS URI
-    uri="$(jq -r '.response.gcsOutputUri // .response.predictions[0].gcsUri // .predictions[0].gcsUri // empty' <<<""$res")"
+    uri="$(jq -r '.response.gcsOutputUri // .response.predictions[0].gcsUri // .predictions[0].gcsUri // empty' <<<"$res")"
 
     if [[ -z "$uri" ]]; then
         echo "  ❌ No GCS URI in response for SEG-${seg_num}" >&2
