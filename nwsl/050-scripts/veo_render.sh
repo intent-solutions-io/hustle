@@ -81,50 +81,155 @@ for SEG_NUM in 01 02 03 04 05 06 07 08; do
         echo "  ✅ Placeholder created"
 
     else
-        echo "  🎨 Generating with Vertex AI Veo 3.1..."
+        echo "  🎨 Generating with Vertex AI Veo..."
 
-        # PRODUCTION: Here you would call Vertex AI Veo API
-        # Example pseudo-code:
-        #
-        # gcloud ai models predict \
-        #     --region=$REGION \
-        #     --model="veo-3.1-latest" \
-        #     --json-request='{
-        #         "instances": [{
-        #             "prompt": "Documentary footage: '"$DESCRIPTION"', cinematic quality, no people speaking",
-        #             "duration_seconds": '"$DURATION"',
-        #             "resolution": "1920x1080",
-        #             "fps": 24,
-        #             "style": "documentary_observational",
-        #             "constraints": {
-        #                 "no_dialogue": true,
-        #                 "no_narration": true,
-        #                 "no_human_voices": true
-        #             }
-        #         }]
-        #     }' \
-        #     --format=json > veo_response_${SEG_NUM}.json
-        #
-        # # Extract video from response
-        # VIDEO_URL=$(jq -r '.predictions[0].videoUrl' veo_response_${SEG_NUM}.json)
-        # gsutil cp "$VIDEO_URL" "$OUTPUT_FILE"
+        # Find reference image for this segment
+        REF_IMAGE=""
+        REF_DIR="001-assets/refs/imagen/SEG-${SEG_NUM}"
+        if [ -d "$REF_DIR" ]; then
+            # Find key reference image
+            REF_IMAGE=$(find "$REF_DIR" -name "*key*.png" -o -name "*chosen*.png" | head -1)
+            if [ -z "$REF_IMAGE" ]; then
+                # Fallback to any PNG in the directory
+                REF_IMAGE=$(find "$REF_DIR" -name "*.png" | head -1)
+            fi
+        fi
 
-        # For demonstration, create test pattern
-        echo "  ⚠️ NOTE: Actual Vertex AI Veo call would happen here"
-        echo "  Creating demonstration video..."
+        if [ -n "$REF_IMAGE" ] && [ -f "$REF_IMAGE" ]; then
+            echo "  📸 Using reference image: $REF_IMAGE"
+            REF_IMAGE_B64=$(base64 -w 0 "$REF_IMAGE")
+            REF_STRENGTH=0.65
+        else
+            echo "  ⚠️ No reference image found for SEG-${SEG_NUM}, generating without reference"
+            REF_IMAGE_B64=""
+            REF_STRENGTH=0
+        fi
 
-        # Generate color bars with segment info
-        ffmpeg -f lavfi -i "testsrc=duration=${DURATION}:size=1920x1080:rate=24" \
-            -vf "drawtext=text='SEG-${SEG_NUM} VEO RENDER':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=100,
-                 drawtext=text='${DESCRIPTION}':fontsize=36:fontcolor=white:x=(w-text_w)/2:y=200" \
-            -pix_fmt yuv420p \
-            "$OUTPUT_FILE" -y
+        # Prepare request payload
+        REQUEST_FILE=$(mktemp)
+        if [ -n "$REF_IMAGE_B64" ]; then
+            cat > "$REQUEST_FILE" << EOF_REQUEST
+{
+  "instances": [{
+    "prompt": "Documentary footage: ${DESCRIPTION}, cinematic quality, observational style, NO people speaking, NO dialogue, NO narration, visual storytelling only",
+    "duration": ${DURATION},
+    "aspectRatio": "16:9",
+    "referenceImage": {
+      "bytesBase64Encoded": "${REF_IMAGE_B64}"
+    },
+    "referenceImageStrength": ${REF_STRENGTH},
+    "generateAnyAudio": false
+  }],
+  "parameters": {
+    "sampleCount": 3
+  }
+}
+EOF_REQUEST
+        else
+            cat > "$REQUEST_FILE" << EOF_REQUEST
+{
+  "instances": [{
+    "prompt": "Documentary footage: ${DESCRIPTION}, cinematic quality, observational style, NO people speaking, NO dialogue, NO narration, visual storytelling only",
+    "duration": ${DURATION},
+    "aspectRatio": "16:9",
+    "generateAnyAudio": false
+  }],
+  "parameters": {
+    "sampleCount": 3
+  }
+}
+EOF_REQUEST
+        fi
 
-        # Log the operation
+        # Call Vertex AI Veo Video Generation API
+        echo "  📞 Calling Vertex AI Veo API..."
         OP_ID="veo-seg-${SEG_NUM}-$(date +%s)-${GITHUB_RUN_ID:-local}"
-        log_vertex_op "Veo" "generate_segment" "veo-3.1-latest" "$OP_ID"
 
-        echo "  ✅ Segment rendered"
+        RESPONSE_FILE=$(mktemp)
+        HTTP_CODE=$(curl -w "%{http_code}" -o "$RESPONSE_FILE" -X POST \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/veo-2:predict" \
+            -d @"$REQUEST_FILE")
+
+        if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "  ✅ Veo API call successful"
+
+            # Extract video samples from response
+            NUM_SAMPLES=$(jq '.predictions | length' "$RESPONSE_FILE")
+            echo "  📹 Received $NUM_SAMPLES video samples"
+
+            BEST_VIDEO=""
+            BEST_SCORE=0
+
+            # Download and evaluate each sample
+            for i in $(seq 0 $((NUM_SAMPLES - 1))); do
+                VIDEO_B64=$(jq -r ".predictions[$i].videoContent // .predictions[$i].content" "$RESPONSE_FILE")
+                VIDEO_URL=$(jq -r ".predictions[$i].videoUrl // .predictions[$i].url" "$RESPONSE_FILE")
+
+                TEMP_VIDEO=$(mktemp --suffix=.mp4)
+
+                if [ -n "$VIDEO_B64" ] && [ "$VIDEO_B64" != "null" ]; then
+                    # Decode base64 video
+                    echo "$VIDEO_B64" | base64 -d > "$TEMP_VIDEO"
+                elif [ -n "$VIDEO_URL" ] && [ "$VIDEO_URL" != "null" ]; then
+                    # Download from GCS URL
+                    gsutil cp "$VIDEO_URL" "$TEMP_VIDEO"
+                else
+                    echo "  ⚠️ No video content for sample $i"
+                    continue
+                fi
+
+                # Simple QC: check duration and file size
+                ACTUAL_DUR=$(ffprobe -v error -show_entries format=duration \
+                    -of default=noprint_wrappers=1:nokey=1 "$TEMP_VIDEO" 2>/dev/null || echo "0")
+                FILE_SIZE=$(stat -f%z "$TEMP_VIDEO" 2>/dev/null || stat -c%s "$TEMP_VIDEO" 2>/dev/null || echo "0")
+
+                # Score based on duration match and file size
+                DUR_DIFF=$(echo "$ACTUAL_DUR - $DURATION" | bc | tr -d '-')
+                SCORE=$(echo "100 - ($DUR_DIFF * 10) + ($FILE_SIZE / 100000)" | bc)
+
+                echo "  Sample $i: ${ACTUAL_DUR}s, ${FILE_SIZE} bytes, score: $SCORE"
+
+                if (( $(echo "$SCORE > $BEST_SCORE" | bc -l) )); then
+                    BEST_SCORE=$SCORE
+                    BEST_VIDEO="$TEMP_VIDEO"
+                else
+                    rm -f "$TEMP_VIDEO"
+                fi
+            done
+
+            if [ -n "$BEST_VIDEO" ] && [ -f "$BEST_VIDEO" ]; then
+                cp "$BEST_VIDEO" "$OUTPUT_FILE"
+                echo "  ✅ Best sample selected and saved to $OUTPUT_FILE"
+                log_vertex_op "Veo" "generate_segment" "veo-2" "$OP_ID" "success" "$HTTP_CODE"
+                rm -f "$BEST_VIDEO"
+            else
+                echo "  ❌ ERROR: No valid video samples received"
+                # Fallback to test pattern
+                ffmpeg -f lavfi -i "testsrc=duration=${DURATION}:size=1920x1080:rate=24" \
+                    -vf "drawtext=text='SEG-${SEG_NUM} FALLBACK':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" \
+                    -pix_fmt yuv420p "$OUTPUT_FILE" -y
+                log_vertex_op "Veo" "generate_segment" "veo-2" "$OP_ID" "fallback" "$HTTP_CODE"
+            fi
+        else
+            echo "  ❌ ERROR: Veo API call failed with HTTP $HTTP_CODE"
+            echo "  Response:"
+            cat "$RESPONSE_FILE" | jq '.' || cat "$RESPONSE_FILE"
+
+            # Fallback to test pattern
+            echo "  📝 Falling back to test pattern for pipeline continuity..."
+            ffmpeg -f lavfi -i "testsrc=duration=${DURATION}:size=1920x1080:rate=24" \
+                -vf "drawtext=text='SEG-${SEG_NUM} FALLBACK':fontsize=72:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" \
+                -pix_fmt yuv420p "$OUTPUT_FILE" -y
+
+            log_vertex_op "Veo" "generate_segment" "veo-2" "$OP_ID" "failed" "$HTTP_CODE"
+        fi
+
+        # Cleanup temp files
+        rm -f "$REQUEST_FILE" "$RESPONSE_FILE"
+
+        echo "  ✅ Segment render step complete"
     fi
 done
 

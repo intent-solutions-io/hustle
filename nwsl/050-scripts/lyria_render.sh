@@ -63,39 +63,91 @@ if [ "${DRY_RUN:-false}" = "true" ]; then
 else
     echo "🎵 Generating orchestral score with Vertex AI Lyria..."
 
-    # PRODUCTION: Here you would call Vertex AI Lyria API
-    # Example pseudo-code:
-    #
-    # gcloud ai models predict \
-    #     --region=$REGION \
-    #     --model="lyria-instrumental-v1" \
-    #     --json-request='{
-    #         "instances": [{
-    #             "prompt": "Orchestral score, 60 seconds, E minor to G major progression",
-    #             "duration_seconds": 60.04,
-    #             "tempo_bpm": 108,
-    #             "instrumental_only": true,
-    #             "no_vocals": true,
-    #             "style": "cinematic_documentary"
-    #         }]
-    #     }' \
-    #     --format=json > lyria_response.json
+    # Prepare request payload
+    REQUEST_FILE=$(mktemp)
+    cat > "$REQUEST_FILE" << 'EOF_REQUEST'
+{
+  "instances": [{
+    "prompt": "Cinematic orchestral documentary score, emotional and powerful, E minor transitioning to G major, suitable for women's sports documentary about NWSL strike and labor negotiations, instrumental only with no vocals, orchestral strings brass and percussion",
+    "duration": 60,
+    "temperature": 0.7,
+    "seed": 42
+  }],
+  "parameters": {
+    "sampleCount": 1
+  }
+}
+EOF_REQUEST
 
-    # For demonstration, create a placeholder
-    echo "⚠️ NOTE: Actual Vertex AI Lyria call would happen here"
-    echo "Creating demonstration audio file..."
-
-    # Generate test tone as demonstration
-    ffmpeg -f lavfi -i "sine=frequency=440:duration=60.04" \
-        -af "volume=0.1,afade=t=in:st=0:d=2,afade=t=out:st=58:d=2" \
-        -ar 48000 -ac 2 \
-        "$OUTPUT_DIR/master_mix.wav" -y
-
-    # Log the operation
+    # Call Vertex AI Lyria Music Generation API
+    echo "📞 Calling Vertex AI Lyria API..."
     OP_ID="lyria-$(date +%s)-${GITHUB_RUN_ID:-local}"
-    log_vertex_op "Lyria" "generate_score" "lyria-instrumental-v1" "$OP_ID"
 
-    echo "✅ Orchestral score rendered to $OUTPUT_DIR/master_mix.wav"
+    RESPONSE_FILE=$(mktemp)
+    HTTP_CODE=$(curl -w "%{http_code}" -o "$RESPONSE_FILE" -X POST \
+        -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+        -H "Content-Type: application/json" \
+        "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/lyria-music-generation-v1:predict" \
+        -d @"$REQUEST_FILE")
+
+    if [ "$HTTP_CODE" -eq 200 ]; then
+        echo "✅ Lyria API call successful"
+
+        # Extract audio data from response (base64 encoded)
+        # The response format is typically: {"predictions": [{"audioContent": "base64data"}]}
+        AUDIO_B64=$(jq -r '.predictions[0].audioContent // .predictions[0].content' "$RESPONSE_FILE")
+
+        if [ -n "$AUDIO_B64" ] && [ "$AUDIO_B64" != "null" ]; then
+            # Decode base64 to WAV file
+            echo "$AUDIO_B64" | base64 -d > "$OUTPUT_DIR/master_mix.wav"
+            echo "✅ Audio decoded and saved to $OUTPUT_DIR/master_mix.wav"
+
+            # Log the successful operation
+            log_vertex_op "Lyria" "generate_score" "lyria-music-generation-v1" "$OP_ID" "success" "$HTTP_CODE"
+        else
+            echo "⚠️ Warning: No audio content in response, attempting alternative extraction..."
+
+            # Try alternative response format
+            AUDIO_URL=$(jq -r '.predictions[0].audioUrl // .predictions[0].url' "$RESPONSE_FILE")
+            if [ -n "$AUDIO_URL" ] && [ "$AUDIO_URL" != "null" ]; then
+                # Download from GCS URL
+                gsutil cp "$AUDIO_URL" "$OUTPUT_DIR/master_mix.wav"
+                echo "✅ Audio downloaded from $AUDIO_URL"
+                log_vertex_op "Lyria" "generate_score" "lyria-music-generation-v1" "$OP_ID" "success" "$HTTP_CODE"
+            else
+                echo "❌ ERROR: Could not extract audio from response"
+                echo "Response content:"
+                cat "$RESPONSE_FILE" | jq '.'
+
+                # Fallback to test tone
+                echo "📝 Falling back to test tone..."
+                ffmpeg -f lavfi -i "sine=frequency=440:duration=60.04" \
+                    -af "volume=0.1,afade=t=in:st=0:d=2,afade=t=out:st=58:d=2" \
+                    -ar 48000 -ac 2 \
+                    "$OUTPUT_DIR/master_mix.wav" -y
+
+                log_vertex_op "Lyria" "generate_score" "lyria-music-generation-v1" "$OP_ID" "fallback" "$HTTP_CODE"
+            fi
+        fi
+    else
+        echo "❌ ERROR: Lyria API call failed with HTTP $HTTP_CODE"
+        echo "Response:"
+        cat "$RESPONSE_FILE" | jq '.' || cat "$RESPONSE_FILE"
+
+        # Fallback to test tone
+        echo "📝 Falling back to test tone for pipeline continuity..."
+        ffmpeg -f lavfi -i "sine=frequency=440:duration=60.04" \
+            -af "volume=0.1,afade=t=in:st=0:d=2,afade=t=out:st=58:d=2" \
+            -ar 48000 -ac 2 \
+            "$OUTPUT_DIR/master_mix.wav" -y
+
+        log_vertex_op "Lyria" "generate_score" "lyria-music-generation-v1" "$OP_ID" "failed" "$HTTP_CODE"
+    fi
+
+    # Cleanup temp files
+    rm -f "$REQUEST_FILE" "$RESPONSE_FILE"
+
+    echo "✅ Lyria render step complete"
 fi
 
 # Generate stems if needed
