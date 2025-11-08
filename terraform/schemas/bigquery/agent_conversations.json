@@ -1,0 +1,106 @@
+[
+  {
+    "name": "conversation_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique conversation identifier"
+  },
+  {
+    "name": "user_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "User identifier"
+  },
+  {
+    "name": "player_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Related player identifier"
+  },
+  {
+    "name": "agent_type",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Type of agent (performance-coach, stats-analyst, etc.)"
+  },
+  {
+    "name": "session_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Session identifier for multi-turn conversations"
+  },
+  {
+    "name": "user_message",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "User's message/query"
+  },
+  {
+    "name": "agent_response",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Agent's response"
+  },
+  {
+    "name": "tools_invoked",
+    "type": "RECORD",
+    "mode": "REPEATED",
+    "description": "Tools/functions invoked during conversation",
+    "fields": [
+      {
+        "name": "tool_name",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Name of the tool invoked"
+      },
+      {
+        "name": "tool_input",
+        "type": "JSON",
+        "mode": "NULLABLE",
+        "description": "Input parameters passed to tool"
+      },
+      {
+        "name": "tool_output",
+        "type": "JSON",
+        "mode": "NULLABLE",
+        "description": "Output returned by tool"
+      },
+      {
+        "name": "execution_time_ms",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "Tool execution time in milliseconds"
+      }
+    ]
+  },
+  {
+    "name": "token_count",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Total tokens used in conversation"
+  },
+  {
+    "name": "response_time_ms",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Agent response time in milliseconds"
+  },
+  {
+    "name": "user_satisfaction",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "User satisfaction rating (1-5)"
+  },
+  {
+    "name": "feedback",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "User feedback text"
+  },
+  {
+    "name": "created_at",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Conversation timestamp"
+  }
+]

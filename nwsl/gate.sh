@@ -65,8 +65,10 @@ log_vertex_op() {
     local operation="$2"
     local model="$3"
     local op_id="${4:-pending}"
+    local status="${5:-unknown}"
+    local http_code="${6:-N/A}"
 
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] VERTEX_OP: service=$service operation=$operation model=$model op_id=$op_id" | tee -a vertex_ops.log
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] VERTEX_OP: service=$service operation=$operation model=$model op_id=$op_id status=$status http_code=$http_code" | tee -a vertex_ops.log
 }
 
 export -f log_vertex_op
