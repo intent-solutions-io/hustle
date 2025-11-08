@@ -48,10 +48,6 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Verify CI Gate
-        run: |
-          bash -eux gate.sh
-
       # Check out the NWSL repo as read-only dependency
       - name: Checkout NWSL repo (read-only)
         uses: actions/checkout@v4
@@ -60,6 +56,11 @@ jobs:
           ref: main
           token: ${{ secrets.ORG_READ_TOKEN }}
           path: deps/nwsl
+
+      - name: Verify CI Gate
+        run: |
+          cd deps/nwsl
+          bash -eux gate.sh
 
 
       - name: Set path variables
