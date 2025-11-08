@@ -277,7 +277,7 @@ jobs:
 
       - name: Upload workflow artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: nwsl-documentary-${{ github.run_id }}
           path: |
