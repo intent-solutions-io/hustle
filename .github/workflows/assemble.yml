@@ -109,9 +109,9 @@ jobs:
 
           # Check for required canon files
           CANON_OK=true
-          for i in {01..08}; do
+          for i in 01 02 03 04 05 06 07 08; do
             FILE_NUM=$((10#$i + 3))
-            CANON_FILE=$(printf "docs/%03d-DR-REFF-veo-seg-%02d.md" $FILE_NUM $i)
+            CANON_FILE=$(printf "docs/%03d-DR-REFF-veo-seg-%s.md" $FILE_NUM $i)
 
             if [ -f "$CANON_FILE" ]; then
               echo "✅ Found: $CANON_FILE"
