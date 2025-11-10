@@ -1,0 +1,95 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isParent(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own data
+      allow read: if isOwner(userId);
+
+      // Users can create their own account during registration
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+
+      // Users can update their own profile
+      allow update: if isOwner(userId) &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['firstName', 'lastName', 'phone', 'emailVerified',
+                                   'verificationPinHash', 'updatedAt']);
+
+      // Users can delete their own account (COPPA compliance)
+      allow delete: if isOwner(userId);
+    }
+
+    // Players collection (child profiles)
+    match /players/{playerId} {
+      // Players can be read by their parent
+      allow read: if isParent(resource.data.parentId);
+
+      // Players can be created by authenticated users
+      allow create: if isAuthenticated() &&
+                       request.resource.data.parentId == request.auth.uid;
+
+      // Players can be updated by their parent
+      allow update: if isParent(resource.data.parentId) &&
+                       request.resource.data.parentId == resource.data.parentId;
+
+      // Players can be deleted by their parent (cascade on user delete)
+      allow delete: if isParent(resource.data.parentId);
+    }
+
+    // Games collection
+    match /games/{gameId} {
+      // Games can be read by the player's parent
+      allow read: if isAuthenticated() &&
+                     exists(/databases/$(database)/documents/players/$(resource.data.playerId)) &&
+                     get(/databases/$(database)/documents/players/$(resource.data.playerId)).data.parentId == request.auth.uid;
+
+      // Games can be created by authenticated users who own the player
+      allow create: if isAuthenticated() &&
+                       exists(/databases/$(database)/documents/players/$(request.resource.data.playerId)) &&
+                       get(/databases/$(database)/documents/players/$(request.resource.data.playerId)).data.parentId == request.auth.uid;
+
+      // Games can be updated by the player's parent
+      allow update: if isAuthenticated() &&
+                       exists(/databases/$(database)/documents/players/$(resource.data.playerId)) &&
+                       get(/databases/$(database)/documents/players/$(resource.data.playerId)).data.parentId == request.auth.uid;
+
+      // Games can be deleted by the player's parent
+      allow delete: if isAuthenticated() &&
+                       exists(/databases/$(database)/documents/players/$(resource.data.playerId)) &&
+                       get(/databases/$(database)/documents/players/$(resource.data.playerId)).data.parentId == request.auth.uid;
+    }
+
+    // Email verification tokens (system-only)
+    match /emailVerificationTokens/{tokenId} {
+      allow read, write: if false; // System only
+    }
+
+    // Password reset tokens (system-only)
+    match /passwordResetTokens/{tokenId} {
+      allow read, write: if false; // System only
+    }
+
+    // Waitlist (public write for signups, private read)
+    match /waitlist/{entryId} {
+      allow read: if false; // Admin only
+      allow create: if request.resource.data.keys().hasAll(['email', 'createdAt']) &&
+                       request.resource.data.email is string &&
+                       request.resource.data.email.matches('.*@.*');
+    }
+  }
+}

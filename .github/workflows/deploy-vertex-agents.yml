@@ -1,0 +1,147 @@
+name: Deploy Vertex AI Agents
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'vertex-agents/**'
+      - '.github/workflows/deploy-vertex-agents.yml'
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Deployment target'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - orchestrator
+          - validation
+          - user-creation
+          - onboarding
+          - analytics
+
+env:
+  PROJECT_ID: hustleapp-production
+  REGION: us-central1
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  deploy-agents:
+    name: Deploy Vertex AI Agents
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Vertex AI SDK
+        run: |
+          pip install google-cloud-aiplatform google-cloud-storage pyyaml
+
+      - name: Verify Vertex AI API is enabled
+        run: |
+          gcloud services enable aiplatform.googleapis.com \
+            --project=${{ env.PROJECT_ID }}
+
+      - name: Deploy Orchestrator Agent
+        if: github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'orchestrator' || github.event_name == 'push'
+        run: |
+          python .github/scripts/deploy_agent.py \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --agent-name=hustle-operations-manager \
+            --config=vertex-agents/orchestrator/config/agent.yaml \
+            --agent-card=vertex-agents/orchestrator/config/agent-card.json
+
+      - name: Deploy Validation Agent
+        if: github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'validation' || github.event_name == 'push'
+        run: |
+          python .github/scripts/deploy_agent.py \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --agent-name=hustle-validation-agent \
+            --config=vertex-agents/validation/config/agent.yaml
+
+      - name: Deploy User Creation Agent
+        if: github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'user-creation' || github.event_name == 'push'
+        run: |
+          python .github/scripts/deploy_agent.py \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --agent-name=hustle-user-creation-agent \
+            --config=vertex-agents/user-creation/config/agent.yaml
+
+      - name: Deploy Onboarding Agent
+        if: github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'onboarding' || github.event_name == 'push'
+        run: |
+          python .github/scripts/deploy_agent.py \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --agent-name=hustle-onboarding-agent \
+            --config=vertex-agents/onboarding/config/agent.yaml
+
+      - name: Deploy Analytics Agent
+        if: github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'analytics' || github.event_name == 'push'
+        run: |
+          python .github/scripts/deploy_agent.py \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --agent-name=hustle-analytics-agent \
+            --config=vertex-agents/analytics/config/agent.yaml
+
+      - name: Verify Agent Deployments
+        run: |
+          python .github/scripts/verify_agents.py \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
+
+      - name: Update Cloud Functions with Agent Endpoints
+        if: github.event_name == 'push'
+        run: |
+          python .github/scripts/update_function_endpoints.py \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --output=functions/src/agent-endpoints.json
+
+      - name: Deploy Cloud Functions
+        if: github.event_name == 'push'
+        run: |
+          cd functions
+          npm install
+          npm run build
+          cd ..
+          firebase deploy --only functions:orchestrator --project=${{ env.PROJECT_ID }}
+
+      - name: Run Integration Tests
+        if: github.event_name == 'push'
+        run: |
+          python .github/scripts/test_agents.py \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --test-suite=integration
+
+      - name: Post Deployment Summary
+        if: always()
+        run: |
+          python .github/scripts/deployment_summary.py \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }}
