@@ -2,12 +2,8 @@
   "indexes": [
     {
       "collectionGroup": "players",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
-        {
-          "fieldPath": "parentId",
-          "order": "ASCENDING"
-        },
         {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
@@ -16,12 +12,8 @@
     },
     {
       "collectionGroup": "games",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
-        {
-          "fieldPath": "playerId",
-          "order": "ASCENDING"
-        },
         {
           "fieldPath": "date",
           "order": "DESCENDING"
@@ -30,12 +22,8 @@
     },
     {
       "collectionGroup": "games",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
-        {
-          "fieldPath": "playerId",
-          "order": "ASCENDING"
-        },
         {
           "fieldPath": "verified",
           "order": "ASCENDING"
@@ -47,29 +35,15 @@
       ]
     },
     {
-      "collectionGroup": "emailVerificationTokens",
-      "queryScope": "COLLECTION",
+      "collectionGroup": "games",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
-          "fieldPath": "userId",
+          "fieldPath": "result",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "expires",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "passwordResetTokens",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "userId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "expires",
+          "fieldPath": "date",
           "order": "DESCENDING"
         }
       ]
