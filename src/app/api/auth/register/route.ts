@@ -1,118 +1,87 @@
+/**
+ * Registration API Route (Firebase Auth)
+ *
+ * Handles user registration with Firebase Auth.
+ * Replaces the previous NextAuth-based registration.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcrypt';
-import { generateEmailVerificationToken } from '@/lib/tokens';
-import { sendEmail } from '@/lib/email';
-import { emailTemplates } from '@/lib/email-templates';
+import { signUp } from '@/lib/firebase/auth';
+import { z } from 'zod';
+
+// Validation schema
+const registerSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  phone: z.string().optional(),
+  agreedToTerms: z.boolean().refine((val) => val === true, 'You must agree to the Terms of Service'),
+  agreedToPrivacy: z.boolean().refine((val) => val === true, 'You must agree to the Privacy Policy'),
+  isParentGuardian: z.boolean().refine((val) => val === true, 'You must be 18+ to create an account'),
+});
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { firstName, lastName, email, phone, password } = body;
 
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password) {
-      return NextResponse.json(
-        { error: 'All fields are required' },
-        { status: 400 }
-      );
-    }
+    // Validate request body
+    const validatedData = registerSchema.parse(body);
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email address' },
-        { status: 400 }
-      );
-    }
+    // Create user with Firebase Auth
+    const { user, firestoreUser } = await signUp(validatedData);
 
-    // Validate password length
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      );
-    }
-
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'An account with this email already exists' },
-        { status: 409 }
-      );
-    }
-
-    // Hash password with bcrypt (10 rounds per CLAUDE.md security standards)
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user in database with legal consent fields
-    const now = new Date();
-    const user = await prisma.user.create({
-      data: {
-        firstName,
-        lastName,
-        email,
-        phone: phone || null,
-        password: hashedPassword,
-        // Legal compliance (COPPA) - set automatically on registration
-        agreedToTerms: true,
-        agreedToPrivacy: true,
-        isParentGuardian: true,
-        termsAgreedAt: now,
-        privacyAgreedAt: now,
-      },
-    });
-
-    console.log('[Registration] User created successfully, generating verification token...');
-
-    // Generate email verification token
-    const verificationToken = await generateEmailVerificationToken(user.id);
-    console.log('[Registration] Verification token generated');
-
-    // Create verification URL
-    const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken.token}`;
-    console.log('[Registration] Verification URL created');
-
-    // Send verification email
-    console.log('[Registration] Preparing email template...');
-    const emailTemplate = emailTemplates.emailVerification(
-      user.firstName,
-      verificationUrl
-    );
-    console.log('[Registration] Email template prepared, sending...');
-
-    const emailResult = await sendEmail({
-      to: user.email,
-      subject: emailTemplate.subject,
-      html: emailTemplate.html,
-      text: emailTemplate.text,
-    });
-
-    if (!emailResult.success) {
-      console.error('[Registration] Failed to send verification email:', emailResult.error);
-      // Don't fail registration if email fails - user can request resend
-    } else {
-      console.log('[Registration] Verification email sent successfully');
-    }
-
-    // Return success (don't expose user ID or sensitive data)
     return NextResponse.json(
       {
         success: true,
-        message: 'Account created successfully. Please check your email to verify your account.',
-        emailSent: emailResult.success,
+        message: 'Account created successfully! Please check your email to verify your account.',
+        user: {
+          id: user.uid,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          displayName: user.displayName,
+        },
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Registration error:', error);
+
+    // Handle Firebase Auth errors
+    if (error.code === 'auth/email-already-in-use') {
+      return NextResponse.json(
+        { success: false, error: 'An account with this email already exists' },
+        { status: 400 }
+      );
+    }
+
+    if (error.code === 'auth/weak-password') {
+      return NextResponse.json(
+        { success: false, error: 'Password is too weak. Please choose a stronger password.' },
+        { status: 400 }
+      );
+    }
+
+    // Handle validation errors
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Validation failed',
+          details: error.errors,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Generic error
     return NextResponse.json(
-      { error: 'An error occurred during registration' },
+      { success: false, error: 'Registration failed. Please try again.' },
       { status: 500 }
     );
   }
