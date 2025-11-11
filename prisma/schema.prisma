@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,183 +5,120 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // Enable SSL for production (Cloud SQL requires SSL)
-  // Add ?sslmode=require to DATABASE_URL in production
-}
-
-model User {
-  id            String    @id @default(cuid())
-  firstName     String
-  lastName      String
-  email         String    @unique
-  emailVerified DateTime?
-  phone         String?   // Make phone optional
-  password      String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Legal compliance (COPPA)
-  agreedToTerms        Boolean   @default(false)  // Terms of Service agreement
-  agreedToPrivacy      Boolean   @default(false)  // Privacy Policy agreement
-  isParentGuardian     Boolean   @default(false)  // 18+ parent/guardian certification
-  termsAgreedAt        DateTime? // When terms were agreed to
-  privacyAgreedAt      DateTime? // When privacy policy was agreed to
-
-  // Verification PIN hash for game stats verification
-  verificationPinHash  String?   // Bcrypt hash of 4-6 digit PIN
-
-  // NextAuth relations
-  accounts      Account[]
-  sessions      Session[]
-
-  // App relations
-  players                  Player[]
-  passwordResetTokens      PasswordResetToken[]
-  emailVerificationTokens  EmailVerificationToken[]
-
-  @@map("users")
-}
-
-model Player {
-  id        String   @id @default(cuid())
-  name      String
-  birthday  DateTime // Birthday for age calculation
-  position  String   // Primary position
-  teamClub  String   // Team/club name (free text)
-  photoUrl  String?  // Optional player photo path
-  parentId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  parent    User   @relation(fields: [parentId], references: [id], onDelete: Cascade)
-  games     Game[]
-
-  // Performance optimization: Composite index for Athletes List query
-  // Enables efficient filtering by parentId and sorting by createdAt DESC
-  @@index([parentId, createdAt(sort: Desc)])
 }
 
 model Game {
-  id            String    @id @default(cuid())
-  playerId      String
-  date          DateTime  @default(now())
-  opponent      String
-  result        String    // "Win", "Loss", "Draw"
-  finalScore    String    // e.g., "3-2"
-  minutesPlayed Int
-
-  // Universal stats
-  goals         Int       @default(0)
-  assists       Int       @default(0)
-
-  // Defensive stats (null if not defender)
-  tackles          Int?
-  interceptions    Int?
-  clearances       Int?
-  blocks           Int?
-  aerialDuelsWon   Int?
-
-  // Goalkeeper stats (null if not goalkeeper)
-  saves         Int?
-  goalsAgainst  Int?
-  cleanSheet    Boolean?
-
-  // Verification
-  verified      Boolean   @default(false)
-  verifiedAt    DateTime?
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  player        Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  id             String    @id
+  playerId       String
+  date           DateTime  @default(now())
+  opponent       String
+  result         String
+  finalScore     String
+  minutesPlayed  Int
+  goals          Int       @default(0)
+  assists        Int       @default(0)
+  saves          Int?
+  goalsAgainst   Int?
+  cleanSheet     Boolean?
+  verified       Boolean   @default(false)
+  verifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+  aerialDuelsWon Int?
+  blocks         Int?
+  clearances     Int?
+  interceptions  Int?
+  tackles        Int?
+  Player         Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@index([playerId])
   @@index([verified])
 }
 
-// NextAuth.js Models
-model Account {
-  id                String  @id @default(cuid())
+model Player {
+  id        String   @id
+  name      String
+  position  String
+  teamClub  String
+  parentId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  photoUrl  String?
+  birthday  DateTime
+  Game      Game[]
+  users     users    @relation(fields: [parentId], references: [id], onDelete: Cascade)
+}
+
+model accounts {
+  id                String  @id
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@unique([provider, providerAccountId])
-  @@map("accounts")
 }
 
-model Session {
-  id           String   @id @default(cuid())
+model email_verification_tokens {
+  id        String   @id
+  token     String   @unique
+  userId    String
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expires])
+  @@index([token])
+  @@index([userId], map: "email_verification_tokens_userid_idx")
+}
+
+model password_reset_tokens {
+  id        String   @id
+  token     String   @unique
+  userId    String
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expires])
+  @@index([token])
+  @@index([userId], map: "password_reset_tokens_userid_idx")
+}
+
+model sessions {
+  id           String   @id
   sessionToken String   @unique
   userId       String
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
 }
 
-model VerificationToken {
+model users {
+  id               String    @id(map: "Parent_pkey")
+  email            String    @unique(map: "Parent_email_key")
+  password         String    @default("")
+  phone            String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime
+  firstName        String
+  lastName         String
+  emailVerified    DateTime? @db.Timestamp(6)
+  agreedToTerms    Boolean?  @default(false)
+  agreedToPrivacy  Boolean?  @default(false)
+  isParentGuardian Boolean?  @default(false)
+  termsAgreedAt    DateTime? @db.Timestamp(6)
+  privacyAgreedAt  DateTime? @db.Timestamp(6)
+  Player           Player[]
+}
+
+model verification_tokens {
   identifier String
   token      String   @unique
   expires    DateTime
 
   @@unique([identifier, token])
-  @@map("verification_tokens")
-}
-
-// Password Reset Tokens
-model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  expires   DateTime
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([token])
-  @@index([userId])
-  @@index([expires])
-  @@map("password_reset_tokens")
-}
-
-// Email Verification Tokens
-model EmailVerificationToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  expires   DateTime
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([token])
-  @@index([userId])
-  @@index([expires])
-  @@map("email_verification_tokens")
-}
-
-// Waitlist for early access signups
-model Waitlist {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  firstName String?
-  lastName  String?
-  source    String?  // Where they came from (landing page, survey, etc.)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([email])
-  @@index([createdAt])
-  @@map("waitlist")
 }
