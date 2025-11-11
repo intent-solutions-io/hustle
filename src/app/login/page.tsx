@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { signIn } from 'next-auth/react';
+import { signIn as firebaseSignIn } from '@/lib/firebase/auth';
 import { useRouter } from 'next/navigation';
 
 export default function Login() {
@@ -26,21 +26,18 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const result = await signIn('credentials', {
-        email: formData.email,
-        password: formData.password,
-        redirect: false,
-      });
+      await firebaseSignIn(formData.email, formData.password);
 
-      if (result?.error) {
-        // Display the actual error message from NextAuth
-        setError(result.error);
-      } else if (result?.ok) {
-        router.push('/dashboard');
-        router.refresh();
+      // Success - redirect to dashboard
+      router.push('/dashboard');
+      router.refresh();
+    } catch (error: any) {
+      // Handle Firebase Auth errors
+      if (error.message) {
+        setError(error.message);
+      } else {
+        setError('An error occurred. Please try again.');
       }
-    } catch (error) {
-      setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
