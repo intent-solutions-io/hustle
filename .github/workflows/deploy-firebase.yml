@@ -1,0 +1,147 @@
+name: Deploy Firebase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+      - 'firebase.json'
+      - '.firebaserc'
+      - 'functions/**'
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'What to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - hosting
+          - firestore
+          - functions
+
+env:
+  PROJECT_ID: hustleapp-production
+  FIREBASE_PROJECT: hustleapp-production
+
+jobs:
+  deploy-firebase:
+    name: Deploy Firebase Resources
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Determine deployment target
+        id: deploy-target
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "target=${{ github.event.inputs.deploy_target }}" >> $GITHUB_OUTPUT
+          else
+            echo "target=all" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy Firestore Rules
+        if: steps.deploy-target.outputs.target == 'all' || steps.deploy-target.outputs.target == 'firestore'
+        run: |
+          firebase deploy --only firestore:rules \
+            --project ${{ env.FIREBASE_PROJECT }} \
+            --non-interactive \
+            --force
+
+      - name: Deploy Firestore Indexes
+        if: steps.deploy-target.outputs.target == 'all' || steps.deploy-target.outputs.target == 'firestore'
+        run: |
+          firebase deploy --only firestore:indexes \
+            --project ${{ env.FIREBASE_PROJECT }} \
+            --non-interactive \
+            --force
+
+      - name: Build Functions
+        if: steps.deploy-target.outputs.target == 'all' || steps.deploy-target.outputs.target == 'functions'
+        run: |
+          if [ -d "functions" ]; then
+            cd functions
+            npm ci
+            npm run build
+            cd ..
+          else
+            echo "No functions directory found, skipping..."
+          fi
+
+      - name: Deploy Cloud Functions
+        if: steps.deploy-target.outputs.target == 'all' || steps.deploy-target.outputs.target == 'functions'
+        run: |
+          if [ -d "functions" ]; then
+            firebase deploy --only functions \
+              --project ${{ env.FIREBASE_PROJECT }} \
+              --non-interactive \
+              --force
+          else
+            echo "No functions directory found, skipping..."
+          fi
+
+      - name: Deploy Firebase Hosting
+        if: steps.deploy-target.outputs.target == 'all' || steps.deploy-target.outputs.target == 'hosting'
+        run: |
+          firebase deploy --only hosting \
+            --project ${{ env.FIREBASE_PROJECT }} \
+            --non-interactive \
+            --force
+
+      - name: Deployment Summary
+        run: |
+          echo "================================"
+          echo "Firebase Deployment Complete"
+          echo "================================"
+          echo "Project: ${{ env.FIREBASE_PROJECT }}"
+          echo "Target: ${{ steps.deploy-target.outputs.target }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo ""
+          echo "Deployed Resources:"
+          if [ "${{ steps.deploy-target.outputs.target }}" == "all" ]; then
+            echo "  ✅ Firestore Rules"
+            echo "  ✅ Firestore Indexes"
+            echo "  ✅ Cloud Functions (if present)"
+            echo "  ✅ Firebase Hosting"
+          elif [ "${{ steps.deploy-target.outputs.target }}" == "firestore" ]; then
+            echo "  ✅ Firestore Rules"
+            echo "  ✅ Firestore Indexes"
+          elif [ "${{ steps.deploy-target.outputs.target }}" == "functions" ]; then
+            echo "  ✅ Cloud Functions"
+          elif [ "${{ steps.deploy-target.outputs.target }}" == "hosting" ]; then
+            echo "  ✅ Firebase Hosting"
+          fi
+          echo ""
+          echo "Firebase Console:"
+          echo "https://console.firebase.google.com/project/${{ env.FIREBASE_PROJECT }}"
+          echo "================================"

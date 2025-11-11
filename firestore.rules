@@ -12,84 +12,73 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isParent(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function emailVerified() {
+      return request.auth.token.email_verified == true;
     }
 
     // Users collection
     match /users/{userId} {
-      // Users can read their own data
+      // Users can read and write their own document
       allow read: if isOwner(userId);
 
-      // Users can create their own account during registration
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Users can create their own document during registration
+      allow create: if isAuthenticated() && isOwner(userId);
 
-      // Users can update their own profile
-      allow update: if isOwner(userId) &&
-                       request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['firstName', 'lastName', 'phone', 'emailVerified',
-                                   'verificationPinHash', 'updatedAt']);
+      // Users can update their own document (require email verification)
+      allow update: if isOwner(userId) && emailVerified();
 
-      // Users can delete their own account (COPPA compliance)
+      // Users can delete their own document (COPPA compliance)
       allow delete: if isOwner(userId);
+
+      // Players subcollection (child profiles)
+      match /players/{playerId} {
+        // Parent can read all their players
+        allow read: if isOwner(userId);
+
+        // Parent can create players (must be verified)
+        allow create: if isOwner(userId) && emailVerified();
+
+        // Parent can update their players
+        allow update: if isOwner(userId) && emailVerified();
+
+        // Parent can delete their players
+        allow delete: if isOwner(userId);
+
+        // Games subcollection (stats for each player)
+        match /games/{gameId} {
+          // Parent can read all games for their players
+          allow read: if isOwner(userId);
+
+          // Parent can create games (must be verified)
+          allow create: if isOwner(userId) && emailVerified();
+
+          // Parent can update games
+          allow update: if isOwner(userId) && emailVerified();
+
+          // Parent can delete games
+          allow delete: if isOwner(userId);
+        }
+      }
     }
 
-    // Players collection (child profiles)
-    match /players/{playerId} {
-      // Players can be read by their parent
-      allow read: if isParent(resource.data.parentId);
+    // Waitlist collection (public write for early access signups)
+    match /waitlist/{email} {
+      // Anyone can create a waitlist entry
+      allow create: if true;
 
-      // Players can be created by authenticated users
-      allow create: if isAuthenticated() &&
-                       request.resource.data.parentId == request.auth.uid;
-
-      // Players can be updated by their parent
-      allow update: if isParent(resource.data.parentId) &&
-                       request.resource.data.parentId == resource.data.parentId;
-
-      // Players can be deleted by their parent (cascade on user delete)
-      allow delete: if isParent(resource.data.parentId);
+      // No one can read, update, or delete (admin only via console)
+      allow read, update, delete: if false;
     }
 
-    // Games collection
-    match /games/{gameId} {
-      // Games can be read by the player's parent
-      allow read: if isAuthenticated() &&
-                     exists(/databases/$(database)/documents/players/$(resource.data.playerId)) &&
-                     get(/databases/$(database)/documents/players/$(resource.data.playerId)).data.parentId == request.auth.uid;
-
-      // Games can be created by authenticated users who own the player
-      allow create: if isAuthenticated() &&
-                       exists(/databases/$(database)/documents/players/$(request.resource.data.playerId)) &&
-                       get(/databases/$(database)/documents/players/$(request.resource.data.playerId)).data.parentId == request.auth.uid;
-
-      // Games can be updated by the player's parent
-      allow update: if isAuthenticated() &&
-                       exists(/databases/$(database)/documents/players/$(resource.data.playerId)) &&
-                       get(/databases/$(database)/documents/players/$(resource.data.playerId)).data.parentId == request.auth.uid;
-
-      // Games can be deleted by the player's parent
-      allow delete: if isAuthenticated() &&
-                       exists(/databases/$(database)/documents/players/$(resource.data.playerId)) &&
-                       get(/databases/$(database)/documents/players/$(resource.data.playerId)).data.parentId == request.auth.uid;
+    // Email logs collection (system only - for Cloud Functions)
+    match /emailLogs/{logId} {
+      // No direct client access (admin/functions only)
+      allow read, write: if false;
     }
 
-    // Email verification tokens (system-only)
-    match /emailVerificationTokens/{tokenId} {
-      allow read, write: if false; // System only
-    }
-
-    // Password reset tokens (system-only)
-    match /passwordResetTokens/{tokenId} {
-      allow read, write: if false; // System only
-    }
-
-    // Waitlist (public write for signups, private read)
-    match /waitlist/{entryId} {
-      allow read: if false; // Admin only
-      allow create: if request.resource.data.keys().hasAll(['email', 'createdAt']) &&
-                       request.resource.data.email is string &&
-                       request.resource.data.email.matches('.*@.*');
+    // Deny all other collections by default
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
