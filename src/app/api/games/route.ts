@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { gameSchema } from '@/lib/validations/game-schema'
 import { sendEmail } from '@/lib/email'
 import { emailTemplates } from '@/lib/email-templates'
+import { getPlayer, getPlayers } from '@/lib/firebase/services/players'
+import { getGames, createGame, getUnverifiedGames } from '@/lib/firebase/services/games'
+import { getUser } from '@/lib/firebase/services/users'
 
 // Simple in-memory rate limiting (production: use Redis)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -31,11 +33,8 @@ export async function GET(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Verify player belongs to authenticated user
-    const player = await prisma.player.findUnique({
-      where: { id: playerId },
-      select: { parentId: true }
-    });
+    // Verify player exists and belongs to authenticated user (Firestore)
+    const player = await getPlayer(session.user.id, playerId);
 
     if (!player) {
       return NextResponse.json({
@@ -43,26 +42,19 @@ export async function GET(request: NextRequest) {
       }, { status: 404 })
     }
 
-    if (player.parentId !== session.user.id) {
-      return NextResponse.json({
-        error: 'Forbidden - Not your player'
-      }, { status: 403 })
-    }
+    // Get all games for this player from Firestore
+    const games = await getGames(session.user.id, playerId);
 
-    const games = await prisma.game.findMany({
-      where: { playerId },
-      orderBy: { date: 'desc' },
-      include: {
-        player: {
-          select: {
-            name: true,
-            position: true
-          }
-        }
+    // Format response to match Prisma structure (include player info)
+    const gamesWithPlayer = games.map((game) => ({
+      ...game,
+      player: {
+        name: player.name,
+        position: player.position
       }
-    })
+    }));
 
-    return NextResponse.json({ games })
+    return NextResponse.json({ games: gamesWithPlayer })
   } catch (error) {
     console.error('Error fetching games:', error)
     return NextResponse.json({
@@ -130,15 +122,8 @@ export async function POST(request: NextRequest) {
 
     const validatedData = validationResult.data;
 
-    // Verify player exists AND belongs to authenticated user
-    const player = await prisma.player.findUnique({
-      where: { id: validatedData.playerId },
-      select: {
-        parentId: true,
-        position: true,
-        name: true
-      }
-    });
+    // Verify player exists AND belongs to authenticated user (Firestore)
+    const player = await getPlayer(session.user.id, validatedData.playerId);
 
     if (!player) {
       return NextResponse.json({
@@ -146,75 +131,53 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    if (player.parentId !== session.user.id) {
-      return NextResponse.json({
-        error: 'Forbidden - Not your player'
-      }, { status: 403 });
-    }
-
-    // Create game log with defensive stats
-    const game = await prisma.game.create({
-      data: {
-        playerId: validatedData.playerId,
-        date: new Date(validatedData.date),
-        opponent: validatedData.opponent,
-        result: validatedData.result,
-        finalScore: `${validatedData.yourScore}-${validatedData.opponentScore}`,
-        minutesPlayed: validatedData.minutesPlayed,
-        goals: validatedData.goals,
-        assists: validatedData.assists ?? undefined,
-        tackles: validatedData.tackles ?? undefined,
-        interceptions: validatedData.interceptions ?? undefined,
-        clearances: validatedData.clearances ?? undefined,
-        blocks: validatedData.blocks ?? undefined,
-        aerialDuelsWon: validatedData.aerialDuelsWon ?? undefined,
-        saves: validatedData.saves ?? undefined,
-        goalsAgainst: validatedData.goalsAgainst ?? undefined,
-        cleanSheet: validatedData.cleanSheet ?? undefined,
-        verified: false
-      },
-      include: {
-        player: {
-          select: {
-            name: true,
-            position: true
-          }
-        }
-      }
+    // Create game log with defensive stats (Firestore)
+    const game = await createGame(session.user.id, validatedData.playerId, {
+      date: new Date(validatedData.date),
+      opponent: validatedData.opponent,
+      result: validatedData.result,
+      finalScore: `${validatedData.yourScore}-${validatedData.opponentScore}`,
+      minutesPlayed: validatedData.minutesPlayed,
+      goals: validatedData.goals,
+      assists: validatedData.assists,
+      tackles: validatedData.tackles ?? null,
+      interceptions: validatedData.interceptions ?? null,
+      clearances: validatedData.clearances ?? null,
+      blocks: validatedData.blocks ?? null,
+      aerialDuelsWon: validatedData.aerialDuelsWon ?? null,
+      saves: validatedData.saves ?? null,
+      goalsAgainst: validatedData.goalsAgainst ?? null,
+      cleanSheet: validatedData.cleanSheet ?? null,
     });
 
     // Send verification email notification to parent
     try {
-      const parentUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { firstName: true, email: true }
-      });
+      const parentUser = await getUser(session.user.id);
 
-      const pendingCount = await prisma.game.count({
-        where: {
-          player: {
-            parentId: session.user.id
-          },
-          verified: false
-        }
-      });
+      // Count all unverified games for this user across all players
+      const allPlayers = await getPlayers(session.user.id);
+      let totalPendingCount = 0;
+      for (const p of allPlayers) {
+        const unverified = await getUnverifiedGames(session.user.id, p.id);
+        totalPendingCount += unverified.length;
+      }
 
       if (parentUser?.email) {
         const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL
           ? `https://${process.env.VERCEL_URL}`
-          : 'http://localhost:4000';
+          : 'http://localhost:3000';
 
         const verifyUrl = `${baseUrl}/verify?playerId=${encodeURIComponent(validatedData.playerId)}`;
 
         const emailTemplate = emailTemplates.gameVerificationRequest({
           parentName: parentUser.firstName ?? 'Parent',
-          playerName: player?.name ?? 'Your athlete',
+          playerName: player.name,
           opponent: validatedData.opponent,
           result: validatedData.result,
           finalScore: `${validatedData.yourScore}-${validatedData.opponentScore}`,
           minutesPlayed: validatedData.minutesPlayed,
           verifyUrl,
-          pendingCount
+          pendingCount: totalPendingCount
         });
 
         await sendEmail({
@@ -229,9 +192,18 @@ export async function POST(request: NextRequest) {
       // Non-blocking: continue even if email fails
     }
 
+    // Format response to match Prisma structure
+    const gameWithPlayer = {
+      ...game,
+      player: {
+        name: player.name,
+        position: player.position
+      }
+    };
+
     return NextResponse.json({
       success: true,
-      game
+      game: gameWithPlayer
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating game:', error);

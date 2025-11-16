@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { getPlayer, updatePlayer, deletePlayer } from '@/lib/firebase/services/players';
 
 /**
  * PUT /api/players/[id] - Update athlete profile
@@ -32,11 +32,8 @@ export async function PUT(
       );
     }
 
-    // Verify player exists AND belongs to authenticated user
-    const existingPlayer = await prisma.player.findUnique({
-      where: { id },
-      select: { parentId: true }
-    });
+    // Verify player exists AND belongs to authenticated user (Firestore)
+    const existingPlayer = await getPlayer(session.user.id, id);
 
     if (!existingPlayer) {
       return NextResponse.json(
@@ -45,23 +42,15 @@ export async function PUT(
       );
     }
 
-    if (existingPlayer.parentId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Forbidden - Not your player' },
-        { status: 403 }
-      );
-    }
-
-    // Update player
-    const updatedPlayer = await prisma.player.update({
-      where: { id },
-      data: {
-        name,
-        birthday: new Date(birthday),
-        position,
-        teamClub,
-      },
+    // Update player (Firestore)
+    await updatePlayer(session.user.id, id, {
+      name,
+      position,
+      teamClub,
     });
+
+    // Get updated player for response
+    const updatedPlayer = await getPlayer(session.user.id, id);
 
     return NextResponse.json({
       success: true,
@@ -79,7 +68,7 @@ export async function PUT(
 /**
  * DELETE /api/players/[id] - Delete athlete profile
  * Security: Verifies parent ownership before deletion
- * Note: Cascades to delete all associated games
+ * Note: Cascades to delete all associated games (via Firestore rules)
  */
 export async function DELETE(
   request: NextRequest,
@@ -97,11 +86,8 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Verify player exists AND belongs to authenticated user
-    const existingPlayer = await prisma.player.findUnique({
-      where: { id },
-      select: { parentId: true, name: true }
-    });
+    // Verify player exists AND belongs to authenticated user (Firestore)
+    const existingPlayer = await getPlayer(session.user.id, id);
 
     if (!existingPlayer) {
       return NextResponse.json(
@@ -110,17 +96,8 @@ export async function DELETE(
       );
     }
 
-    if (existingPlayer.parentId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Forbidden - Not your player' },
-        { status: 403 }
-      );
-    }
-
-    // Delete player (CASCADE will delete all associated games)
-    await prisma.player.delete({
-      where: { id },
-    });
+    // Delete player (Firestore - CASCADE handled by security rules)
+    await deletePlayer(session.user.id, id);
 
     return NextResponse.json({
       success: true,
