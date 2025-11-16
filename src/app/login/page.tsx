@@ -26,7 +26,17 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await firebaseSignIn(formData.email, formData.password);
+      const user = await firebaseSignIn(formData.email, formData.password);
+
+      // Get Firebase ID token and set as cookie for server-side verification
+      const idToken = await user.getIdToken();
+
+      // Set cookie via API route
+      await fetch('/api/auth/set-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
 
       // Success - redirect to dashboard
       router.push('/dashboard');

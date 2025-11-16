@@ -1,18 +1,19 @@
-import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import AppSidebarSimple from '@/components/layout/app-sidebar-simple';
 import Header from '@/components/layout/header';
 import { cookies } from 'next/headers';
+import { getDashboardUser } from '@/lib/firebase/admin-auth';
 
 export default async function DashboardLayout({
   children
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  // Verify Firebase authentication
+  const user = await getDashboardUser();
 
-  if (!session?.user) {
+  if (!user || !user.emailVerified) {
     redirect('/login');
   }
 
@@ -24,7 +25,7 @@ export default async function DashboardLayout({
     <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebarSimple />
       <SidebarInset>
-        <Header user={session.user} />
+        <Header user={user} />
         <main className='flex flex-1 flex-col gap-4 p-4'>
           {children}
         </main>
