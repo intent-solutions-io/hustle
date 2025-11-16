@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { signOut } from 'next-auth/react';
+import { signOut as firebaseSignOut } from '@/lib/firebase/auth';
 import { useRouter } from 'next/navigation';
 
 interface UserNavProps {
@@ -32,6 +32,22 @@ export function UserNav({ user }: UserNavProps) {
   const initials = user.firstName && user.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`
     : user.email?.[0]?.toUpperCase() || 'U';
+
+  const handleSignOut = async () => {
+    try {
+      // Clear Firebase client-side auth
+      await firebaseSignOut();
+
+      // Clear server-side session cookie
+      await fetch('/api/auth/logout', { method: 'POST' });
+
+      // Redirect to home
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -70,7 +86,7 @@ export function UserNav({ user }: UserNavProps) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/' })}>
+        <DropdownMenuItem onClick={handleSignOut}>
           Log out
         </DropdownMenuItem>
       </DropdownMenuContent>

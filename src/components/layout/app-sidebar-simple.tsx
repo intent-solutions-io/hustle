@@ -15,8 +15,8 @@ import {
 } from '@/components/ui/sidebar';
 import { Home, Users, Calendar, BarChart3, Settings, LogOut } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { usePathname, useRouter } from 'next/navigation';
+import { signOut as firebaseSignOut } from '@/lib/firebase/auth';
 
 const navItems = [
   {
@@ -48,12 +48,35 @@ const navItems = [
 
 export default function AppSidebarSimple() {
   const pathname = usePathname();
+  const router = useRouter();
   const { isMobile, setOpenMobile } = useSidebar();
 
   // Close mobile sidebar when navigating
   const handleLinkClick = () => {
     if (isMobile) {
       setOpenMobile(false);
+    }
+  };
+
+  // Handle Firebase sign out
+  const handleSignOut = async () => {
+    try {
+      // Close mobile sidebar
+      if (isMobile) {
+        setOpenMobile(false);
+      }
+
+      // Clear Firebase client-side auth
+      await firebaseSignOut();
+
+      // Clear server-side session cookie
+      await fetch('/api/auth/logout', { method: 'POST' });
+
+      // Redirect to home
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      console.error('Sign out error:', error);
     }
   };
 
@@ -106,12 +129,7 @@ export default function AppSidebarSimple() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={() => {
-                if (isMobile) {
-                  setOpenMobile(false);
-                }
-                signOut({ callbackUrl: '/' });
-              }}
+              onClick={handleSignOut}
               className='flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50'
             >
               <LogOut className='h-4 w-4' />
