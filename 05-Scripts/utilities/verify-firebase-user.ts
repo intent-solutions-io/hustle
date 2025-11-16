@@ -6,7 +6,7 @@
  * Checks that a user exists in both Firebase Auth and Firestore.
  */
 
-import { adminAuth, adminDb } from '../src/lib/firebase/admin';
+import { adminAuth, adminDb } from '../../src/lib/firebase/admin';
 
 async function verifyUser(email: string) {
   console.log(`\n🔍 Verifying user: ${email}\n`);
