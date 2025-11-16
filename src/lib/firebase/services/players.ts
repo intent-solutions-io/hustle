@@ -65,6 +65,7 @@ export async function getPlayer(userId: string, playerId: string): Promise<Playe
 export async function createPlayer(
   userId: string,
   data: {
+    workspaceId: string;  // REQUIRED (Phase 5)
     name: string;
     birthday: Date;
     position: string;
@@ -78,6 +79,7 @@ export async function createPlayer(
     createdAt: any;
     updatedAt: any;
   } = {
+    workspaceId: data.workspaceId,  // Phase 5: Link to workspace
     name: data.name,
     birthday: Timestamp.fromDate(data.birthday),
     position: data.position,
@@ -92,6 +94,7 @@ export async function createPlayer(
 
   return {
     id: docRef.id,
+    workspaceId: data.workspaceId,
     name: data.name,
     birthday: data.birthday,
     position: data.position,

@@ -68,6 +68,8 @@ export async function createUser(
     agreedToPrivacy: boolean;
     isParentGuardian: boolean;
     verificationPinHash?: string | null;
+    defaultWorkspaceId?: string | null;      // Phase 5: Initial workspace
+    ownedWorkspaces?: string[];              // Phase 5: Owned workspace IDs
   }
 ): Promise<User> {
   const now = serverTimestamp();
@@ -77,6 +79,11 @@ export async function createUser(
     termsAgreedAt: any;
     privacyAgreedAt: any;
   } = {
+    // Phase 5: Workspace ownership
+    defaultWorkspaceId: data.defaultWorkspaceId || null,
+    ownedWorkspaces: data.ownedWorkspaces || [],
+
+    // Profile
     firstName: data.firstName,
     lastName: data.lastName,
     email: data.email,
@@ -111,7 +118,7 @@ export async function createUser(
  */
 export async function updateUser(
   userId: string,
-  data: Partial<Pick<UserDocument, 'firstName' | 'lastName' | 'phone' | 'emailVerified' | 'verificationPinHash'>>
+  data: Partial<Pick<UserDocument, 'firstName' | 'lastName' | 'phone' | 'emailVerified' | 'verificationPinHash' | 'defaultWorkspaceId' | 'ownedWorkspaces'>>
 ): Promise<void> {
   const docRef = doc(db, 'users', userId);
   await updateDoc(docRef, {

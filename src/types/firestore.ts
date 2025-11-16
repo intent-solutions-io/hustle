@@ -5,6 +5,7 @@
  * These map from the PostgreSQL Prisma schema to Firestore collections.
  *
  * Collection Structure:
+ * /workspaces/{workspaceId}
  * /users/{userId}
  *   /players/{playerId}
  *     /games/{gameId}
@@ -14,6 +15,58 @@
 import { Timestamp } from 'firebase/firestore';
 
 /**
+ * Workspace Plan Tiers
+ */
+export type WorkspacePlan = 'free' | 'starter' | 'plus' | 'pro';
+
+/**
+ * Workspace Lifecycle Status
+ */
+export type WorkspaceStatus =
+  | 'active'      // Workspace active and in good standing
+  | 'trial'       // Free trial period
+  | 'past_due'    // Payment failed, grace period
+  | 'canceled'    // Subscription canceled, still accessible until period end
+  | 'suspended'   // Access restricted (payment issues, TOS violation)
+  | 'deleted';    // Soft deleted, no longer accessible
+
+/**
+ * Workspace Document
+ * Collection: /workspaces/{workspaceId}
+ *
+ * Represents a billable tenant (typically a parent/guardian account).
+ * Owns players, games, and has a Stripe subscription.
+ */
+export interface WorkspaceDocument {
+  // Identity
+  ownerUserId: string;       // Firebase UID of workspace owner
+  name: string;              // Display name (e.g., "Johnson Family Stats")
+
+  // Plan & Status
+  plan: WorkspacePlan;       // Current subscription tier
+  status: WorkspaceStatus;   // Lifecycle status
+
+  // Billing Integration
+  billing: {
+    stripeCustomerId: string | null;
+    stripeSubscriptionId: string | null;
+    currentPeriodEnd: Timestamp | null;
+  };
+
+  // Usage Tracking (denormalized for quick limit checks)
+  usage: {
+    playerCount: number;       // Current active players
+    gamesThisMonth: number;    // Games created this billing cycle
+    storageUsedMB: number;     // Storage used (photos, videos - future)
+  };
+
+  // Metadata
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  deletedAt: Timestamp | null;  // Soft delete timestamp
+}
+
+/**
  * User Document
  * Collection: /users/{userId}
  *
@@ -21,6 +74,10 @@ import { Timestamp } from 'firebase/firestore';
  * This document stores user profile and COPPA compliance data.
  */
 export interface UserDocument {
+  // Workspace Ownership (Phase 5)
+  defaultWorkspaceId: string | null;  // Primary workspace for this user
+  ownedWorkspaces: string[];          // Array of workspace IDs where user is owner
+
   // Profile
   firstName: string;
   lastName: string;
@@ -52,6 +109,9 @@ export interface UserDocument {
  * Child profiles for tracking youth soccer players.
  */
 export interface PlayerDocument {
+  // Workspace Ownership (Phase 5)
+  workspaceId: string;  // Workspace that owns this player
+
   // Profile
   name: string;
   birthday: Timestamp;
@@ -71,6 +131,9 @@ export interface PlayerDocument {
  * Individual game statistics.
  */
 export interface GameDocument {
+  // Workspace Ownership (Phase 5 - denormalized for filtering)
+  workspaceId: string;  // Workspace that owns this game
+
   // Game info
   date: Timestamp;
   opponent: string;
@@ -150,4 +213,16 @@ export interface Waitlist extends Omit<WaitlistDocument, 'createdAt' | 'updatedA
   id: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Workspace extends Omit<WorkspaceDocument, 'createdAt' | 'updatedAt' | 'deletedAt' | 'billing'> {
+  id: string;
+  billing: {
+    stripeCustomerId: string | null;
+    stripeSubscriptionId: string | null;
+    currentPeriodEnd: Date | null;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
 }
