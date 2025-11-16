@@ -23,6 +23,9 @@ jobs:
       contents: read
       id-token: write
 
+    outputs:
+      url: ${{ steps.staging-url.outputs.url }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -77,6 +80,49 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `Deployed to staging: ${{ steps.staging-url.outputs.url }}`
+            })
+
+  smoke-test-staging:
+    name: Smoke Test (Staging)
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get staging URL
+        id: staging-url
+        run: |
+          # Extract URL from previous job output (stored in GitHub outputs)
+          echo "url=${{ needs.deploy-staging.outputs.url }}" >> $GITHUB_OUTPUT
+
+      - name: Run smoke tests against staging
+        env:
+          SMOKE_TEST_URL: ${{ needs.deploy-staging.outputs.url }}
+        run: npm run smoke-test
+
+      - name: Comment PR with smoke test results
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const status = '${{ job.status }}' === 'success' ? '✅ Passed' : '❌ Failed';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Smoke tests ${status}\n\nTarget: ${{ needs.deploy-staging.outputs.url }}`
             })
 
   deploy-production:

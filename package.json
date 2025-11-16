@@ -16,7 +16,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:report": "playwright show-report",
     "test:all": "npm run test:unit && npm run test:e2e",
-    "test:security": "npm audit --audit-level=moderate"
+    "test:security": "npm audit --audit-level=moderate",
+    "smoke-test": "tsx tests/e2e/smoke-test.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
