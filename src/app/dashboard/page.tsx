@@ -2,9 +2,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, Calendar, Target, PlusCircle, User, ChevronDown, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { auth } from '@/lib/auth';
+import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
+import {
+  getVerifiedGamesCountAdmin,
+  getUnverifiedGamesCountAdmin,
+  getSeasonGamesCountAdmin,
+  getFirstPendingGameAdmin,
+} from '@/lib/firebase/admin-services/games';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,71 +42,25 @@ function getCurrentSeasonDates() {
 }
 
 export default async function DashboardPage() {
-  // Server-side session protection
-  const session = await auth();
-  if (!session?.user?.id) {
+  // Server-side Firebase Auth protection
+  const user = await getDashboardUser();
+  if (!user || !user.emailVerified) {
     redirect('/login');
   }
 
-  // Fetch total games count across all athletes
-  const totalVerifiedGames = await prisma.game.count({
-    where: {
-      player: {
-        parentId: session.user.id,
-      },
-      verified: true,
-    },
-  });
-
-  const totalUnverifiedGames = await prisma.game.count({
-    where: {
-      player: {
-        parentId: session.user.id,
-      },
-      verified: false,
-    },
-  });
+  // Fetch total games count across all athletes (Firestore Admin SDK)
+  const totalVerifiedGames = await getVerifiedGamesCountAdmin(user.uid);
+  const totalUnverifiedGames = await getUnverifiedGamesCountAdmin(user.uid);
 
   // Fetch season games count (Aug 1 - Jul 31)
   const { start, end } = getCurrentSeasonDates();
-  const seasonGames = await prisma.game.count({
-    where: {
-      player: {
-        parentId: session.user.id,
-      },
-      verified: true,
-      date: {
-        gte: start,
-        lte: end,
-      },
-    },
-  });
+  const seasonGames = await getSeasonGamesCountAdmin(user.uid, start, end);
 
-  // Fetch athletes for Quick Actions logic
-  const athletes = await prisma.player.findMany({
-    where: { parentId: session.user.id },
-    select: {
-      id: true,
-      name: true,
-      position: true,
-    },
-    orderBy: { name: 'asc' },
-  });
+  // Fetch athletes for Quick Actions logic (Firestore Admin SDK)
+  const athletes = await getPlayersAdmin(user.uid);
 
-  const firstPendingGame = await prisma.game.findFirst({
-    where: {
-      verified: false,
-      player: {
-        parentId: session.user.id,
-      },
-    },
-    orderBy: {
-      date: 'asc',
-    },
-    select: {
-      playerId: true,
-    },
-  });
+  // Find first pending game (Firestore Admin SDK)
+  const firstPendingGame = await getFirstPendingGameAdmin(user.uid);
 
   const verifyHref = firstPendingGame
     ? `/verify?playerId=${firstPendingGame.playerId}`
