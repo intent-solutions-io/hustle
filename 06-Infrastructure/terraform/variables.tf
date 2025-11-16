@@ -1,128 +1,103 @@
-# Hustle MVP - Variable Definitions
-# All configurable values for cost-optimized infrastructure
+# ==============================================================================
+# Global Variables for Hustle Infrastructure
+# ==============================================================================
 
-# Project Configuration
-variable "project_id" {
-  description = "GCP Project ID"
+variable "organization_id" {
+  description = "GCP Organization ID"
   type        = string
-  default     = "hustle-dev-202510"
+}
+
+variable "billing_account" {
+  description = "GCP Billing Account ID"
+  type        = string
+}
+
+variable "project_prefix" {
+  description = "Prefix for all project names"
+  type        = string
+  default     = "hustleapp"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "prod"
 }
 
 variable "region" {
-  description = "GCP region for resources"
+  description = "Default GCP region"
   type        = string
   default     = "us-central1"
 }
 
-variable "zone" {
-  description = "GCP zone for resources"
+variable "firebase_location" {
+  description = "Firebase/Firestore location"
   type        = string
-  default     = "us-central1-a"
+  default     = "us-central"
 }
 
-# Network Configuration
-variable "vpc_name" {
-  description = "Name of the VPC network"
+variable "bigquery_dataset_location" {
+  description = "BigQuery dataset location"
   type        = string
-  default     = "hustle-vpc"
+  default     = "US"
 }
 
-variable "subnet_name" {
-  description = "Name of the subnet"
-  type        = string
-  default     = "hustle-public-subnet"
-}
-
-variable "subnet_cidr" {
-  description = "CIDR range for the subnet"
-  type        = string
-  default     = "10.10.1.0/24"
-}
-
-# Compute Configuration
-variable "vm_name" {
-  description = "Name of the web server VM"
-  type        = string
-  default     = "hustle-web-server"
-}
-
-variable "vm_machine_type" {
-  description = "Machine type for web server (cost-optimized)"
-  type        = string
-  default     = "e2-micro"
-}
-
-variable "vm_image" {
-  description = "Boot disk image for VM"
-  type        = string
-  default     = "debian-cloud/debian-12"
-}
-
-variable "vm_disk_size" {
-  description = "Boot disk size in GB"
-  type        = number
-  default     = 10
-}
-
-# Database Configuration
-variable "db_name" {
-  description = "Cloud SQL instance name"
-  type        = string
-  default     = "hustle-db"
-}
-
-variable "db_tier" {
-  description = "Database tier (cost-optimized)"
-  type        = string
-  default     = "db-g1-small"
-}
-
-variable "db_version" {
+variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
   default     = "POSTGRES_15"
 }
 
-variable "database_name" {
-  description = "Name of the database to create"
+variable "postgres_tier" {
+  description = "Cloud SQL machine type"
   type        = string
-  default     = "hustle_mvp"
+  default     = "db-g1-small"
 }
 
-variable "db_user" {
-  description = "Database user name"
+variable "vertex_ai_region" {
+  description = "Vertex AI region"
   type        = string
-  default     = "hustle_admin"
+  default     = "us-central1"
 }
 
-# Storage Configuration
-variable "bucket_name" {
-  description = "GCS bucket name for media uploads"
+variable "gemini_model" {
+  description = "Gemini model version"
   type        = string
-  default     = "hustle-mvp-media"
+  default     = "gemini-2.0-flash-001"
 }
 
-variable "bucket_location" {
-  description = "GCS bucket location"
-  type        = string
-  default     = "US"
-}
-
-variable "bucket_storage_class" {
-  description = "Storage class for cost optimization"
-  type        = string
-  default     = "STANDARD"
-}
-
-# Environment Tags
-variable "environment" {
-  description = "Environment tag"
-  type        = string
-  default     = "development"
-}
-
-variable "project_name" {
-  description = "Project name for resource labeling"
-  type        = string
-  default     = "hustle-mvp"
+variable "agents" {
+  description = "Agent configurations"
+  type = map(object({
+    name         = string
+    display_name = string
+    tools_count  = number
+  }))
+  default = {
+    performance_coach = {
+      name         = "performance-coach"
+      display_name = "Performance Coach Agent"
+      tools_count  = 3
+    }
+    stats_analyst = {
+      name         = "stats-analyst"
+      display_name = "Stats Analyst Agent"
+      tools_count  = 4
+    }
+    game_logger = {
+      name         = "game-logger"
+      display_name = "Game Logger Agent"
+      tools_count  = 5
+    }
+    scout_report = {
+      name         = "scout-report"
+      display_name = "Scout Report Agent"
+      tools_count  = 3
+    }
+    verification = {
+      name         = "verification"
+      display_name = "Verification Agent"
+      tools_count  = 2
+    }
+  }
 }

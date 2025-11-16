@@ -38,9 +38,12 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.analyticsAgent = exports.onboardingAgent = exports.userCreationAgent = exports.validationAgent = exports.orchestrator = void 0;
+exports.sendWelcomeEmail = exports.analyticsAgent = exports.onboardingAgent = exports.userCreationAgent = exports.validationAgent = exports.orchestrator = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const a2a_client_1 = require("./a2a-client");
+const email_service_1 = require("./email-service");
+const email_templates_1 = require("./email-templates");
 // Initialize Firebase Admin
 admin.initializeApp();
 /**
@@ -80,9 +83,18 @@ exports.orchestrator = functions
             userId: context.auth?.uid,
             requestId: context.instanceIdToken
         });
-        // TODO: Replace with actual Vertex AI agent call
-        // For now, return a mock response
-        const response = await processIntent(intent, requestData, context);
+        // Call Vertex AI agent via A2A protocol
+        const a2aClient = (0, a2a_client_1.getA2AClient)();
+        const response = await a2aClient.sendTask({
+            intent,
+            data: requestData,
+            auth: context.auth
+                ? {
+                    uid: context.auth.uid,
+                    email: context.auth.token.email,
+                }
+                : undefined,
+        });
         return response;
     }
     catch (error) {
@@ -91,118 +103,16 @@ exports.orchestrator = functions
     }
 });
 /**
- * Process intent and route to appropriate handler
+ * NOTE: Intent handling is now performed by Vertex AI agents via A2A protocol.
+ * The orchestrator agent coordinates validation, creation, onboarding, and analytics agents.
  *
- * This will be replaced with Vertex AI agent calls once agents are deployed
- */
-async function processIntent(intent, data, context) {
-    switch (intent) {
-        case 'user_registration':
-            return handleUserRegistration(data);
-        case 'player_creation':
-            return handlePlayerCreation(data, context.auth.uid);
-        case 'game_logging':
-            return handleGameLogging(data, context.auth.uid);
-        default:
-            throw new functions.https.HttpsError('invalid-argument', `Unknown intent: ${intent}`);
-    }
-}
-/**
- * Handle user registration
+ * This Cloud Function now serves as a thin API gateway that:
+ * 1. Receives requests from the frontend
+ * 2. Forwards them to the Vertex AI orchestrator agent
+ * 3. Returns the agent's response
  *
- * TODO: Replace with Vertex AI agent call
+ * All business logic, validation, and orchestration is handled by the agents.
  */
-async function handleUserRegistration(data) {
-    console.log('Processing user registration (mock)');
-    return {
-        success: true,
-        data: {
-            userId: 'mock-user-id',
-            emailVerificationSent: true
-        },
-        message: 'Account created successfully. Please check your email to verify your account.',
-        agent_execution: {
-            validation: {
-                status: 'success',
-                duration_ms: 150
-            },
-            creation: {
-                status: 'success',
-                userId: 'mock-user-id',
-                duration_ms: 320
-            },
-            onboarding: {
-                status: 'success',
-                emailSent: true,
-                duration_ms: 450
-            },
-            analytics: {
-                status: 'success',
-                duration_ms: 200
-            }
-        }
-    };
-}
-/**
- * Handle player creation
- *
- * TODO: Replace with Vertex AI agent call
- */
-async function handlePlayerCreation(data, userId) {
-    console.log('Processing player creation (mock)');
-    return {
-        success: true,
-        data: {
-            playerId: 'mock-player-id',
-            name: data.name
-        },
-        agent_execution: {
-            validation: {
-                status: 'success',
-                duration_ms: 120
-            },
-            creation: {
-                status: 'success',
-                playerId: 'mock-player-id',
-                duration_ms: 280
-            },
-            analytics: {
-                status: 'success',
-                duration_ms: 150
-            }
-        }
-    };
-}
-/**
- * Handle game logging
- *
- * TODO: Replace with Vertex AI agent call
- */
-async function handleGameLogging(data, userId) {
-    console.log('Processing game logging (mock)');
-    return {
-        success: true,
-        data: {
-            gameId: 'mock-game-id',
-            playerId: data.playerId
-        },
-        agent_execution: {
-            validation: {
-                status: 'success',
-                duration_ms: 180
-            },
-            creation: {
-                status: 'success',
-                gameId: 'mock-game-id',
-                duration_ms: 350
-            },
-            analytics: {
-                status: 'success',
-                duration_ms: 220
-            }
-        }
-    };
-}
 /**
  * Validation Agent
  *
@@ -262,5 +172,58 @@ exports.analyticsAgent = functions
     .https.onCall(async (data, context) => {
     // TODO: Implement analytics logic
     return { tracked: true };
+});
+/**
+ * Send Welcome Email on User Creation
+ *
+ * Automatically triggered when a new user is created in Firebase Auth.
+ * Sends a branded welcome email via Resend.
+ *
+ * Note: Firebase also sends a verification email automatically.
+ * This is a separate branded welcome message.
+ */
+exports.sendWelcomeEmail = functions
+    .region('us-central1')
+    .runWith({
+    timeoutSeconds: 30,
+    memory: '256MB'
+})
+    .auth.user().onCreate(async (user) => {
+    try {
+        console.log(`[WelcomeEmail] Triggered for new user: ${user.email}`);
+        // Get user's first name from Firestore
+        const userDoc = await admin.firestore()
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        const userData = userDoc.data();
+        const firstName = userData?.firstName || user.displayName?.split(' ')[0] || 'there';
+        console.log(`[WelcomeEmail] Sending welcome email to: ${user.email} (${firstName})`);
+        // Send welcome email via Resend
+        const template = email_templates_1.emailTemplates.welcome(firstName);
+        await (0, email_service_1.sendEmail)({
+            to: user.email,
+            subject: template.subject,
+            html: template.html,
+            text: template.text,
+        });
+        console.log(`[WelcomeEmail] Successfully sent welcome email to: ${user.email}`);
+        return {
+            success: true,
+            email: user.email,
+            timestamp: new Date().toISOString(),
+        };
+    }
+    catch (error) {
+        console.error('[WelcomeEmail] Error sending welcome email:', error);
+        // Don't throw - we don't want to block user creation if email fails
+        // Just log the error and continue
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            email: user.email,
+            timestamp: new Date().toISOString(),
+        };
+    }
 });
 //# sourceMappingURL=index.js.map

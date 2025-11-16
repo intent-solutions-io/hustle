@@ -49,7 +49,9 @@ interface AgentEndpoint {
  * Communicates with Vertex AI agents deployed on Agent Engine.
  */
 export class A2AClient {
+  // @ts-ignore - Reserved for future use
   private projectId: string;
+  // @ts-ignore - Reserved for future use
   private region: string;
   private sessionId: string | null = null;
 
