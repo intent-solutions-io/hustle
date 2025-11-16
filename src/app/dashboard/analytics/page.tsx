@@ -1,6 +1,6 @@
-import { auth } from '@/lib/auth';
+import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { getAllGamesAdmin } from '@/lib/firebase/admin-services/games';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, Target, Award, BarChart3 } from 'lucide-react';
 
@@ -16,28 +16,15 @@ import { TrendingUp, Target, Award, BarChart3 } from 'lucide-react';
  * @returns Server component rendering analytics dashboard
  */
 export default async function AnalyticsPage() {
-  const session = await auth();
+  // Firebase Admin auth check
+  const user = await getDashboardUser();
 
-  if (!session?.user?.id) {
+  if (!user || !user.emailVerified) {
     redirect('/login');
   }
 
-  // Fetch all games for the user's athletes
-  const games = await prisma.game.findMany({
-    where: {
-      player: {
-        parentId: session.user.id,
-      },
-    },
-    include: {
-      player: {
-        select: {
-          name: true,
-          position: true,
-        },
-      },
-    },
-  });
+  // Fetch all games for the user's athletes (Firestore Admin SDK)
+  const games = await getAllGamesAdmin(user.uid);
 
   // Calculate summary statistics
   const totalGames = games.length;

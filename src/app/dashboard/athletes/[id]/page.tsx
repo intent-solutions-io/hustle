@@ -1,6 +1,7 @@
-import { auth } from '@/lib/auth';
+import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { redirect, notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getAllGamesForPlayerAdmin } from '@/lib/firebase/admin-services/games';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -24,7 +25,7 @@ import {
   calculateAthleteStats,
 } from '@/lib/game-utils';
 import type { AthleteDetailPageProps, GameData, AthleteStats } from '@/types/game';
-import type { PlayerData } from '@/types/player';
+import type { Player, Game } from '@/types/firestore';
 
 /**
  * Athlete Detail Page
@@ -44,37 +45,29 @@ import type { PlayerData } from '@/types/player';
 export default async function AthleteDetailPage({
   params,
 }: AthleteDetailPageProps) {
-  // 1. AUTH CHECK: Verify user is authenticated
-  const session = await auth();
-  if (!session?.user?.id) {
+  // 1. AUTH CHECK: Verify user is authenticated (Firebase Admin)
+  const user = await getDashboardUser();
+  if (!user || !user.emailVerified) {
     redirect('/login');
   }
 
-  // 2. FETCH ATHLETE: Get athlete data with ownership verification
-  // CRITICAL: Must filter by parentId to prevent unauthorized access
-  const athlete: PlayerData | null = await prisma.player.findFirst({
-    where: {
-      id: params.id,
-      parentId: session.user.id, // Security: Only parent can access their athlete
-    },
-  });
+  // 2. FETCH ATHLETE: Get athlete data with ownership verification (Firestore Admin SDK)
+  // CRITICAL: Firestore security rules enforce ownership, but we verify UID match
+  const athlete: Player | null = await getPlayerAdmin(user.uid, params.id);
 
   // 404 if athlete not found or not owned by this parent
   if (!athlete) {
     notFound();
   }
 
-  // 3. FETCH GAMES: Get all games for this athlete (most recent first)
-  const games: GameData[] = await prisma.game.findMany({
-    where: { playerId: athlete.id },
-    orderBy: { date: 'desc' },
-  });
+  // 3. FETCH GAMES: Get all games for this athlete (Firestore Admin SDK)
+  const games: Game[] = await getAllGamesForPlayerAdmin(user.uid, athlete.id);
 
   const verifiedGames = games.filter((game) => game.verified);
   const pendingGames = games.filter((game) => !game.verified);
 
   // 4. CALCULATE AGGREGATED STATS using utility function (verified games only)
-  const stats: AthleteStats = calculateAthleteStats(verifiedGames);
+  const stats: AthleteStats = calculateAthleteStats(verifiedGames as GameData[]);
 
   // 5. CALCULATE DISPLAY VALUES
   const age: number = calculateAge(athlete.birthday);

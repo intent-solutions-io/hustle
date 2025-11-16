@@ -1,24 +1,22 @@
-import { auth } from '@/lib/auth';
+import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PinSettingsForm } from './pin-settings-form';
 
 export default async function SettingsPage() {
-  const session = await auth();
+  // Firebase Admin auth check
+  const authUser = await getDashboardUser();
 
-  if (!session?.user?.id) {
+  if (!authUser || !authUser.emailVerified) {
     redirect('/login');
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      verificationPinHash: true,
-      email: true,
-      firstName: true,
-    },
-  });
+  // Fetch user profile from Firestore
+  const user = await getUserProfileAdmin(authUser.uid);
+  if (!user) {
+    redirect('/login');
+  }
 
   return (
     <div className="space-y-6">

@@ -1,42 +1,26 @@
-import { auth } from '@/lib/auth';
+import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
+import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 export default async function ProfilePage() {
-  const session = await auth();
+  // Firebase Admin auth check
+  const authUser = await getDashboardUser();
 
-  if (!session?.user?.id) {
+  if (!authUser || !authUser.emailVerified) {
     redirect('/login');
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      id: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      phone: true,
-      emailVerified: true,
-      createdAt: true,
-      agreedToTerms: true,
-      agreedToPrivacy: true,
-      isParentGuardian: true,
-      verificationPinHash: true,
-      players: {
-        select: {
-          id: true,
-          name: true,
-        }
-      }
-    },
-  });
-
+  // Fetch full user profile from Firestore
+  const user = await getUserProfileAdmin(authUser.uid);
   if (!user) {
     redirect('/login');
   }
+
+  // Fetch user's players
+  const players = await getPlayersAdmin(authUser.uid);
 
   return (
     <div className="space-y-6">
@@ -166,15 +150,15 @@ export default async function ProfilePage() {
           <CardTitle>Athletes</CardTitle>
         </CardHeader>
         <CardContent>
-          {user.players.length === 0 ? (
+          {players.length === 0 ? (
             <p className="text-sm text-zinc-500">No athletes added yet</p>
           ) : (
             <div className="space-y-2">
               <p className="text-sm font-medium text-zinc-700">
-                You are managing {user.players.length} {user.players.length === 1 ? 'athlete' : 'athletes'}:
+                You are managing {players.length} {players.length === 1 ? 'athlete' : 'athletes'}:
               </p>
               <ul className="list-disc list-inside space-y-1">
-                {user.players.map((player) => (
+                {players.map((player) => (
                   <li key={player.id} className="text-sm text-zinc-600">
                     {player.name}
                   </li>

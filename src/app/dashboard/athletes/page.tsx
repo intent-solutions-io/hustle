@@ -1,18 +1,12 @@
-import { auth } from '@/lib/auth';
+import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { calculateAge, getInitials, getAvatarColor } from '@/lib/player-utils';
-import type { Prisma } from '@prisma/client';
-
-/**
- * Type representing a Player from the database
- */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-type Player = Prisma.PlayerGetPayload<{}>;
+import type { Player } from '@/types/firestore';
 
 /**
  * Athletes List Page
@@ -28,21 +22,22 @@ type Player = Prisma.PlayerGetPayload<{}>;
  * @returns Server component rendering athlete list
  */
 export default async function AthletesPage() {
-  const session = await auth();
+  // Firebase Admin auth check
+  const user = await getDashboardUser();
 
-  if (!session?.user?.id) {
+  if (!user || !user.emailVerified) {
     redirect('/login');
   }
 
-  // Fetch all players for the logged-in parent with error handling
+  // Fetch all players for the logged-in parent with error handling (Firestore Admin SDK)
   let players: Player[] = [];
   let error: string | null = null;
 
   try {
-    players = await prisma.player.findMany({
-      where: { parentId: session.user.id },
-      orderBy: { createdAt: 'desc' }
-    });
+    players = await getPlayersAdmin(user.uid);
+    // Players from Firestore are already ordered by name asc (see admin-services/players.ts)
+    // For createdAt desc ordering, we need to sort here
+    players.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   } catch (err) {
     console.error('Error fetching players:', err);
     error = 'Unable to load athletes. Please try again later.';
