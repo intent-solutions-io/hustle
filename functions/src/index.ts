@@ -7,6 +7,8 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { getA2AClient } from './a2a-client';
+import { sendEmail } from './email-service';
+import { emailTemplates } from './email-templates';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -151,4 +153,64 @@ export const analyticsAgent = functions
   .https.onCall(async (data, context) => {
     // TODO: Implement analytics logic
     return { tracked: true };
+  });
+
+/**
+ * Send Welcome Email on User Creation
+ *
+ * Automatically triggered when a new user is created in Firebase Auth.
+ * Sends a branded welcome email via Resend.
+ *
+ * Note: Firebase also sends a verification email automatically.
+ * This is a separate branded welcome message.
+ */
+export const sendWelcomeEmail = functions
+  .region('us-central1')
+  .runWith({
+    timeoutSeconds: 30,
+    memory: '256MB'
+  })
+  .auth.user().onCreate(async (user) => {
+    try {
+      console.log(`[WelcomeEmail] Triggered for new user: ${user.email}`);
+
+      // Get user's first name from Firestore
+      const userDoc = await admin.firestore()
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+      const userData = userDoc.data();
+      const firstName = userData?.firstName || user.displayName?.split(' ')[0] || 'there';
+
+      console.log(`[WelcomeEmail] Sending welcome email to: ${user.email} (${firstName})`);
+
+      // Send welcome email via Resend
+      const template = emailTemplates.welcome(firstName);
+      await sendEmail({
+        to: user.email!,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      console.log(`[WelcomeEmail] Successfully sent welcome email to: ${user.email}`);
+
+      return {
+        success: true,
+        email: user.email,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('[WelcomeEmail] Error sending welcome email:', error);
+
+      // Don't throw - we don't want to block user creation if email fails
+      // Just log the error and continue
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        email: user.email,
+        timestamp: new Date().toISOString(),
+      };
+    }
   });

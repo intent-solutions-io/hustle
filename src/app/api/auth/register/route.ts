@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
     // Create user with Firebase Auth
     const { user, firestoreUser } = await signUp(validatedData);
 
+    // Note: Welcome email is sent automatically by Firebase Cloud Function (onUserCreated trigger)
+
     return NextResponse.json(
       {
         success: true,
