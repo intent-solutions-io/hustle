@@ -18,6 +18,8 @@ import {
   serverTimestamp,
   Timestamp,
   increment,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../config';
 import type { Workspace, WorkspaceDocument, WorkspacePlan, WorkspaceStatus } from '@/types/firestore';
@@ -39,6 +41,10 @@ function convertWorkspaceDocument(id: string, data: WorkspaceDocument): Workspac
         ? (data.billing.currentPeriodEnd as Timestamp).toDate()
         : null,
     },
+    members: data.members.map((m) => ({
+      ...m,
+      addedAt: (m.addedAt as Timestamp).toDate(),
+    })),
     usage: data.usage,
     createdAt: (data.createdAt as Timestamp).toDate(),
     updatedAt: (data.updatedAt as Timestamp).toDate(),
@@ -52,12 +58,14 @@ function convertWorkspaceDocument(id: string, data: WorkspaceDocument): Workspac
  * @param userId - Firebase UID of the workspace owner
  * @param plan - Initial subscription plan (default: 'free')
  * @param name - Workspace display name (optional, defaults to user's name)
+ * @param ownerEmail - Owner's email for members array
  * @returns Created workspace
  */
 export async function createWorkspaceForUser(
   userId: string,
   plan: WorkspacePlan = 'free',
-  name?: string
+  name?: string,
+  ownerEmail?: string
 ): Promise<Workspace> {
   const workspaceRef = doc(collection(db, 'workspaces'));
   const workspaceId = workspaceRef.id;
@@ -71,6 +79,17 @@ export async function createWorkspaceForUser(
     name: name || `Workspace ${workspaceId.slice(0, 8)}`,
     plan,
     status: plan === 'free' ? 'trial' : 'active',
+    members: ownerEmail
+      ? [
+          {
+            userId,
+            email: ownerEmail,
+            role: 'owner',
+            addedAt: serverTimestamp() as Timestamp,
+            addedBy: userId,
+          },
+        ]
+      : [],
     billing: {
       stripeCustomerId: null,
       stripeSubscriptionId: null,
@@ -97,6 +116,10 @@ export async function createWorkspaceForUser(
         ? workspaceData.billing.currentPeriodEnd.toDate()
         : null,
     },
+    members: workspaceData.members.map((m) => ({
+      ...m,
+      addedAt: new Date(),
+    })),
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -337,3 +360,126 @@ export async function updateWorkspaceStorageUsage(
  * Alias for getWorkspaceById (convenience for storage service)
  */
 export const getWorkspace = getWorkspaceById;
+
+/**
+ * Add member to workspace (Phase 6 Task 6: Collaborators)
+ *
+ * @param workspaceId - Workspace document ID
+ * @param member - Member to add (userId, email, role)
+ * @param addedBy - Firebase UID of user adding the member
+ */
+export async function addWorkspaceMember(
+  workspaceId: string,
+  member: {
+    userId: string;
+    email: string;
+    role: 'admin' | 'member' | 'viewer'; // Cannot add another owner
+  },
+  addedBy: string
+): Promise<void> {
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  await updateDoc(workspaceRef, {
+    members: arrayUnion({
+      userId: member.userId,
+      email: member.email,
+      role: member.role,
+      addedAt: serverTimestamp(),
+      addedBy,
+    }),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Remove member from workspace (Phase 6 Task 6: Collaborators)
+ *
+ * @param workspaceId - Workspace document ID
+ * @param userId - Firebase UID of member to remove
+ */
+export async function removeWorkspaceMember(
+  workspaceId: string,
+  userId: string
+): Promise<void> {
+  // First, get the workspace to find the member to remove
+  const workspace = await getWorkspaceById(workspaceId);
+  if (!workspace) {
+    throw new Error('Workspace not found');
+  }
+
+  // Find member to remove
+  const memberToRemove = workspace.members.find((m) => m.userId === userId);
+  if (!memberToRemove) {
+    throw new Error('Member not found in workspace');
+  }
+
+  // Cannot remove owner
+  if (memberToRemove.role === 'owner') {
+    throw new Error('Cannot remove workspace owner');
+  }
+
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  await updateDoc(workspaceRef, {
+    members: arrayRemove({
+      userId: memberToRemove.userId,
+      email: memberToRemove.email,
+      role: memberToRemove.role,
+      addedAt: Timestamp.fromDate(memberToRemove.addedAt),
+      addedBy: memberToRemove.addedBy,
+    }),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Update member role (Phase 6 Task 6: Collaborators)
+ *
+ * @param workspaceId - Workspace document ID
+ * @param userId - Firebase UID of member
+ * @param newRole - New role to assign
+ */
+export async function updateMemberRole(
+  workspaceId: string,
+  userId: string,
+  newRole: 'admin' | 'member' | 'viewer' // Cannot change to owner
+): Promise<void> {
+  // First, get the workspace to find the member
+  const workspace = await getWorkspaceById(workspaceId);
+  if (!workspace) {
+    throw new Error('Workspace not found');
+  }
+
+  // Find member
+  const member = workspace.members.find((m) => m.userId === userId);
+  if (!member) {
+    throw new Error('Member not found in workspace');
+  }
+
+  // Cannot change owner role
+  if (member.role === 'owner') {
+    throw new Error('Cannot change owner role');
+  }
+
+  // Remove old member and add with new role
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  await updateDoc(workspaceRef, {
+    members: arrayRemove({
+      userId: member.userId,
+      email: member.email,
+      role: member.role,
+      addedAt: Timestamp.fromDate(member.addedAt),
+      addedBy: member.addedBy,
+    }),
+    updatedAt: serverTimestamp(),
+  });
+
+  await updateDoc(workspaceRef, {
+    members: arrayUnion({
+      userId: member.userId,
+      email: member.email,
+      role: newRole,
+      addedAt: Timestamp.fromDate(member.addedAt), // Keep original addedAt
+      addedBy: member.addedBy,
+    }),
+    updatedAt: serverTimestamp(),
+  });
+}

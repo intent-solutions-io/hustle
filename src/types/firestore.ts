@@ -31,6 +31,26 @@ export type WorkspaceStatus =
   | 'deleted';    // Soft deleted, no longer accessible
 
 /**
+ * Workspace Member Role (Phase 6 Task 6: Collaborators)
+ */
+export type WorkspaceMemberRole =
+  | 'owner'       // Full access, billing, can delete workspace
+  | 'admin'       // Full access to players/games, can invite members
+  | 'member'      // Can view/edit players/games
+  | 'viewer';     // Read-only access
+
+/**
+ * Workspace Member (Phase 6 Task 6: Collaborators)
+ */
+export interface WorkspaceMember {
+  userId: string;              // Firebase UID
+  email: string;               // User email
+  role: WorkspaceMemberRole;   // Member role
+  addedAt: Timestamp;          // When member was added
+  addedBy: string;             // Firebase UID of inviter
+}
+
+/**
  * Workspace Document
  * Collection: /workspaces/{workspaceId}
  *
@@ -45,6 +65,9 @@ export interface WorkspaceDocument {
   // Plan & Status
   plan: WorkspacePlan;       // Current subscription tier
   status: WorkspaceStatus;   // Lifecycle status
+
+  // Collaborators (Phase 6 Task 6)
+  members: WorkspaceMember[]; // Team members with role-based access
 
   // Billing Integration
   billing: {
@@ -182,6 +205,25 @@ export interface WaitlistDocument {
 }
 
 /**
+ * Workspace Invite Document (Phase 6 Task 6: Collaborators)
+ * Collection: /workspace-invites/{inviteId}
+ *
+ * Pending invitations to join a workspace.
+ */
+export interface WorkspaceInviteDocument {
+  workspaceId: string;         // Workspace being invited to
+  workspaceName: string;       // Workspace display name
+  invitedEmail: string;        // Email address of invitee
+  invitedBy: string;           // Firebase UID of inviter
+  inviterName: string;         // Display name of inviter
+  role: WorkspaceMemberRole;   // Role to be assigned
+  status: 'pending' | 'accepted' | 'declined' | 'expired';
+  expiresAt: Timestamp;        // Invite expiration (7 days)
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
  * Client-side types (with Date instead of Timestamp)
  * Used in React components and API routes.
  */
@@ -215,14 +257,22 @@ export interface Waitlist extends Omit<WaitlistDocument, 'createdAt' | 'updatedA
   updatedAt: Date;
 }
 
-export interface Workspace extends Omit<WorkspaceDocument, 'createdAt' | 'updatedAt' | 'deletedAt' | 'billing'> {
+export interface Workspace extends Omit<WorkspaceDocument, 'createdAt' | 'updatedAt' | 'deletedAt' | 'billing' | 'members'> {
   id: string;
   billing: {
     stripeCustomerId: string | null;
     stripeSubscriptionId: string | null;
     currentPeriodEnd: Date | null;
   };
+  members: Array<Omit<WorkspaceMember, 'addedAt'> & { addedAt: Date }>;  // Convert Timestamp to Date
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+}
+
+export interface WorkspaceInvite extends Omit<WorkspaceInviteDocument, 'createdAt' | 'updatedAt' | 'expiresAt'> {
+  id: string;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
