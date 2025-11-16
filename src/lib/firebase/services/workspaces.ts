@@ -315,3 +315,25 @@ export async function updateWorkspaceName(
     updatedAt: serverTimestamp(),
   });
 }
+
+/**
+ * Update workspace storage usage (Phase 6 Task 5: Storage & Uploads)
+ *
+ * @param workspaceId - Workspace document ID
+ * @param deltaMB - Change in storage (positive for increase, negative for decrease)
+ */
+export async function updateWorkspaceStorageUsage(
+  workspaceId: string,
+  deltaMB: number
+): Promise<void> {
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  await updateDoc(workspaceRef, {
+    'usage.storageUsedMB': increment(deltaMB),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Alias for getWorkspaceById (convenience for storage service)
+ */
+export const getWorkspace = getWorkspaceById;
