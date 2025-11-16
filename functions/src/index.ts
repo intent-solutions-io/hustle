@@ -2,6 +2,7 @@
  * Hustle A2A Agent System - Cloud Functions
  *
  * This file contains the Cloud Functions that interface with Vertex AI agents.
+ * Phase 6 Task 3: Added scheduled trial reminder emails
  */
 
 import * as functions from 'firebase-functions';
@@ -12,6 +13,8 @@ import { emailTemplates } from './email-templates';
 
 // Initialize Firebase Admin
 admin.initializeApp();
+
+const db = admin.firestore();
 
 /**
  * Orchestrator Agent Entry Point
@@ -214,3 +217,111 @@ export const sendWelcomeEmail = functions
       };
     }
   });
+
+
+/**
+ * Daily Trial Reminder Emails (Phase 6 Task 3)
+ *
+ * Scheduled function that runs daily at 9:00 AM UTC to check for trials
+ * ending in 3 days and send reminder emails.
+ *
+ * Schedule: every day at 09:00 (UTC)
+ */
+export const sendTrialReminders = functions
+  .region("us-central1")
+  .pubsub.schedule("0 9 * * *") // Every day at 9:00 AM UTC
+  .timeZone("UTC")
+  .onRun(async (context) => {
+    try {
+      console.log("[TrialReminders] Starting daily trial reminder check");
+
+      // Calculate date 3 days from now (midnight)
+      const threeDaysFromNow = new Date();
+      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+      threeDaysFromNow.setHours(0, 0, 0, 0);
+
+      // Calculate date 4 days from now (to create a range)
+      const fourDaysFromNow = new Date();
+      fourDaysFromNow.setDate(fourDaysFromNow.getDate() + 4);
+      fourDaysFromNow.setHours(0, 0, 0, 0);
+
+      // Query workspaces with trial status and trialEndsAt in range
+      const workspaces = await db
+        .collection("workspaces")
+        .where("status", "==", "trial")
+        .where("trialEndsAt", ">=", admin.firestore.Timestamp.fromDate(threeDaysFromNow))
+        .where("trialEndsAt", "<", admin.firestore.Timestamp.fromDate(fourDaysFromNow))
+        .get();
+
+      console.log(`[TrialReminders] Found ${workspaces.size} workspaces with trials ending in 3 days`);
+
+      let emailsSent = 0;
+      let emailsFailed = 0;
+
+      for (const workspaceDoc of workspaces.docs) {
+        try {
+          const workspaceData = workspaceDoc.data();
+
+          // Find workspace owner
+          const usersSnap = await db
+            .collection("users")
+            .where("defaultWorkspaceId", "==", workspaceDoc.id)
+            .limit(1)
+            .get();
+
+          if (usersSnap.empty) {
+            console.warn(`[TrialReminders] No user found for workspace ${workspaceDoc.id}`);
+            continue;
+          }
+
+          const userData = usersSnap.docs[0].data();
+          const userEmail = userData.email;
+          const userName = userData.firstName || "User";
+
+          if (\!userEmail) {
+            console.warn(`[TrialReminders] User ${usersSnap.docs[0].id} has no email`);
+            continue;
+          }
+
+          // Send trial ending soon email
+          const template = emailTemplates.trialEndingSoon({
+            name: userName,
+            daysRemaining: 3,
+            upgradeUrl: `${process.env.NEXTAUTH_URL}/billing/plans`,
+          });
+
+          const result = await sendEmail({
+            to: userEmail,
+            subject: template.subject,
+            html: template.html,
+            text: template.text,
+          });
+
+          if (result.success) {
+            emailsSent++;
+            console.log(`[TrialReminders] Sent reminder to ${userEmail} (workspace: ${workspaceDoc.id})`);
+          } else {
+            emailsFailed++;
+            console.error(`[TrialReminders] Failed to send to ${userEmail}:`, result.error);
+          }
+        } catch (error) {
+          emailsFailed++;
+          console.error(`[TrialReminders] Error processing workspace ${workspaceDoc.id}:`, error);
+        }
+      }
+
+      console.log(`[TrialReminders] Complete. Sent: ${emailsSent}, Failed: ${emailsFailed}`);
+
+      return {
+        success: true,
+        workspacesChecked: workspaces.size,
+        emailsSent,
+        emailsFailed,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error("[TrialReminders] Fatal error:", error);
+      throw error;
+    }
+  });
+
