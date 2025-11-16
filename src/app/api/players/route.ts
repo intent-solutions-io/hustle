@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
+import { getPlayers } from '@/lib/firebase/services/players'
+import { getUnverifiedGames } from '@/lib/firebase/services/games'
+import { getUser } from '@/lib/firebase/services/users'
 
 // GET /api/players - Get all players for authenticated user
 export async function GET() {
@@ -14,49 +16,30 @@ export async function GET() {
       );
     }
 
-    // Only return players belonging to authenticated user
-    const rawPlayers = await prisma.player.findMany({
-      where: {
-        parentId: session.user.id
-      },
-      orderBy: { name: 'asc' },
-      include: {
-        parent: {
-          select: {
-            email: true
-          }
-        },
-        games: {
-          where: {
-            verified: false
-          },
-          select: {
-            id: true
-          }
-        },
-        games: {
-          where: {
-            verified: false
-          },
-          select: {
-            id: true
-          }
-        }
-      }
-    })
+    // Get all players for authenticated user from Firestore
+    const firestorePlayers = await getPlayers(session.user.id);
 
-    const players = rawPlayers.map((player) => ({
-      id: player.id,
-      name: player.name,
-      birthday: player.birthday,
-      position: player.position,
-      teamClub: player.teamClub,
-      photoUrl: player.photoUrl,
-      pendingGames: player.games.length,
-      parentEmail: player.parent?.email ?? null
-    }))
+    // Get user email for parent info
+    const parentUser = await getUser(session.user.id);
 
-    return NextResponse.json({ players })
+    // Get pending games count for each player
+    const playersWithPending = await Promise.all(
+      firestorePlayers.map(async (player) => {
+        const unverifiedGames = await getUnverifiedGames(session.user.id, player.id);
+        return {
+          id: player.id,
+          name: player.name,
+          birthday: player.birthday,
+          position: player.position,
+          teamClub: player.teamClub,
+          photoUrl: player.photoUrl,
+          pendingGames: unverifiedGames.length,
+          parentEmail: parentUser?.email ?? null
+        };
+      })
+    );
+
+    return NextResponse.json({ players: playersWithPending })
   } catch (error) {
     console.error('Error fetching players:', error)
     return NextResponse.json({

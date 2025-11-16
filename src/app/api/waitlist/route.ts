@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { isOnWaitlist, addToWaitlist } from '@/lib/firebase/services/waitlist';
 
 // Validation schema
 const waitlistSchema = z.object({
@@ -17,32 +17,28 @@ export async function POST(req: NextRequest) {
     // Validate input
     const validatedData = waitlistSchema.parse(body);
 
-    // Check if email already exists
-    const existingEntry = await prisma.waitlist.findUnique({
-      where: { email: validatedData.email },
-    });
+    // Check if email already exists (Firestore)
+    const exists = await isOnWaitlist(validatedData.email);
 
-    if (existingEntry) {
+    if (exists) {
       return NextResponse.json(
         { error: 'This email is already on the waitlist' },
         { status: 409 }
       );
     }
 
-    // Create waitlist entry
-    const waitlistEntry = await prisma.waitlist.create({
-      data: {
-        email: validatedData.email,
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName,
-        source: validatedData.source || 'landing_page',
-      },
+    // Create waitlist entry (Firestore)
+    await addToWaitlist({
+      email: validatedData.email,
+      firstName: validatedData.firstName,
+      lastName: validatedData.lastName,
+      source: validatedData.source || 'landing_page',
     });
 
     return NextResponse.json(
       {
         message: 'Successfully joined the waitlist!',
-        id: waitlistEntry.id
+        id: validatedData.email // Use email as ID in Firestore
       },
       { status: 201 }
     );

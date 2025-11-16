@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
+import { createPlayer } from '@/lib/firebase/services/players';
 
 const logger = createLogger('api/players/create');
 
@@ -40,15 +40,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create player with authenticated user as parent
-    const player = await prisma.player.create({
-      data: {
-        name,
-        birthday: new Date(birthday),
-        position,
-        teamClub,
-        parentId: session.user.id,
-      },
+    // Create player with authenticated user as parent (Firestore)
+    const player = await createPlayer(session.user.id, {
+      name,
+      birthday: new Date(birthday),
+      position,
+      teamClub,
+      photoUrl: null,
     });
 
     const duration = Date.now() - startTime;

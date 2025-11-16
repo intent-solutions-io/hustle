@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import bcrypt from 'bcrypt'
+import { getUser } from '@/lib/firebase/services/users'
+import { getGame, verifyGame } from '@/lib/firebase/services/games'
+import { getPlayer } from '@/lib/firebase/services/players'
 
 // POST /api/verify - Verify a game log
 export async function POST(request: NextRequest) {
@@ -16,11 +18,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { gameId, pin } = body
+    const { gameId, playerId, pin } = body
 
     if (!gameId) {
       return NextResponse.json({
         error: 'Missing gameId'
+      }, { status: 400 })
+    }
+
+    if (!playerId) {
+      return NextResponse.json({
+        error: 'Missing playerId'
       }, { status: 400 })
     }
 
@@ -30,21 +38,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Get game with parent info
-    const game = await prisma.game.findUnique({
-      where: { id: gameId },
-      include: {
-        player: {
-          include: {
-            parent: {
-              select: {
-                id: true
-              }
-            }
-          }
-        }
-      }
-    })
+    // Get game from Firestore (requires userId and playerId for subcollection path)
+    const game = await getGame(session.user.id, playerId, gameId);
 
     if (!game) {
       return NextResponse.json({
@@ -68,18 +63,17 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Verify authenticated parent owns this game's player
-    if (game.player.parent.id !== session.user.id) {
+    // Verify player exists and belongs to authenticated user (implicit in Firestore path)
+    const player = await getPlayer(session.user.id, playerId);
+
+    if (!player) {
       return NextResponse.json({
         error: 'Forbidden - Not your player'
       }, { status: 403 })
     }
 
-    // Verify PIN matches user's verification PIN
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { verificationPinHash: true }
-    });
+    // Verify PIN matches user's verification PIN (Firestore)
+    const user = await getUser(session.user.id);
 
     if (!user?.verificationPinHash) {
       return NextResponse.json({
@@ -95,27 +89,25 @@ export async function POST(request: NextRequest) {
       }, { status: 401 })
     }
 
-    // Update game to verified
-    const verifiedGame = await prisma.game.update({
-      where: { id: gameId },
-      data: {
-        verified: true,
-        verifiedAt: new Date()
-      },
-      include: {
-        player: {
-          select: {
-            name: true,
-            position: true
-          }
-        }
+    // Update game to verified (Firestore)
+    await verifyGame(session.user.id, playerId, gameId);
+
+    // Get updated game for response
+    const verifiedGame = await getGame(session.user.id, playerId, gameId);
+
+    // Format response to match Prisma structure
+    const gameWithPlayer = {
+      ...verifiedGame,
+      player: {
+        name: player.name,
+        position: player.position
       }
-    })
+    };
 
     return NextResponse.json({
       success: true,
       message: 'Game verified successfully',
-      game: verifiedGame
+      game: gameWithPlayer
     })
   } catch (error) {
     console.error('Error verifying game:', error)
