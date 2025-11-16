@@ -105,6 +105,7 @@ export async function createGame(
   userId: string,
   playerId: string,
   data: {
+    workspaceId: string;  // REQUIRED (Phase 5)
     date: Date;
     opponent: string;
     result: 'Win' | 'Loss' | 'Draw';
@@ -128,6 +129,7 @@ export async function createGame(
     createdAt: any;
     updatedAt: any;
   } = {
+    workspaceId: data.workspaceId,  // Phase 5: Link to workspace
     date: Timestamp.fromDate(data.date),
     opponent: data.opponent,
     result: data.result,
