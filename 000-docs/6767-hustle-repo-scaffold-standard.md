@@ -1,8 +1,8 @@
 # Hustle Repository Scaffold Standard
 
 **Document Type:** Authoritative Specification
-**Version:** 1.0
-**Date:** 2025-11-15
+**Version:** 1.1
+**Date:** 2025-11-15 (Updated)
 **Status:** Active
 
 ---
@@ -24,6 +24,42 @@ This document defines the canonical directory structure for the Hustle youth spo
 
 ---
 
+## Current → Target Move Plan
+
+This table documents the actual directory consolidation for Phase 2:
+
+| Current Path | Target Path | Type | Notes |
+|--------------|-------------|------|-------|
+| `tests/mocks/` | `03-Tests/mocks/` | Move | Test fixtures, MSW mocks |
+| `tests/scripts/` | `03-Tests/scripts/` | Move | Test utility scripts |
+| `test-results/` | `03-Tests/results/` | Move | Playwright test artifacts |
+| `scripts/migrate-to-firestore.ts` | `05-Scripts/migration/migrate-to-firestore.ts` | Move | Firebase migration script |
+| `scripts/enable-firebase-auth.ts` | `05-Scripts/setup/enable-firebase-auth.ts` | Move | Firebase Auth setup |
+| `scripts/send-password-reset-emails.ts` | `05-Scripts/utilities/send-password-reset-emails.ts` | Move | User utility script |
+| `scripts/verify-by-uid.ts` | `05-Scripts/utilities/verify-by-uid.ts` | Move | User verification utility |
+| `scripts/verify-firebase-user.ts` | `05-Scripts/utilities/verify-firebase-user.ts` | Move | User verification utility |
+| `setup_github_wif.sh` | `05-Scripts/setup/setup_github_wif.sh` | Move | GitHub WIF setup script |
+| `migrate-docs-flat.sh` | `05-Scripts/maintenance/migrate-docs-flat.sh` | Move | Doc migration utility |
+| `validate-docs.sh` | `05-Scripts/maintenance/validate-docs.sh` | Move | Doc validation utility |
+| `fix-github-notifications.sh` | `05-Scripts/utilities/fix-github-notifications.sh` | Move | GitHub notification fix |
+| `fix_hustlestats_tls.sh` | `05-Scripts/utilities/fix_hustlestats_tls.sh` | Move | TLS fix script (or archive) |
+| `fix_hustlestats_tls_corrected.sh` | `05-Scripts/utilities/fix_hustlestats_tls_corrected.sh` | Move | TLS fix script (or archive) |
+| `terraform/` | `06-Infrastructure/terraform/` | Move | Root terraform is canonical (344 lines main.tf) |
+| `security/` | `06-Infrastructure/security/` | Move | Service account credentials |
+| `templates/14point/` | `04-Assets/templates/14point/` | Move | Template content |
+| `github-actions-key.json` | `06-Infrastructure/security/credentials/github-actions-key.json` | Move | Credential file (ensure gitignored) |
+| `PHASE1-PROMPT.md` | `000-docs/193-PP-PLAN-phase1-execution-prompt.md` | Move | Renumber to doc filing system |
+| `06-Infrastructure/terraform-backup-20251013/` | `99-Archive/terraform-backup-20251013/` | Archive | Old terraform backup (34 lines main.tf) |
+
+**Post-Move Actions:**
+- Update `playwright.config.ts` to reference `03-Tests/` paths
+- Update `vitest.config.mts` to reference `03-Tests/` paths
+- Grep `.github/workflows/*.yml` for script path references, update
+- Grep `package.json` for script path references, update
+- Delete empty `tests/`, `scripts/`, `templates/` directories after moves
+
+---
+
 ## Target Directory Structure
 
 ```
@@ -33,104 +69,203 @@ hustle/
 │
 ├── 03-Tests/                      # ALL automated tests
 │   ├── e2e/                       # Playwright E2E tests
+│   │   └── auth/                  # Auth flow tests
 │   ├── unit/                      # Vitest unit tests
-│   ├── mocks/                     # Test fixtures, MSW mocks
-│   ├── scripts/                   # Test utilities
-│   ├── results/                   # Playwright test artifacts
-│   └── playwright-report/         # HTML test reports
+│   ├── mocks/                     # Test fixtures, MSW mocks (from tests/)
+│   ├── scripts/                   # Test utilities (from tests/)
+│   ├── results/                   # Playwright test artifacts (from test-results/)
+│   ├── playwright-report/         # HTML test reports
+│   └── test-results.json          # Test results summary
 │
 ├── 04-Assets/                     # Non-code assets (not served)
 │   ├── design/                    # Design files, mockups
-│   ├── templates/                 # Email templates, document templates
+│   ├── templates/                 # Email/doc templates (from templates/)
+│   │   └── 14point/               # 14point template content
 │   └── reference/                 # Reference images, diagrams
 │
-├── 05-Scripts/                    # Automation & utilities
-│   ├── deployment/                # Deploy scripts (deploy.sh, etc.)
-│   ├── setup/                     # Setup scripts (WIF, secrets, etc.)
-│   ├── migration/                 # One-time migrations (Firestore, etc.)
-│   ├── maintenance/               # Cleanup, optimization scripts
-│   └── utilities/                 # General-purpose utilities
+├── 05-Scripts/                    # ALL automation & utilities
+│   ├── deployment/                # Deploy scripts
+│   │   └── deploy.sh              # Current deployment script
+│   ├── setup/                     # Setup scripts (from root + scripts/)
+│   │   ├── setup-github-actions.sh
+│   │   ├── setup-secrets.sh
+│   │   ├── setup_github_wif.sh    # From root
+│   │   └── enable-firebase-auth.ts # From scripts/
+│   ├── migration/                 # One-time migrations (from scripts/)
+│   │   └── migrate-to-firestore.ts
+│   ├── maintenance/               # Cleanup, optimization (from root)
+│   │   ├── analyze-dashboard-queries.ts
+│   │   ├── migrate-docs-flat.sh
+│   │   └── validate-docs.sh
+│   └── utilities/                 # General utilities (from root + scripts/)
+│       ├── send-password-reset-emails.ts
+│       ├── verify-by-uid.ts
+│       ├── verify-firebase-user.ts
+│       ├── fix-github-notifications.sh
+│       ├── fix_hustlestats_tls.sh
+│       └── fix_hustlestats_tls_corrected.sh
 │
 ├── 06-Infrastructure/             # ALL infrastructure-as-code
-│   ├── terraform/                 # Terraform IaC (main deployment)
+│   ├── terraform/                 # Terraform IaC (from root terraform/)
 │   │   ├── agents/                # Vertex AI agent configs
 │   │   ├── environments/          # Dev/staging/prod
+│   │   │   ├── dev/
+│   │   │   └── prod/
 │   │   ├── modules/               # Reusable Terraform modules
-│   │   └── schemas/               # BigQuery schemas (if any)
-│   ├── docker/                    # Docker Compose, Dockerfiles
-│   └── security/                  # Service accounts, credentials
+│   │   │   ├── bigquery/
+│   │   │   ├── cloud-run/
+│   │   │   ├── cloud-sql/
+│   │   │   ├── cloud-storage/
+│   │   │   ├── firebase/
+│   │   │   ├── firestore/
+│   │   │   ├── iam/
+│   │   │   ├── projects/
+│   │   │   ├── vertex-ai-agent/
+│   │   │   ├── vertex-ai-search/
+│   │   │   └── vpc/
+│   │   ├── schemas/               # BigQuery schemas
+│   │   ├── main.tf                # Main terraform config (344 lines)
+│   │   ├── variables.tf
+│   │   └── terraform.tfvars.example
+│   ├── docker/                    # Docker Compose, local dev
+│   │   └── docker-compose.yml     # PostgreSQL for local dev
+│   └── security/                  # Service accounts, credentials (from root security/)
 │       └── credentials/           # .gitignored sensitive files
+│           ├── github-actions-key.json
+│           └── *.json             # Other service account keys
 │
 ├── 07-Releases/                   # Release artifacts
 │   ├── changelogs/                # Release notes
 │   └── builds/                    # Tagged release builds (if stored)
 │
 ├── 99-Archive/                    # Deprecated/legacy code
-│   └── [dated subdirectories]    # Archived by date/migration phase
+│   ├── app-git-backup/            # Old git backup
+│   ├── survey-nextjs-unused/      # Unused survey app
+│   └── terraform-backup-20251013/ # Old terraform backup (Phase 2)
 │
 ├── src/                           # Next.js app source code (standard)
 │   ├── app/                       # Next.js 15 App Router
-│   │   ├── api/                   # API routes
-│   │   └── dashboard/             # Dashboard pages
+│   │   ├── api/                   # API routes (13 routes)
+│   │   ├── dashboard/             # Dashboard pages
+│   │   ├── login/
+│   │   ├── register/
+│   │   ├── forgot-password/
+│   │   ├── verify-email/
+│   │   └── [other routes]/
 │   ├── components/                # React components
-│   │   └── ui/                    # shadcn/ui components
+│   │   ├── ui/                    # shadcn/ui components
+│   │   └── layout/                # Layout components
 │   ├── lib/                       # Core utilities, services
 │   │   ├── firebase/              # Firebase SDK, Firestore services
+│   │   │   ├── config.ts
+│   │   │   ├── admin.ts
+│   │   │   └── services/          # Firestore CRUD
 │   │   └── validations/           # Zod schemas
 │   ├── hooks/                     # Custom React hooks
 │   ├── types/                     # TypeScript types
 │   ├── config/                    # App configuration
-│   └── __tests__/                 # Co-located unit tests (optional)
+│   ├── prompts/                   # AI prompts
+│   ├── schema/                    # Additional schemas
+│   └── __tests__/                 # Co-located unit tests
+│       ├── api/
+│       └── lib/
 │
 ├── functions/                     # Firebase Cloud Functions (standard)
 │   ├── src/                       # TypeScript source
 │   │   ├── index.ts               # Function exports
-│   │   └── a2a-client.ts          # Vertex AI A2A client
+│   │   ├── a2a-client.ts          # Vertex AI A2A client
+│   │   ├── email-service.ts       # Resend email integration
+│   │   └── email-templates.ts     # Email templates
 │   ├── lib/                       # Compiled JavaScript (gitignored)
-│   └── package.json               # Node.js 20 dependencies
+│   ├── package.json               # Node.js 20 dependencies
+│   └── tsconfig.json              # Functions TypeScript config
 │
 ├── vertex-agents/                 # Vertex AI A2A multi-agent system
 │   ├── orchestrator/              # Main coordinator agent
+│   │   ├── config/
+│   │   │   ├── agent.yaml
+│   │   │   └── agent-card.json
+│   │   └── src/
 │   ├── validation/                # Validation sub-agent
+│   │   ├── config/
+│   │   └── src/
 │   ├── user-creation/             # User creation sub-agent
+│   │   ├── config/
+│   │   └── src/
 │   ├── onboarding/                # Onboarding sub-agent
+│   │   ├── config/
+│   │   └── src/
 │   ├── analytics/                 # Analytics sub-agent
+│   │   ├── config/
+│   │   └── src/
 │   ├── deploy_agent.sh            # Agent deployment script
 │   ├── test_a2a.sh                # A2A protocol tests
 │   └── README.md                  # A2A system documentation
 │
 ├── nwsl/                          # NWSL video pipeline (CI-only)
-│   ├── 0000-docs/                 # Canon specs (8 segments: 004-011)
+│   ├── 0000-docs/                 # Canon specs (8 segments: 004-DR-REFF-veo-seg-*.md)
 │   ├── 0000-images/               # Reference images
-│   ├── 003-raw-segments/          # Downloaded video segments
-│   ├── 007-logs/                  # Generation logs
-│   ├── 050-scripts/               # Pipeline shell scripts
-│   └── gate.sh                    # CI enforcement gate
+│   ├── 0000-archive/              # Archived pipeline versions
+│   │   └── gate.sh                # Old CI enforcement gate
+│   ├── 000-audio/                 # Lyria-generated audio
+│   ├── 000-clips/                 # Video clip sources
+│   ├── 000-complete/              # Completed videos
+│   ├── 000-videos/                # Generated video segments
+│   ├── archive_20251107_final/    # Pipeline archive
+│   ├── cloud-run-proxy/           # Cloud Run proxy (if used)
+│   ├── scripts/                   # Pipeline generation scripts
+│   │   ├── build_nwsl90_master.sh
+│   │   ├── conform_nwsl90_segments.py
+│   │   ├── generate_nwsl90_segments.sh
+│   │   └── mix_nwsl90_audio.py
+│   └── tmp/                       # Temporary generation files
 │
 ├── prisma/                        # Prisma ORM (legacy, being phased out)
 │   ├── schema.prisma              # PostgreSQL schema (8 models)
-│   └── migrations/                # Prisma migrations
+│   └── migrations/                # Prisma migrations (2 migrations)
+│       ├── 20251009100411_add_defensive_stats/
+│       └── 20251014193000_rename_verification_pin_hash/
 │
 ├── public/                        # Next.js public assets (standard)
-│   ├── *.svg                      # Public SVG icons
+│   ├── file.svg                   # Next.js default icons
+│   ├── globe.svg
+│   ├── next.svg
+│   ├── window.svg
+│   ├── vercel.svg
 │   └── uploads/                   # User-uploaded files
+│       └── players/               # Player photos
 │
 ├── [config files at root]         # Standard tooling configs
 │   ├── package.json               # npm dependencies
+│   ├── package-lock.json
 │   ├── tsconfig.json              # TypeScript config
+│   ├── tsconfig.tsbuildinfo       # TypeScript build cache
+│   ├── next-env.d.ts              # Next.js types
 │   ├── next.config.ts             # Next.js config
 │   ├── firebase.json              # Firebase config
+│   ├── .firebaserc                # Firebase project selection
 │   ├── firestore.rules            # Firestore security rules
 │   ├── firestore.indexes.json     # Firestore indexes
 │   ├── playwright.config.ts       # Playwright config
 │   ├── vitest.config.mts          # Vitest config
+│   ├── vitest.setup.ts            # Vitest setup
 │   ├── tailwind.config.ts         # Tailwind CSS config
+│   ├── postcss.config.js          # PostCSS config
 │   ├── eslint.config.mjs          # ESLint config
 │   ├── components.json            # shadcn/ui config
+│   ├── sentry.client.config.ts    # Sentry client config
+│   ├── sentry.server.config.ts    # Sentry server config
+│   ├── sentry.edge.config.ts      # Sentry edge config
 │   ├── Dockerfile                 # Production Docker image
 │   ├── .env.example               # Environment variable template
+│   ├── .env                       # Local environment (gitignored)
+│   ├── .env.local                 # Local overrides (gitignored)
 │   ├── .gitignore                 # Git ignore rules
-│   └── CLAUDE.md, AGENTS.md       # AI coding assistant context
+│   ├── .dockerignore              # Docker ignore rules
+│   ├── .gcloudignore              # gcloud ignore rules
+│   ├── CLAUDE.md                  # Claude Code context
+│   ├── AGENTS.md                  # Coding standards
+│   └── LICENSE                    # Project license
 │
 └── [build artifacts - gitignored]
     ├── node_modules/              # npm dependencies
@@ -149,9 +284,39 @@ hustle/
 **Structure:** Flat (no subdirectories)
 **Sequence:** 001-999, currently at 192
 
+**Document Filing System v2.0:**
+
+Pattern: `NNN-CC-ABCD-short-description.ext`
+- `NNN` = Sequence number (001-999, zero-padded)
+- `CC` = Category code (2 uppercase letters)
+- `ABCD` = Subcategory code (4 uppercase letters)
+- `short-description` = Kebab-case human-readable description
+- `ext` = File extension (.md, .sql, .ts, etc.)
+
+**Category Codes (Actually Used in This Repo):**
+
+| Code | Category | Count | Examples |
+|------|----------|-------|----------|
+| `DR` | Documentation Reference | 37 | `DR-GUID`, `DR-REFF`, `DR-SOPS` |
+| `OD` | Operational Documentation | 24 | `OD-DEPL`, `OD-CONF`, `OD-INFR` |
+| `RA` | Report/Analysis | 23 | `RA-ANLY`, `RA-REPT`, `RA-REVW` |
+| `TQ` | Technical Quality | 22 | `TQ-TEST`, `TQ-BUGR`, `TQ-SECU` |
+| `AA` | After Action | 19 | `AA-SUMM`, `AA-MAAR`, `AA-AACR` |
+| `LS` | Logs/Status | 16 | `LS-STAT`, `LS-LOGS`, `LS-CHKP` |
+| `AT` | Architecture/Technical | 15 | `AT-ARCH`, `AT-DSGN`, `AT-ADEC` |
+| `PP` | Plan/Product | 10 | `PP-PLAN`, `PP-PROD`, `PP-RMAP` |
+| `DC` | Development/Code | 8 | `DC-CODE`, `DC-DEVN` |
+| `MC` | Misc/Checklist | 7 | `MC-SUMM`, `MC-ACTN` |
+| `UC` | User/Customer | 2 | `UC-SURV` |
+| `PM` | Project Management | 2 | `PM-TASK` |
+| `MS` | Misc/Status | 1 | `MS-MISC` |
+| `BL` | Baseline/Policy | 1 | `BL-POLI` |
+
+For full Document Filing System v2.0 specification, see: `000-docs/120-AT-ADEC-doc-filing-standard.md`
+
 **Rules:**
 - ✅ ALL markdown docs, design specs, guides, reports
-- ✅ Numbered sequentially with category codes (PP, AT, OD, AA, etc.)
+- ✅ Numbered sequentially with category codes (see table above)
 - ❌ NO subdirectories (keep flat for easy search)
 - ❌ NO separate "claudes-docs" or other doc directories
 
@@ -165,15 +330,18 @@ hustle/
 ### 03-Tests/ - Test Suites
 
 **Purpose:** Consolidated location for ALL automated tests and test artifacts
-**Consolidates:** `tests/`, `test-results/`, `03-Tests/` (current scattered locations)
+**Current State:** Partially consolidated, needs `tests/`, `test-results/` merged in
+**Consolidates:** `tests/mocks/`, `tests/scripts/`, `test-results/`
 
 **Structure:**
-- `e2e/` - Playwright E2E tests (auth flows, dashboard, etc.)
+- `e2e/` - Playwright E2E tests (auth flows, dashboard)
+  - `auth/` - Authentication flow tests
 - `unit/` - Vitest unit tests (services, utilities)
-- `mocks/` - MSW API mocks, test fixtures
-- `scripts/` - Test utilities, setup scripts
-- `results/` - Playwright test result artifacts (gitignored)
+- `mocks/` - MSW API mocks, test fixtures (from `tests/mocks/`)
+- `scripts/` - Test utilities, setup scripts (from `tests/scripts/`)
+- `results/` - Playwright test result artifacts (from `test-results/`, gitignored)
 - `playwright-report/` - HTML test reports (gitignored)
+- `test-results.json` - Test results summary
 
 **Rules:**
 - ✅ Test specs: `*.spec.ts` (E2E), `*.test.ts` (unit)
@@ -181,16 +349,23 @@ hustle/
 - ✅ CI uploads test results here for artifact storage
 - ❌ NO test code scattered in root or other directories
 
+**Post-Consolidation:**
+- Update `playwright.config.ts` to use `03-Tests/` paths
+- Update `vitest.config.mts` if needed
+- Delete empty `tests/` and `test-results/` directories
+
 ---
 
 ### 04-Assets/ - Design & Template Assets
 
 **Purpose:** Non-code assets that are NOT served to users
-**Consolidates:** `templates/`, empty `04-Assets/`
+**Current State:** Empty, needs `templates/` merged in
+**Consolidates:** `templates/14point/`
 
 **Structure:**
 - `design/` - Figma exports, mockups, wireframes
 - `templates/` - Email templates, document templates, Notion exports
+  - `14point/` - 14point template content (from root `templates/`)
 - `reference/` - Reference images, architecture diagrams, screenshots
 
 **Rules:**
@@ -203,19 +378,41 @@ hustle/
 - `04-Assets/` = development/design resources (not served)
 - `public/` = Next.js public files served to users (SVGs, uploads)
 
+**Post-Consolidation:**
+- Delete empty `templates/` directory after move
+
 ---
 
 ### 05-Scripts/ - Automation & Utilities
 
 **Purpose:** ALL automation scripts, utilities, and one-time migrations
-**Consolidates:** `05-Scripts/`, `scripts/`, root `*.sh` files
+**Current State:** Has deployment/setup scripts, needs root `*.sh` and `scripts/*.ts` merged
+**Consolidates:** Root shell scripts (6 files), `scripts/` directory (5 TypeScript files)
 
 **Structure:**
-- `deployment/` - Deploy scripts (`deploy.sh`, GCP deployment)
-- `setup/` - Setup scripts (`setup_github_wif.sh`, secrets setup)
-- `migration/` - One-time migrations (`migrate-to-firestore.ts`, data migrations)
-- `maintenance/` - Cleanup, optimization, monitoring scripts
-- `utilities/` - General-purpose utilities (email sending, user management)
+- `deployment/` - Deploy scripts
+  - `deploy.sh` - Current deployment automation
+- `setup/` - Setup scripts (from root + `scripts/`)
+  - `setup-github-actions.sh`
+  - `setup-secrets.sh`
+  - `setup_github_wif.sh` (from root)
+  - `enable-firebase-auth.ts` (from `scripts/`)
+- `migration/` - One-time migrations (from `scripts/`)
+  - `migrate-to-firestore.ts` (from `scripts/`)
+  - `future-optimization-date-index.prisma`
+  - `future-optimization-date-index.sql`
+  - `monitor-optimization-thresholds.sql`
+- `maintenance/` - Cleanup, optimization (from root)
+  - `analyze-dashboard-queries.ts`
+  - `migrate-docs-flat.sh` (from root)
+  - `validate-docs.sh` (from root)
+- `utilities/` - General-purpose utilities (from root + `scripts/`)
+  - `send-password-reset-emails.ts` (from `scripts/`)
+  - `verify-by-uid.ts` (from `scripts/`)
+  - `verify-firebase-user.ts` (from `scripts/`)
+  - `fix-github-notifications.sh` (from root)
+  - `fix_hustlestats_tls.sh` (from root, consider archiving)
+  - `fix_hustlestats_tls_corrected.sh` (from root, consider archiving)
 
 **Rules:**
 - ✅ Shell scripts (`.sh`), TypeScript utilities (`.ts`), Python scripts (`.py`)
@@ -223,45 +420,53 @@ hustle/
 - ✅ TypeScript scripts run via `npx tsx 05-Scripts/path/to/script.ts`
 - ❌ NO root-level `.sh` files (move to appropriate subdirectory)
 
-**Current consolidation needed:**
-- `scripts/migrate-to-firestore.ts` → `05-Scripts/migration/`
-- `scripts/enable-firebase-auth.ts` → `05-Scripts/setup/`
-- `setup_github_wif.sh` → `05-Scripts/setup/`
-- `migrate-docs-flat.sh` → `05-Scripts/maintenance/`
-- `validate-docs.sh` → `05-Scripts/maintenance/`
-- `fix-github-notifications.sh` → `05-Scripts/utilities/`
+**Post-Consolidation:**
+- Update `package.json` scripts if they reference old paths
+- Grep `.github/workflows/*.yml` for script references, update paths
+- Delete empty `scripts/` directory after moves
+- Evaluate if `fix_hustlestats_tls*.sh` should archive to `99-Archive/`
 
 ---
 
 ### 06-Infrastructure/ - Infrastructure as Code
 
 **Purpose:** ALL infrastructure, deployment configs, security credentials
-**Consolidates:** `terraform/` (root), `06-Infrastructure/`, `security/`
+**Current State:** Has `docker/` and old `terraform/` backup, needs root `terraform/` and `security/` merged
+**Consolidates:** Root `terraform/` (344 lines, canonical), root `security/`
 
 **Structure:**
-- `terraform/` - Main Terraform IaC (Cloud Run, Firestore, IAM)
+- `terraform/` - Main Terraform IaC (from root `terraform/`)
   - `agents/` - Vertex AI agent configs
-  - `environments/` - dev/staging/prod environment configs
-  - `modules/` - Reusable Terraform modules
-  - `schemas/` - BigQuery schemas (if any)
-  - `main.tf`, `variables.tf`, `terraform.tfvars.example`
-- `docker/` - Docker Compose for local dev (PostgreSQL, etc.)
-  - `docker-compose.yml`
-  - `Dockerfile` (if different from root)
-- `security/` - Service accounts, credentials (gitignored)
-  - `credentials/` - `.json` service account keys
+  - `environments/` - Dev/staging/prod environment configs
+    - `dev/`
+    - `prod/`
+  - `modules/` - Reusable Terraform modules (11 modules)
+    - `bigquery/`, `cloud-run/`, `cloud-sql/`, `cloud-storage/`
+    - `firebase/`, `firestore/`, `iam/`, `projects/`
+    - `vertex-ai-agent/`, `vertex-ai-search/`, `vpc/`
+  - `schemas/` - BigQuery schemas
+    - `bigquery/`
+  - `main.tf` - Main terraform config (344 lines, CANONICAL)
+  - `variables.tf`
+  - `terraform.tfvars.example`
+- `docker/` - Docker Compose for local dev
+  - `docker-compose.yml` - PostgreSQL local database
+- `security/` - Service accounts, credentials (from root `security/`)
+  - `credentials/` - `.json` service account keys (gitignored)
+    - `github-actions-key.json` (from root)
+    - Other service account keys
 
 **Rules:**
-- ✅ Root `terraform/` directory moves to `06-Infrastructure/terraform/`
+- ✅ Root `terraform/` directory (344 lines) is CANONICAL, moves to `06-Infrastructure/terraform/`
 - ✅ Root `security/` directory moves to `06-Infrastructure/security/`
 - ✅ Root `Dockerfile` stays at root (Docker convention)
-- ✅ All `.json` keys in `security/credentials/` are gitignored
+- ✅ All `.json` keys in `security/credentials/` must be gitignored
 - ❌ NO duplicate terraform directories
 
-**Current consolidation needed:**
-- `terraform/` (root, active) → `06-Infrastructure/terraform/` (merge/replace)
-- `security/` (root) → `06-Infrastructure/security/`
-- Evaluate `06-Infrastructure/terraform-backup-20251013/` (likely archive or delete)
+**Post-Consolidation:**
+- Archive `06-Infrastructure/terraform-backup-20251013/` to `99-Archive/` (34 lines, old backup)
+- Update `.gitignore` to ensure `06-Infrastructure/security/credentials/*.json` is covered
+- Update any Terraform CI/CD workflows to use new path
 
 ---
 
@@ -284,11 +489,15 @@ hustle/
 ### 99-Archive/ - Deprecated Code
 
 **Purpose:** Storage for legacy/deprecated code that's no longer active
-**Current contents:** `app-git-backup/`, `survey-nextjs-unused/`
+**Current Contents:** `app-git-backup/`, `survey-nextjs-unused/`
+**Will Receive:** `terraform-backup-20251013/` (Phase 2)
 
 **Structure:**
 - Dated subdirectories: `YYYYMMDD-description/`
 - Named by migration phase: `prisma-legacy-20251115/`
+- Current archives:
+  - `app-git-backup/` - Old git backup
+  - `survey-nextjs-unused/` - Unused survey Next.js app
 
 **Rules:**
 - ✅ Move here, don't delete (preserve history)
@@ -296,9 +505,12 @@ hustle/
 - ✅ Git commit archive moves separately from active changes
 - ❌ NO active development in 99-Archive/
 
-**Candidates for archiving:**
-- `06-Infrastructure/terraform-backup-20251013/` (if confirmed old)
-- `prisma/` (after Firestore migration completes - Phase 2+)
+**Candidates for Archiving (Phase 2):**
+- `06-Infrastructure/terraform-backup-20251013/` - Old terraform backup (34 lines main.tf)
+- `fix_hustlestats_tls*.sh` - Old one-time TLS fix scripts (if no longer needed)
+
+**Future Candidates (Post-Migration):**
+- `prisma/` - After Firestore migration completes (Phase 2+)
 
 ---
 
@@ -306,21 +518,37 @@ hustle/
 
 **Purpose:** Main Next.js 15 application source code
 **Convention:** Standard Next.js App Router structure
+**Status:** Follows Next.js conventions correctly
 
 **Structure:**
 - `app/` - App Router pages, layouts, API routes
-- `components/` - React components (`ui/` for shadcn/ui)
-- `lib/` - Core utilities, Firebase services, auth logic
+  - `api/` - 13 API route handlers
+  - `dashboard/` - Dashboard pages
+  - `login/`, `register/`, `forgot-password/`, `verify-email/` - Auth pages
+  - `privacy/`, `terms/` - Legal pages
+- `components/` - React components
+  - `ui/` - shadcn/ui components
+  - `layout/` - Layout components
+- `lib/` - Core utilities, services
+  - `firebase/` - Firebase SDK, Firestore services
+    - `config.ts` - Client SDK config
+    - `admin.ts` - Admin SDK config
+    - `services/` - Firestore CRUD operations
+  - `validations/` - Zod schemas
 - `hooks/` - Custom React hooks
 - `types/` - TypeScript type definitions
 - `config/` - Application configuration
-- `__tests__/` - Co-located unit tests (optional, also in `03-Tests/unit/`)
+- `prompts/` - AI prompts (if used)
+- `schema/` - Additional schemas
+- `__tests__/` - Co-located unit tests
+  - `api/` - API route tests
+  - `lib/` - Library tests
 
 **Rules:**
 - ✅ Follows Next.js conventions strictly
 - ✅ TypeScript strict mode enforced
 - ✅ Firebase services in `lib/firebase/services/`
-- ❌ NO test files in `src/` (use `03-Tests/` instead, unless co-located)
+- ❌ NO test files in `src/` (use `03-Tests/` instead, unless co-located in `__tests__/`)
 
 ---
 
@@ -328,13 +556,17 @@ hustle/
 
 **Purpose:** Firebase Cloud Functions backend (Node.js 20)
 **Convention:** Standard Firebase Functions structure
+**Status:** Follows Firebase conventions correctly
 
 **Structure:**
 - `src/` - TypeScript source code
   - `index.ts` - Function exports
   - `a2a-client.ts` - Vertex AI A2A protocol client
+  - `email-service.ts` - Resend email integration
+  - `email-templates.ts` - Email template builder
 - `lib/` - Compiled JavaScript (gitignored, generated by `npm run build`)
 - `package.json` - Node.js 20 dependencies
+- `tsconfig.json` - Functions TypeScript config
 
 **Rules:**
 - ✅ TypeScript compiled to `lib/` before deployment
@@ -347,13 +579,27 @@ hustle/
 ### vertex-agents/ - Vertex AI A2A System
 
 **Purpose:** Multi-agent system using Vertex AI Agent Engine (A2A protocol)
-**Status:** Production-deployed subsystem (5 agents)
+**Status:** Production-deployed subsystem (5 agents: orchestrator + 4 sub-agents)
+**Justification for root:** Independent deployment lifecycle, production-critical infrastructure
 
 **Structure:**
 - `orchestrator/` - Main coordinator agent (hustle-operations-manager)
-- `validation/`, `user-creation/`, `onboarding/`, `analytics/` - Sub-agents
+  - `config/` - Agent YAML config, AgentCard JSON
+  - `src/` - Agent source code (if any)
+- `validation/` - Validation sub-agent
+  - `config/` - Agent config
+  - `src/` - Agent source
+- `user-creation/` - User creation sub-agent
+  - `config/` - Agent config
+  - `src/` - Agent source
+- `onboarding/` - Onboarding sub-agent
+  - `config/` - Agent config
+  - `src/` - Agent source
+- `analytics/` - Analytics sub-agent
+  - `config/` - Agent config
+  - `src/` - Agent source
 - `deploy_agent.sh` - Agent deployment automation
-- `test_a2a.sh` - A2A protocol testing
+- `test_a2a.sh` - A2A protocol testing script
 - `README.md` - A2A system documentation
 
 **Rules:**
@@ -363,38 +609,51 @@ hustle/
 - ✅ Integrates with `functions/src/a2a-client.ts`
 - ❌ NO deletion (production-critical)
 
-**Justification for root location:**
-- 750+ lines of code across 5 agents
-- Production-deployed infrastructure
-- Independent deployment lifecycle
-- Cross-referenced from Cloud Functions
+**Agent Architecture:**
+- **Orchestrator**: Receives requests from Cloud Functions, routes to sub-agents
+- **Validation**: Input validation, duplicate checking
+- **User Creation**: Creates users/players/games in Firestore
+- **Onboarding**: Sends emails, generates tokens
+- **Analytics**: Tracks metrics, logs events
 
 ---
 
 ### nwsl/ - NWSL Video Pipeline
 
 **Purpose:** CI-only video generation pipeline (Vertex AI Veo 3.0)
-**Status:** GitHub Actions-only execution (enforced by `gate.sh`)
+**Status:** GitHub Actions-only execution (gate.sh archived in `0000-archive/`)
+**Justification for root:** Independent CI/CD workflow, no integration with main app
 
-**Structure:**
-- `0000-docs/` - 8 segment canon specs (`004-DR-REFF-veo-seg-*.md`)
-- `0000-images/` - Reference images for generation
-- `003-raw-segments/` - Downloaded video segments (SEG-*.mp4)
-- `007-logs/generation/` - Vertex AI operation logs
-- `050-scripts/` - Pipeline scripts (generate, monitor, download)
-- `gate.sh` - CI enforcement gate (blocks local execution)
+**Actual Structure (Verified):**
+- `0000-docs/` - 8 segment canon specs
+  - `004-DR-REFF-veo-seg-01.md` through `011-DR-REFF-veo-seg-08.md`
+  - Additional design docs, continuity bible
+- `0000-images/` - Reference images for video generation
+- `0000-archive/` - Archived pipeline versions
+  - `gate.sh` - Old CI enforcement gate (archived)
+  - `000-docs/`, `004-scripts/`, etc. (old structure)
+- `000-audio/` - Lyria-generated audio files
+- `000-clips/` - Video clip sources
+- `000-complete/` - Completed video outputs
+- `000-videos/` - Generated video segments
+- `archive_20251107_final/` - Final pipeline archive from Nov 7
+- `cloud-run-proxy/` - Cloud Run proxy configuration (if used)
+- `scripts/` - Active pipeline generation scripts
+  - `build_nwsl90_master.sh` - Master build script
+  - `conform_nwsl90_segments.py` - Segment conformance
+  - `generate_nwsl90_segments.sh` - Main generation script
+  - `mix_nwsl90_audio.py` - Audio mixing
+- `tmp/` - Temporary generation files
+  - `nwsl90/`, `voiceover/`, `voiceover_wav/`
 
 **Rules:**
 - ✅ CI-only execution via GitHub Actions (Workload Identity Federation)
 - ✅ 8×8s segments + 4s end card = 68s documentary
 - ✅ Veo 3.0 requires explicit soccer context in prompts
-- ❌ NO local execution (enforced by `gate.sh`)
+- ⚠️ gate.sh is ARCHIVED in `0000-archive/`, not actively enforcing
+- ❌ NO local execution (archived gate.sh previously enforced this)
 
-**Justification for root location:**
-- 400+ lines of pipeline code
-- Independent CI/CD workflow
-- Separate documentation structure (nwsl/0000-docs/)
-- No integration with main app
+**Note:** The original spec claimed `gate.sh` was at `nwsl/gate.sh`, but reality check shows it's archived in `nwsl/0000-archive/gate.sh`. CI enforcement now handled by GitHub Actions workflow restrictions.
 
 ---
 
@@ -404,8 +663,10 @@ hustle/
 **Status:** LEGACY - Being migrated to Firestore (Phase 1 in progress)
 
 **Structure:**
-- `schema.prisma` - 8 models (users, Player, Game, etc.)
-- `migrations/` - Prisma migration history
+- `schema.prisma` - 8 models (users, Player, Game, accounts, sessions, password_reset_tokens, email_verification_tokens, verification_tokens)
+- `migrations/` - Prisma migration history (2 migrations)
+  - `20251009100411_add_defensive_stats/`
+  - `20251014193000_rename_verification_pin_hash/`
 
 **Rules:**
 - ✅ Keep during migration period (dual-database support)
@@ -413,8 +674,8 @@ hustle/
 - ✅ NO breaking schema changes during migration
 - ⏳ Archive to `99-Archive/prisma-legacy-YYYYMMDD/` after migration completes
 
-**Migration timeline:**
-- Phase 1: Firestore wiring + registration/login migration
+**Migration Timeline:**
+- Phase 1: Firestore wiring + registration/login migration (IN PROGRESS)
 - Phase 2: Dashboard migration + full cutover
 - Phase 3: Archive Prisma, remove PostgreSQL
 
@@ -426,8 +687,9 @@ hustle/
 **Convention:** Standard Next.js public directory
 
 **Structure:**
-- `*.svg` - Public SVG icons (file.svg, globe.svg, next.svg, etc.)
-- `uploads/` - User-uploaded files (game stats, player photos)
+- `file.svg`, `globe.svg`, `next.svg`, `window.svg`, `vercel.svg` - Next.js default icons
+- `uploads/` - User-uploaded files
+  - `players/` - Player photos
 
 **Rules:**
 - ✅ Accessible at `/filename.ext` in browser
@@ -441,50 +703,43 @@ hustle/
 **Purpose:** Standard tooling configurations at repo root
 **Convention:** Industry-standard locations for package managers, build tools
 
-**Files:**
+**Files (Verified Present):**
 - `package.json`, `package-lock.json` - npm dependencies
-- `tsconfig.json` - TypeScript compiler config
+- `tsconfig.json`, `tsconfig.tsbuildinfo` - TypeScript compiler config
+- `next-env.d.ts` - Next.js TypeScript definitions
 - `next.config.ts` - Next.js configuration
 - `firebase.json` - Firebase project config
+- `.firebaserc` - Firebase project selection
 - `firestore.rules` - Firestore security rules
 - `firestore.indexes.json` - Firestore composite indexes
 - `playwright.config.ts` - Playwright E2E test config
-- `vitest.config.mts` - Vitest unit test config
+- `vitest.config.mts`, `vitest.setup.ts` - Vitest unit test config
 - `tailwind.config.ts` - Tailwind CSS config
-- `eslint.config.mjs` - ESLint linter config
 - `postcss.config.js` - PostCSS config
+- `eslint.config.mjs` - ESLint linter config
 - `components.json` - shadcn/ui config
+- `sentry.client.config.ts` - Sentry client-side error tracking
+- `sentry.server.config.ts` - Sentry server-side error tracking
+- `sentry.edge.config.ts` - Sentry edge function error tracking
 - `Dockerfile` - Production Docker image
 - `.env.example` - Environment variable template
-- `.gitignore`, `.dockerignore`, `.gcloudignore` - Ignore rules
-- `CLAUDE.md`, `AGENTS.md`, `PHASE1-PROMPT.md` - AI assistant context
+- `.env`, `.env.local` - Local environment (gitignored)
+- `.gitignore` - Git ignore rules
+- `.dockerignore` - Docker ignore rules
+- `.gcloudignore` - gcloud deployment ignore rules
+- `CLAUDE.md` - Claude Code project context
+- `AGENTS.md` - Coding standards and conventions
 - `LICENSE` - Project license
 
+**Files to Move (Phase 2):**
+- `PHASE1-PROMPT.md` → `000-docs/193-PP-PLAN-phase1-execution-prompt.md`
+
 **Rules:**
-- ✅ Standard locations respected (don't move these)
-- ✅ `.env` is gitignored (use `.env.example` as template)
+- ✅ Standard locations respected (don't move config files)
+- ✅ `.env`, `.env.local` are gitignored (use `.env.example` as template)
 - ✅ AI context files (CLAUDE.md, AGENTS.md) stay at root
+- ✅ Sentry configs stay at root (Next.js convention)
 - ❌ NO custom config directories at root
-
----
-
-## Legacy/Compatibility Notes
-
-### Directories Being Consolidated
-
-**Phase 2 (Next Session):**
-- `tests/` → Merge into `03-Tests/` (mocks, scripts subdirectories)
-- `test-results/` → Move to `03-Tests/results/`
-- `scripts/` → Merge into `05-Scripts/` (by category)
-- Root `*.sh` files → Move to `05-Scripts/` (by category)
-- `terraform/` → Move to `06-Infrastructure/terraform/`
-- `security/` → Move to `06-Infrastructure/security/`
-- `templates/` → Move to `04-Assets/templates/`
-
-### Directories Under Evaluation
-
-- `06-Infrastructure/terraform-backup-20251013/` - Likely archive to `99-Archive/`
-- `prisma/` - Archive after Firestore migration completes (Phase 2+)
 
 ---
 
@@ -504,6 +759,9 @@ hustle/
 **Test fixtures/mocks:**
 → `03-Tests/mocks/`
 
+**Test utility scripts:**
+→ `03-Tests/scripts/`
+
 **Deployment scripts:**
 → `05-Scripts/deployment/script-name.sh`
 
@@ -513,23 +771,44 @@ hustle/
 **One-time migrations:**
 → `05-Scripts/migration/migrate-description.ts`
 
+**Maintenance/monitoring scripts:**
+→ `05-Scripts/maintenance/script-name.ts`
+
+**General utility scripts:**
+→ `05-Scripts/utilities/script-name.ts`
+
 **Design mockups:**
 → `04-Assets/design/mockup-name.png`
 
 **Email templates:**
 → `04-Assets/templates/email-template.html`
 
+**Reference images:**
+→ `04-Assets/reference/image-name.png`
+
 **Terraform modules:**
 → `06-Infrastructure/terraform/modules/module-name/`
+
+**Terraform environments:**
+→ `06-Infrastructure/terraform/environments/env-name/`
 
 **Service account keys:**
 → `06-Infrastructure/security/credentials/key-name.json` (gitignored)
 
+**Docker Compose files:**
+→ `06-Infrastructure/docker/docker-compose.yml`
+
 **User-facing images/icons:**
 → `public/image-name.svg`
 
+**User uploads:**
+→ `public/uploads/category/`
+
 **React components:**
 → `src/components/ComponentName.tsx` (or `src/components/ui/` for shadcn)
+
+**API routes:**
+→ `src/app/api/route-name/route.ts`
 
 **Firebase Cloud Function:**
 → `functions/src/function-name.ts`
@@ -546,41 +825,61 @@ hustle/
 
 ### Pre-Commit Checks
 
+**Pseudocode checks for pre-commit hook:**
+
 ```bash
-# Prevent new root-level scripts
-! find . -maxdepth 1 -name "*.sh" -type f | grep -v "^\./gate.sh$"
+# Prevent new root-level shell scripts (except archived ones)
+# Note: Scripts in active use should be in 05-Scripts/
+test $(find . -maxdepth 1 -name "*.sh" -type f | wc -l) -eq 0
 
-# Prevent new doc directories
-! find . -maxdepth 1 -type d -name "*docs*" | grep -v "^\./000-docs$"
+# Prevent new doc directories (only 000-docs/ allowed)
+test $(find . -maxdepth 1 -type d -name "*docs*" ! -name "000-docs" | wc -l) -eq 0
 
-# Prevent test files outside 03-Tests or src
-! find . -name "*.test.ts" -o -name "*.spec.ts" | grep -v "^\./03-Tests/" | grep -v "^\./src/"
+# Prevent test files outside 03-Tests/ or src/__tests__/
+# (This is a pattern check, not a literal command)
+# Files matching *.test.ts or *.spec.ts should only be in:
+#   - 03-Tests/
+#   - src/__tests__/
+#   - nwsl/ (exception for nwsl pipeline)
 ```
+
+**Note:** These are enforcement patterns, not copy-paste shell commands. Implement in pre-commit hook with proper error handling.
 
 ### Regular Audits
 
 **Monthly:**
 - Check for root-level clutter (new `.sh` files, loose scripts)
-- Verify `04-Assets/` isn't empty (consolidate templates)
-- Confirm no duplicate test directories
+- Verify `04-Assets/` has templates after consolidation
+- Confirm no duplicate test directories (`tests/`, `test-results/` should be empty or gone)
+- Verify `scripts/` directory is empty after Phase 2 consolidation
 
 **Per Migration Phase:**
-- Archive deprecated directories to `99-Archive/`
+- Archive deprecated directories to `99-Archive/` with descriptive READMEs
 - Update this spec document (bump version, add notes)
 - Commit scaffold changes separately from feature work
+- Update "Current → Target Move Plan" table with completion status
+
+**After Phase 2 Consolidation:**
+- Verify all paths in move plan table are completed
+- Delete empty source directories (`tests/`, `scripts/`, `templates/`)
+- Update config files (`playwright.config.ts`, `vitest.config.mts`, CI workflows)
+- Archive `06-Infrastructure/terraform-backup-20251013/` to `99-Archive/`
 
 ### Contributor Onboarding
 
-**Required reading:**
+**Required Reading:**
 1. This document (`000-docs/6767-hustle-repo-scaffold-standard.md`)
-2. `CLAUDE.md` (project architecture)
-3. `AGENTS.md` (coding standards)
+2. `CLAUDE.md` (project architecture and development guide)
+3. `AGENTS.md` (coding standards and conventions)
+4. `000-docs/120-AT-ADEC-doc-filing-standard.md` (Document Filing System v2.0)
 
-**First PR checklist:**
+**First PR Checklist:**
 - [ ] Files placed in correct directories per this spec
 - [ ] No new root-level scripts or docs directories
 - [ ] Tests in `03-Tests/` (not scattered)
-- [ ] Documentation in `000-docs/` (numbered, flat)
+- [ ] Documentation in `000-docs/` (numbered with category codes)
+- [ ] Scripts in `05-Scripts/` subdirectories (not root)
+- [ ] Infrastructure in `06-Infrastructure/` (not root)
 
 ---
 
@@ -589,12 +888,14 @@ hustle/
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-11-15 | Initial authoritative specification |
+| 1.1 | 2025-11-15 | Reality check update: Added Current→Target move plan table, documented actual category codes, fixed nwsl/gate.sh path (archived), added missing config files, verified directory structures |
 
 ---
 
 ## Related Documents
 
 - `000-docs/192-AA-MAAR-hustle-scaffold-phase-1-inventory-and-plan.md` - Phase 1 Mini AAR
+- `000-docs/120-AT-ADEC-doc-filing-standard.md` - Document Filing System v2.0 specification
 - `CLAUDE.md` - Project architecture and development guide
 - `AGENTS.md` - Coding standards and conventions
 
@@ -603,3 +904,4 @@ hustle/
 **Document ID:** 6767-hustle-repo-scaffold-standard
 **Authoritative Status:** This is the canonical scaffold specification
 **Next Review:** After Phase 2 consolidation (directory moves)
+**Reality Check Date:** 2025-11-15 (All paths, files, and structures verified against actual repo)
