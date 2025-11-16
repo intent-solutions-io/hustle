@@ -6,6 +6,7 @@ import { incrementPlayerCount } from '@/lib/firebase/services/workspaces';
 import { getUser } from '@/lib/firebase/services/users';
 import { getWorkspaceById } from '@/lib/firebase/services/workspaces';
 import { getPlanLimits } from '@/lib/stripe/plan-mapping';
+import { requireWorkspaceWriteAccess, WorkspaceAccessError } from '@/lib/firebase/access-control';
 
 const logger = createLogger('api/players/create');
 
@@ -68,6 +69,26 @@ export async function POST(request: NextRequest) {
         { error: 'Workspace not found. Please contact support.' },
         { status: 500 }
       );
+    }
+
+    // Phase 7 Task 4: Enforce workspace subscription status (before plan limits)
+    try {
+      await requireWorkspaceWriteAccess(workspace.id);
+    } catch (error) {
+      if (error instanceof WorkspaceAccessError) {
+        logger.warn('Player creation blocked - subscription inactive', {
+          userId: session.user.id,
+          workspaceId: workspace.id,
+          workspaceStatus: error.status,
+          reason: error.code,
+        });
+
+        return NextResponse.json(
+          error.toJSON(),
+          { status: error.httpStatus }
+        );
+      }
+      throw error; // Re-throw if not workspace access error
     }
 
     // Phase 5 Task 4: Check plan limit for max players

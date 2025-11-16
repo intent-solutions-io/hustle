@@ -9,6 +9,7 @@ import { getGames, createGame, getUnverifiedGames } from '@/lib/firebase/service
 import { getUser } from '@/lib/firebase/services/users'
 import { getWorkspaceById, incrementGamesThisMonth } from '@/lib/firebase/services/workspaces'
 import { getPlanLimits } from '@/lib/stripe/plan-mapping'
+import { requireWorkspaceWriteAccess, WorkspaceAccessError } from '@/lib/firebase/access-control'
 
 const logger = createLogger('api/games');
 
@@ -160,6 +161,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         error: 'Player not found'
       }, { status: 404 });
+    }
+
+    // Phase 7 Task 4: Enforce workspace subscription status (before plan limits)
+    try {
+      await requireWorkspaceWriteAccess(workspace.id);
+    } catch (error) {
+      if (error instanceof WorkspaceAccessError) {
+        logger.warn('Game creation blocked - subscription inactive', {
+          userId: session.user.id,
+          workspaceId: workspace.id,
+          workspaceStatus: error.status,
+          reason: error.code,
+        });
+
+        return NextResponse.json(
+          error.toJSON(),
+          { status: error.httpStatus }
+        );
+      }
+      throw error; // Re-throw if not workspace access error
     }
 
     // Phase 5 Task 4: Check plan limit for max games per month
