@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { createLogger } from '@/lib/logger'
 import { gameSchema } from '@/lib/validations/game-schema'
 import { sendEmail } from '@/lib/email'
 import { emailTemplates } from '@/lib/email-templates'
 import { getPlayer, getPlayers } from '@/lib/firebase/services/players'
 import { getGames, createGame, getUnverifiedGames } from '@/lib/firebase/services/games'
 import { getUser } from '@/lib/firebase/services/users'
+import { getWorkspaceById, incrementGamesThisMonth } from '@/lib/firebase/services/workspaces'
+import { getPlanLimits } from '@/lib/stripe/plan-mapping'
+
+const logger = createLogger('api/games');
 
 // Simple in-memory rate limiting (production: use Redis)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -96,6 +101,32 @@ export async function POST(request: NextRequest) {
       rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
     }
 
+    // Phase 5 Task 4: Get user's workspace and check plan limits
+    const user = await getUser(session.user.id);
+    if (!user?.defaultWorkspaceId) {
+      logger.error('User has no default workspace', {
+        userId: session.user.id,
+      });
+
+      return NextResponse.json(
+        { error: 'No workspace found. Please contact support.' },
+        { status: 500 }
+      );
+    }
+
+    const workspace = await getWorkspaceById(user.defaultWorkspaceId);
+    if (!workspace) {
+      logger.error('Workspace not found', {
+        userId: session.user.id,
+        workspaceId: user.defaultWorkspaceId,
+      });
+
+      return NextResponse.json(
+        { error: 'Workspace not found. Please contact support.' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
 
     // Handle finalScore format (e.g., "3-2") and convert to yourScore/opponentScore
@@ -131,8 +162,32 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
+    // Phase 5 Task 4: Check plan limit for max games per month
+    const limits = getPlanLimits(workspace.plan);
+    if (workspace.usage.gamesThisMonth >= limits.maxGamesPerMonth) {
+      logger.warn('Game creation blocked - plan limit exceeded', {
+        userId: session.user.id,
+        workspaceId: workspace.id,
+        currentPlan: workspace.plan,
+        currentGamesThisMonth: workspace.usage.gamesThisMonth,
+        maxGamesPerMonth: limits.maxGamesPerMonth,
+      });
+
+      return NextResponse.json(
+        {
+          error: 'PLAN_LIMIT_EXCEEDED',
+          message: `You've reached the maximum number of games (${limits.maxGamesPerMonth}) for your ${workspace.plan} plan this month. Upgrade your plan to track more games.`,
+          currentPlan: workspace.plan,
+          currentCount: workspace.usage.gamesThisMonth,
+          limit: limits.maxGamesPerMonth,
+        },
+        { status: 403 }
+      );
+    }
+
     // Create game log with defensive stats (Firestore)
     const game = await createGame(session.user.id, validatedData.playerId, {
+      workspaceId: workspace.id,  // Phase 5: Link to workspace
       date: new Date(validatedData.date),
       opponent: validatedData.opponent,
       result: validatedData.result,
@@ -149,6 +204,9 @@ export async function POST(request: NextRequest) {
       goalsAgainst: validatedData.goalsAgainst ?? null,
       cleanSheet: validatedData.cleanSheet ?? null,
     });
+
+    // Phase 5 Task 4: Increment workspace game count
+    await incrementGamesThisMonth(workspace.id);
 
     // Send verification email notification to parent
     try {
