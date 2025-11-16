@@ -58,9 +58,8 @@ jobs:
       - name: Test Docker image
         run: |
           docker run -d -p 8080:8080 --name test-app \
-            -e DATABASE_URL=postgresql://test:test@localhost:5432/test \
-            -e NEXTAUTH_SECRET=test_secret_32_characters_long \
-            -e NEXTAUTH_URL=http://localhost:8080 \
+            -e NEXT_PUBLIC_FIREBASE_PROJECT_ID=hustleapp-production \
+            -e FIREBASE_PROJECT_ID=hustleapp-production \
             hustle-app:${{ github.sha }}
           sleep 10
           curl -f http://localhost:8080/api/healthcheck || exit 1
