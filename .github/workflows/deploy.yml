@@ -56,8 +56,8 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --set-env-vars "NODE_ENV=staging" \
-            --set-env-vars "NEXTAUTH_URL=https://staging-hustlestats.io" \
-            --set-secrets "DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest"
+            --set-env-vars "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }}" \
+            --set-secrets "FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest,FIREBASE_CLIENT_EMAIL=FIREBASE_CLIENT_EMAIL:latest"
 
       - name: Get staging URL
         id: staging-url
@@ -120,8 +120,8 @@ jobs:
             --project ${{ env.PROJECT_ID }} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=production,NEXTAUTH_URL=https://hustlestats.io,EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>" \
-            --set-secrets "DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
+            --set-env-vars "NODE_ENV=production,NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>" \
+            --set-secrets "FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest,FIREBASE_CLIENT_EMAIL=FIREBASE_CLIENT_EMAIL:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
 
       - name: Verify deployment
         run: |
