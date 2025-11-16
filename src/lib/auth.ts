@@ -1,96 +1,63 @@
-import NextAuth, { DefaultSession } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
-import bcrypt from "bcrypt";
+/**
+ * Server-Side Authentication (Firebase Auth)
+ *
+ * Replaces NextAuth session validation with Firebase Auth ID token verification.
+ * Used in API routes for server-side authentication.
+ *
+ * Migration Note: This file replaces the NextAuth configuration that was
+ * archived to 99-Archive/20251115-nextauth-legacy/auth.ts
+ */
 
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      firstName: string;
-      lastName: string;
-    } & DefaultSession["user"];
-  }
+import { cookies } from 'next/headers';
+import { adminAuth } from './firebase/admin';
 
-  interface User {
+export interface Session {
+  user: {
     id: string;
-    email: string;
-    name: string;
-    firstName: string;
-    lastName: string;
-  }
+    email: string | null;
+    emailVerified: boolean;
+  };
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  trustHost: true, // Required for NextAuth v5 with custom domains
-  providers: [
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+/**
+ * Get authenticated session from Firebase Auth ID token
+ *
+ * Validates Firebase ID token from cookie and returns session object.
+ * Compatible with NextAuth session structure for minimal migration changes.
+ *
+ * Usage in API routes:
+ * ```typescript
+ * const session = await auth();
+ * if (!session?.user?.id) {
+ *   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+ * }
+ * ```
+ *
+ * @returns Session object with user info, or null if not authenticated
+ */
+export async function auth(): Promise<Session | null> {
+  try {
+    const cookieStore = await cookies();
+
+    // Get Firebase ID token from cookie (set by client-side Firebase Auth)
+    const idToken = cookieStore.get('__session')?.value;
+
+    if (!idToken) {
+      return null;
+    }
+
+    // Verify ID token with Firebase Admin SDK
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+
+    return {
+      user: {
+        id: decodedToken.uid,
+        email: decodedToken.email || null,
+        emailVerified: decodedToken.email_verified || false,
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email and password are required");
-        }
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
-
-        if (!user || !user.password) {
-          throw new Error("Invalid email or password");
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Invalid email or password");
-        }
-
-        // Check if email is verified
-        if (!user.emailVerified) {
-          throw new Error("Please verify your email before logging in. Check your inbox for the verification link.");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: `${user.firstName} ${user.lastName}`,
-          firstName: user.firstName,
-          lastName: user.lastName,
-        };
-      },
-    }),
-  ],
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.firstName = user.firstName;
-        token.lastName = user.lastName;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.firstName = token.firstName as string;
-        session.user.lastName = token.lastName as string;
-      }
-      return session;
-    },
-  },
-});
+    };
+  } catch (error) {
+    console.error('Auth verification error:', error);
+    return null;
+  }
+}
