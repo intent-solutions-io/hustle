@@ -213,3 +213,70 @@ export async function getUnverifiedGamesAdmin(
     throw new Error(`Failed to fetch unverified games: ${error.message}`);
   }
 }
+
+/**
+ * Get all games for a specific player (Admin SDK)
+ * Both verified and unverified games ordered by date descending
+ *
+ * @param userId - User UID
+ * @param playerId - Player document ID
+ * @returns Array of all Game objects for this player
+ */
+export async function getAllGamesForPlayerAdmin(
+  userId: string,
+  playerId: string
+): Promise<Game[]> {
+  try {
+    const gamesRef = adminDb.collection(`users/${userId}/players/${playerId}/games`);
+    const snapshot = await gamesRef.orderBy('date', 'desc').get();
+
+    return snapshot.docs.map((doc) => toGame(doc.id, doc.data() as GameDocument));
+  } catch (error: any) {
+    console.error('Error fetching all games for player (Admin):', error);
+    throw new Error(`Failed to fetch games for player: ${error.message}`);
+  }
+}
+
+/**
+ * Get ALL games across all players for a user (Admin SDK)
+ * Used for analytics aggregation
+ *
+ * @param userId - User UID
+ * @returns Array of all Game objects with player info attached
+ */
+export async function getAllGamesAdmin(
+  userId: string
+): Promise<Array<Game & { player: { id: string; name: string; position: string } }>> {
+  try {
+    // Get all players for this user
+    const playersSnapshot = await adminDb.collection(`users/${userId}/players`).get();
+
+    const allGames: Array<Game & { player: { id: string; name: string; position: string } }> = [];
+
+    // For each player, fetch all games
+    for (const playerDoc of playersSnapshot.docs) {
+      const playerData = playerDoc.data();
+      const gamesSnapshot = await adminDb
+        .collection(`users/${userId}/players/${playerDoc.id}/games`)
+        .orderBy('date', 'desc')
+        .get();
+
+      // Add player info to each game
+      const gamesWithPlayer = gamesSnapshot.docs.map((gameDoc) => ({
+        ...toGame(gameDoc.id, gameDoc.data() as GameDocument),
+        player: {
+          id: playerDoc.id,
+          name: playerData.name,
+          position: playerData.position,
+        },
+      }));
+
+      allGames.push(...gamesWithPlayer);
+    }
+
+    return allGames;
+  } catch (error: any) {
+    console.error('Error fetching all games (Admin):', error);
+    throw new Error(`Failed to fetch all games: ${error.message}`);
+  }
+}

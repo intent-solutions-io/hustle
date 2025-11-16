@@ -1,6 +1,6 @@
-import { auth } from '@/lib/auth';
+import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { getAllGamesAdmin } from '@/lib/firebase/admin-services/games';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -25,32 +25,14 @@ import type { GameData } from '@/types/game';
  * @returns Server component rendering games history
  */
 export default async function GamesHistoryPage() {
-  // AUTH CHECK
-  const session = await auth();
-  if (!session?.user?.id) {
+  // AUTH CHECK (Firebase Admin)
+  const user = await getDashboardUser();
+  if (!user || !user.emailVerified) {
     redirect('/login');
   }
 
-  // FETCH ALL GAMES for all parent's athletes
-  const games = await prisma.game.findMany({
-    where: {
-      player: {
-        parentId: session.user.id,
-      },
-    },
-    include: {
-      player: {
-        select: {
-          id: true,
-          name: true,
-          position: true,
-        },
-      },
-    },
-    orderBy: {
-      date: 'desc', // Most recent first
-    },
-  });
+  // FETCH ALL GAMES for all parent's athletes (Firestore Admin SDK)
+  const games = await getAllGamesAdmin(user.uid);
 
   // Calculate summary stats
   const totalGames = games.length;
