@@ -15,7 +15,9 @@
  * - Solution: Set random passwords, send password reset emails
  * - Users will reset passwords on first login
  *
- * Run with: npx tsx scripts/migrate-to-firestore.ts
+ * Usage:
+ *   Dry Run:  DRY_RUN=true npx tsx 05-Scripts/migration/migrate-to-firestore.ts
+ *   Live Run: npx tsx 05-Scripts/migration/migrate-to-firestore.ts
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -27,6 +29,9 @@ import * as crypto from 'crypto';
 
 // Load environment variables
 dotenv.config();
+
+// Dry run mode (set DRY_RUN=true to preview without writing)
+const DRY_RUN = process.env.DRY_RUN === 'true';
 
 // Initialize Firebase Admin SDK with Application Default Credentials
 if (getApps().length === 0) {
@@ -78,6 +83,12 @@ function generateRandomPassword(): string {
  */
 async function migrateUser(user: any): Promise<string | null> {
   try {
+    if (DRY_RUN) {
+      console.log(`[DRY RUN] Would migrate user: ${user.email} (UID: ${user.id})`);
+      stats.usersSuccess++;
+      return user.id; // Return PostgreSQL ID as mock UID
+    }
+
     // Step 1: Create Firebase Auth account
     const tempPassword = generateRandomPassword();
 
@@ -140,6 +151,12 @@ async function migrateUser(user: any): Promise<string | null> {
  */
 async function migratePlayer(player: any, parentFirebaseUid: string): Promise<void> {
   try {
+    if (DRY_RUN) {
+      console.log(`[DRY RUN] Would migrate player: ${player.name} (parent: ${parentFirebaseUid})`);
+      stats.playersSuccess++;
+      return;
+    }
+
     const playerDoc = {
       name: player.name,
       birthday: Timestamp.fromDate(player.birthday),
@@ -172,6 +189,12 @@ async function migratePlayer(player: any, parentFirebaseUid: string): Promise<vo
  */
 async function migrateGame(game: any, parentFirebaseUid: string, playerId: string): Promise<void> {
   try {
+    if (DRY_RUN) {
+      console.log(`[DRY RUN] Would migrate game: ${game.opponent} (player: ${playerId})`);
+      stats.gamesSuccess++;
+      return;
+    }
+
     const gameDoc = {
       date: Timestamp.fromDate(game.date),
       opponent: game.opponent,
@@ -217,6 +240,14 @@ async function migrateGame(game: any, parentFirebaseUid: string, playerId: strin
  * Main migration function
  */
 async function migrate() {
+  if (DRY_RUN) {
+    console.log('');
+    console.log('='.repeat(60));
+    console.log('🔍 DRY RUN MODE - NO DATA WILL BE WRITTEN');
+    console.log('='.repeat(60));
+    console.log('');
+  }
+
   console.log('🚀 Starting PostgreSQL → Firebase migration...\n');
 
   try {
