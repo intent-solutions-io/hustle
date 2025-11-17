@@ -3,7 +3,7 @@
  *
  * POST /api/billing/create-portal-session
  *
- * Phase 7 Task 5: Customer Portal Integration
+ * Phase 7 Task 1: Customer Portal Integration
  *
  * Creates a Stripe Customer Portal session for self-service billing management.
  * Users can update payment methods, view invoices, and cancel subscriptions.
@@ -12,12 +12,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { adminDb } from '@/lib/firebase/admin';
-import Stripe from 'stripe';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
-});
+import {
+  createCustomerPortalSession,
+  getDefaultReturnUrl,
+  isValidStripeCustomerId,
+} from '@/lib/stripe/customer-portal';
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,17 +73,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Get return URL from request body or use default
+    // 4. Validate customer ID format
+    if (!isValidStripeCustomerId(stripeCustomerId)) {
+      console.error('[Customer Portal] Invalid Stripe customer ID:', stripeCustomerId);
+      return NextResponse.json(
+        { error: 'INVALID_CUSTOMER_ID', message: 'Invalid customer ID format' },
+        { status: 500 }
+      );
+    }
+
+    // 5. Get return URL from request body or use default
     const body = await request.json().catch(() => ({}));
-    const returnUrl = body.returnUrl || `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/settings/billing`;
+    const returnUrl = body.returnUrl || getDefaultReturnUrl();
 
-    // 5. Create Stripe Customer Portal session
-    const portalSession = await stripe.billingPortal.sessions.create({
-      customer: stripeCustomerId,
-      return_url: returnUrl,
-    });
+    // 6. Create Stripe Customer Portal session
+    const portalSession = await createCustomerPortalSession(
+      stripeCustomerId,
+      returnUrl
+    );
 
-    // 6. Return portal URL
+    // 7. Return portal URL
     return NextResponse.json({
       success: true,
       url: portalSession.url,
