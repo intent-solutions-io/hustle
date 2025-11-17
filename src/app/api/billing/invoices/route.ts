@@ -23,6 +23,19 @@ import type { Workspace } from '@/types/firestore';
  */
 export async function GET(request: NextRequest) {
   try {
+    // 0. Check billing feature switch (Phase 7 Task 6)
+    const billingEnabled = process.env.BILLING_ENABLED !== 'false';
+
+    if (!billingEnabled) {
+      return NextResponse.json(
+        {
+          error: 'BILLING_DISABLED',
+          message: 'Billing is temporarily disabled. Please try again later.',
+        },
+        { status: 503 }
+      );
+    }
+
     // 1. Authenticate user
     const dashboardUser = await getDashboardUser();
 
