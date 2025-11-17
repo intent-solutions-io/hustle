@@ -1,0 +1,130 @@
+/**
+ * Billing Portal API Route
+ *
+ * POST /api/billing/portal
+ *
+ * Phase 7 Task 4: Customer Billing Portal & Invoice History
+ *
+ * Creates a Stripe Customer Portal session for authenticated users.
+ * Returns a short-lived URL for self-service billing management.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { adminDb } from '@/lib/firebase/admin';
+import { getOrCreateBillingPortalUrl } from '@/lib/stripe/billing-portal';
+import type { Workspace } from '@/types/firestore';
+
+/**
+ * POST handler for billing portal session creation
+ *
+ * Request body: { returnPath?: string } (optional)
+ * Response: { url: string }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Authenticate user
+    const dashboardUser = await getDashboardUser();
+
+    if (!dashboardUser) {
+      return NextResponse.json(
+        { error: 'UNAUTHORIZED', message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // 2. Get user's default workspace
+    const userDoc = await adminDb.collection('users').doc(dashboardUser.uid).get();
+
+    if (!userDoc.exists) {
+      return NextResponse.json(
+        { error: 'USER_NOT_FOUND', message: 'User document not found' },
+        { status: 404 }
+      );
+    }
+
+    const userData = userDoc.data();
+    const workspaceId = userData?.defaultWorkspaceId;
+
+    if (!workspaceId) {
+      return NextResponse.json(
+        { error: 'NO_WORKSPACE', message: 'User has no default workspace' },
+        { status: 404 }
+      );
+    }
+
+    // 3. Get workspace document
+    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
+
+    if (!workspaceDoc.exists) {
+      return NextResponse.json(
+        { error: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found' },
+        { status: 404 }
+      );
+    }
+
+    const workspaceData = workspaceDoc.data();
+    const workspace = {
+      id: workspaceDoc.id,
+      ...workspaceData,
+    } as unknown as Workspace;
+
+    // 4. Enforce workspace status
+    // Allowed: active, past_due, trial
+    // Blocked: canceled, suspended, deleted
+    const blockedStatuses = ['canceled', 'suspended', 'deleted'];
+
+    if (blockedStatuses.includes(workspace.status)) {
+      return NextResponse.json(
+        {
+          error: 'BILLING_INACCESSIBLE',
+          reason: 'workspace_status',
+          status: workspace.status,
+          message: `Billing portal not accessible for ${workspace.status} workspaces.`,
+        },
+        { status: 403 }
+      );
+    }
+
+    // 5. Parse optional returnPath from request body
+    const body = await request.json().catch(() => ({}));
+    const returnPath = body.returnPath || '/dashboard/billing';
+
+    // 6. Create billing portal session
+    let url: string;
+    try {
+      url = await getOrCreateBillingPortalUrl(workspace.id, returnPath);
+    } catch (error: any) {
+      console.error('[API] Billing portal session creation failed:', error.message);
+      return NextResponse.json(
+        {
+          error: 'BILLING_PORTAL_FAILED',
+          message: 'Unable to create billing portal session.',
+        },
+        { status: 500 }
+      );
+    }
+
+    // 7. Return success response
+    return NextResponse.json({ url });
+  } catch (error: any) {
+    console.error('[API] /api/billing/portal error:', error.message);
+
+    // Handle Stripe API errors
+    if (error.type) {
+      return NextResponse.json(
+        {
+          error: 'STRIPE_ERROR',
+          message: error.message || 'Stripe API error occurred',
+          type: error.type,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'INTERNAL_ERROR', message: 'Failed to process billing portal request' },
+      { status: 500 }
+    );
+  }
+}
