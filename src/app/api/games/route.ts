@@ -10,7 +10,7 @@ import { getUser } from '@/lib/firebase/services/users'
 import { getWorkspaceById, incrementGamesThisMonth } from '@/lib/firebase/services/workspaces'
 import { getPlanLimits } from '@/lib/stripe/plan-mapping'
 import { WorkspaceAccessError } from '@/lib/firebase/access-control'
-import { assertWorkspaceActiveOrTrial } from '@/lib/workspaces/guards'
+import { assertWorkspaceActive } from '@/lib/workspaces/enforce'
 
 const logger = createLogger('api/games');
 
@@ -164,9 +164,9 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Phase 6 Task 1: Enforce workspace active/trial status (blocks past_due, canceled, suspended, deleted)
+    // Phase 6 Task 5: Enforce workspace active/trial status (blocks past_due, canceled, suspended, deleted)
     try {
-      await assertWorkspaceActiveOrTrial(workspace.id);
+      assertWorkspaceActive(workspace);
     } catch (error) {
       if (error instanceof WorkspaceAccessError) {
         logger.warn('Game creation blocked - subscription inactive', {
