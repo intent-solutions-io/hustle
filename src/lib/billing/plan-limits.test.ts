@@ -48,24 +48,25 @@ function createMockWorkspace(
 describe('evaluatePlanLimits', () => {
   describe('Free Plan', () => {
     it('should return ok state when under 70% of limits', () => {
-      const workspace = createMockWorkspace('free', 0, 3); // 0/1 players, 3/5 games (60%)
+      const workspace = createMockWorkspace('free', 1, 6); // 1/2 players (50%), 6/10 games (60%)
       const limits = evaluatePlanLimits(workspace);
 
       expect(limits.player.state).toBe('ok');
       expect(limits.games.state).toBe('ok');
-      expect(limits.player.limit).toBe(1);
-      expect(limits.games.limit).toBe(5);
+      expect(limits.player.limit).toBe(2);
+      expect(limits.games.limit).toBe(10);
     });
 
     it('should return warning state when at 70% of limit', () => {
-      const workspace = createMockWorkspace('free', 0, 4); // 4/5 games = 80%
+      const workspace = createMockWorkspace('free', 1, 8); // 1/2 players (50%), 8/10 games (80%)
       const limits = evaluatePlanLimits(workspace);
 
+      expect(limits.player.state).toBe('ok');
       expect(limits.games.state).toBe('warning');
     });
 
     it('should return critical state when at or above 100% of limit', () => {
-      const workspace = createMockWorkspace('free', 1, 5); // 1/1 players, 5/5 games
+      const workspace = createMockWorkspace('free', 2, 10); // 2/2 players, 10/10 games
       const limits = evaluatePlanLimits(workspace);
 
       expect(limits.player.state).toBe('critical');
@@ -73,7 +74,7 @@ describe('evaluatePlanLimits', () => {
     });
 
     it('should return critical state when over limit', () => {
-      const workspace = createMockWorkspace('free', 2, 6); // 2/1 players, 6/5 games
+      const workspace = createMockWorkspace('free', 3, 12); // 3/2 players, 12/10 games
       const limits = evaluatePlanLimits(workspace);
 
       expect(limits.player.state).toBe('critical');
@@ -82,38 +83,38 @@ describe('evaluatePlanLimits', () => {
   });
 
   describe('Starter Plan', () => {
-    it('should use correct limits (3 players, 20 games)', () => {
-      const workspace = createMockWorkspace('starter', 1, 10);
+    it('should use correct limits (5 players, 50 games)', () => {
+      const workspace = createMockWorkspace('starter', 2, 25);
       const limits = evaluatePlanLimits(workspace);
 
-      expect(limits.player.limit).toBe(3);
-      expect(limits.games.limit).toBe(20);
-      expect(limits.player.state).toBe('ok'); // 1/3 = 33%
-      expect(limits.games.state).toBe('ok'); // 10/20 = 50%
+      expect(limits.player.limit).toBe(5);
+      expect(limits.games.limit).toBe(50);
+      expect(limits.player.state).toBe('ok'); // 2/5 = 40%
+      expect(limits.games.state).toBe('ok'); // 25/50 = 50%
     });
 
     it('should return warning at 70% threshold', () => {
-      const workspace = createMockWorkspace('starter', 3, 14); // 3/3 = 100%, 14/20 = 70%
+      const workspace = createMockWorkspace('starter', 4, 35); // 4/5 = 80%, 35/50 = 70%
       const limits = evaluatePlanLimits(workspace);
 
-      expect(limits.player.state).toBe('critical');
+      expect(limits.player.state).toBe('warning');
       expect(limits.games.state).toBe('warning');
     });
   });
 
-  describe('Pro Plan', () => {
-    it('should use correct limits (10 players, 200 games)', () => {
-      const workspace = createMockWorkspace('pro', 5, 100);
+  describe('Plus Plan', () => {
+    it('should use correct limits (15 players, 200 games)', () => {
+      const workspace = createMockWorkspace('plus', 8, 100);
       const limits = evaluatePlanLimits(workspace);
 
-      expect(limits.player.limit).toBe(10);
+      expect(limits.player.limit).toBe(15);
       expect(limits.games.limit).toBe(200);
-      expect(limits.player.state).toBe('ok'); // 5/10 = 50%
+      expect(limits.player.state).toBe('ok'); // 8/15 = 53%
       expect(limits.games.state).toBe('ok'); // 100/200 = 50%
     });
 
     it('should return warning between 70-99%', () => {
-      const workspace = createMockWorkspace('pro', 8, 150); // 8/10 = 80%, 150/200 = 75%
+      const workspace = createMockWorkspace('plus', 12, 150); // 12/15 = 80%, 150/200 = 75%
       const limits = evaluatePlanLimits(workspace);
 
       expect(limits.player.state).toBe('warning');
@@ -121,7 +122,7 @@ describe('evaluatePlanLimits', () => {
     });
 
     it('should return critical at 100%', () => {
-      const workspace = createMockWorkspace('pro', 10, 200);
+      const workspace = createMockWorkspace('plus', 15, 200);
       const limits = evaluatePlanLimits(workspace);
 
       expect(limits.player.state).toBe('critical');
@@ -129,23 +130,31 @@ describe('evaluatePlanLimits', () => {
     });
   });
 
-  describe('Elite Plan', () => {
-    it('should return ok state for any usage (infinite limits)', () => {
-      const workspace = createMockWorkspace('elite', 999, 9999);
+  describe('Pro Plan', () => {
+    it('should return ok state for high usage (effectively unlimited)', () => {
+      const workspace = createMockWorkspace('pro', 100, 1000);
       const limits = evaluatePlanLimits(workspace);
 
-      expect(limits.player.state).toBe('ok');
-      expect(limits.games.state).toBe('ok');
-      expect(limits.player.limit).toBe(Infinity);
-      expect(limits.games.limit).toBe(Infinity);
+      expect(limits.player.state).toBe('ok'); // 100/9999 = 1%
+      expect(limits.games.state).toBe('ok'); // 1000/9999 = 10%
+      expect(limits.player.limit).toBe(9999);
+      expect(limits.games.limit).toBe(9999);
     });
 
     it('should return ok even with zero usage', () => {
-      const workspace = createMockWorkspace('elite', 0, 0);
+      const workspace = createMockWorkspace('pro', 0, 0);
       const limits = evaluatePlanLimits(workspace);
 
       expect(limits.player.state).toBe('ok');
       expect(limits.games.state).toBe('ok');
+    });
+
+    it('should require extreme usage to reach warning state', () => {
+      const workspace = createMockWorkspace('pro', 7000, 7000); // 70% of 9999
+      const limits = evaluatePlanLimits(workspace);
+
+      expect(limits.player.state).toBe('warning');
+      expect(limits.games.state).toBe('warning');
     });
   });
 
@@ -166,12 +175,12 @@ describe('evaluatePlanLimits', () => {
       workspace.plan = 'invalid' as any;
       const limits = evaluatePlanLimits(workspace);
 
-      expect(limits.player.limit).toBe(1);
-      expect(limits.games.limit).toBe(5);
+      expect(limits.player.limit).toBe(2);
+      expect(limits.games.limit).toBe(10);
     });
 
     it('should handle exact 70% threshold (should be warning)', () => {
-      const workspace = createMockWorkspace('pro', 7, 140); // exactly 70%
+      const workspace = createMockWorkspace('plus', 11, 140); // 11/15 = 73%, 140/200 = 70%
       const limits = evaluatePlanLimits(workspace);
 
       expect(limits.player.state).toBe('warning');
@@ -179,7 +188,7 @@ describe('evaluatePlanLimits', () => {
     });
 
     it('should handle 69% threshold (should be ok)', () => {
-      const workspace = createMockWorkspace('pro', 6, 138); // 60%, 69%
+      const workspace = createMockWorkspace('plus', 10, 138); // 10/15 = 67%, 138/200 = 69%
       const limits = evaluatePlanLimits(workspace);
 
       expect(limits.player.state).toBe('ok');
@@ -187,7 +196,7 @@ describe('evaluatePlanLimits', () => {
     });
 
     it('should handle 99% threshold (should be warning)', () => {
-      const workspace = createMockWorkspace('pro', 9, 198); // 90%, 99%
+      const workspace = createMockWorkspace('plus', 14, 198); // 14/15 = 93%, 198/200 = 99%
       const limits = evaluatePlanLimits(workspace);
 
       expect(limits.player.state).toBe('warning');
@@ -267,12 +276,12 @@ describe('getLimitWarningMessage', () => {
 describe('State Thresholds (Integration)', () => {
   it('should correctly categorize all plans at key percentages', () => {
     const testCases = [
-      { plan: 'free' as const, players: 0, games: 3, expectedPlayer: 'ok', expectedGames: 'ok' }, // 0%, 60%
-      { plan: 'free' as const, players: 1, games: 4, expectedPlayer: 'critical', expectedGames: 'warning' }, // 100%, 80%
-      { plan: 'starter' as const, players: 2, games: 14, expectedPlayer: 'ok', expectedGames: 'warning' }, // 67%, 70% - Fixed: 67% < 70% = ok
-      { plan: 'pro' as const, players: 7, games: 140, expectedPlayer: 'warning', expectedGames: 'warning' }, // 70%, 70%
-      { plan: 'pro' as const, players: 10, games: 200, expectedPlayer: 'critical', expectedGames: 'critical' }, // 100%, 100%
-      { plan: 'elite' as const, players: 999, games: 9999, expectedPlayer: 'ok', expectedGames: 'ok' }, // Infinity
+      { plan: 'free' as const, players: 1, games: 6, expectedPlayer: 'ok', expectedGames: 'ok' }, // 50%, 60%
+      { plan: 'free' as const, players: 2, games: 8, expectedPlayer: 'critical', expectedGames: 'warning' }, // 100%, 80%
+      { plan: 'starter' as const, players: 3, games: 35, expectedPlayer: 'ok', expectedGames: 'warning' }, // 60%, 70%
+      { plan: 'plus' as const, players: 11, games: 140, expectedPlayer: 'warning', expectedGames: 'warning' }, // 73%, 70%
+      { plan: 'plus' as const, players: 15, games: 200, expectedPlayer: 'critical', expectedGames: 'critical' }, // 100%, 100%
+      { plan: 'pro' as const, players: 100, games: 1000, expectedPlayer: 'ok', expectedGames: 'ok' }, // ~1%, ~10% (effectively unlimited)
     ];
 
     testCases.forEach(({ plan, players, games, expectedPlayer, expectedGames }) => {

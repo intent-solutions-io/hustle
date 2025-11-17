@@ -21,24 +21,24 @@ export interface PlanLimits {
 }
 
 /**
- * Plan definitions - matches PLAN_DEFINITIONS in plan-changes.ts
+ * Plan definitions - matches actual plan limits from plan-mapping.ts
  */
 const PLAN_LIMITS = {
   free: {
-    players: 1,
-    gamesPerMonth: 5,
+    players: 2,
+    gamesPerMonth: 10,
   },
   starter: {
-    players: 3,
-    gamesPerMonth: 20,
+    players: 5,
+    gamesPerMonth: 50,
   },
-  pro: {
-    players: 10,
+  plus: {
+    players: 15,
     gamesPerMonth: 200,
   },
-  elite: {
-    players: Infinity,
-    gamesPerMonth: Infinity,
+  pro: {
+    players: 9999, // Effectively unlimited
+    gamesPerMonth: 9999,
   },
 } as const;
 
