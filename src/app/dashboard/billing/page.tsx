@@ -2,10 +2,12 @@
  * Billing Dashboard Page
  *
  * Phase 7 Task 4: Customer Billing Portal & Invoice History
+ * Phase 7 Task 5: Plan Limit Warnings & Usage Indicators
  *
  * Displays billing management UI with:
  * - "Manage Billing" button (opens Stripe Customer Portal)
  * - Billing history table (recent invoices)
+ * - Plan usage overview with limit indicators
  */
 
 import { redirect } from 'next/navigation';
@@ -14,6 +16,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import { listRecentInvoices } from '@/lib/stripe/billing-portal';
 import { ManageBillingButton } from '@/components/billing/ManageBillingButton';
 import { InvoiceTable } from '@/components/billing/InvoiceTable';
+import { evaluatePlanLimits, getLimitStateColor, formatLimit } from '@/lib/billing/plan-limits';
 import type { Workspace } from '@/types/firestore';
 
 export const metadata = {
@@ -63,6 +66,9 @@ export default async function BillingPage() {
     id: workspaceDoc.id,
     ...workspaceData,
   } as unknown as Workspace;
+
+  // 3a. Evaluate plan limits
+  const limits = evaluatePlanLimits(workspace);
 
   // 4. Fetch invoice history (server-side)
   let invoices = [];
@@ -121,6 +127,76 @@ export default async function BillingPage() {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Plan Usage Overview */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Plan Usage Overview</h2>
+
+        <div className="space-y-4">
+          {/* Player Usage */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  getLimitStateColor(limits.player.state) === 'green'
+                    ? 'bg-green-500'
+                    : getLimitStateColor(limits.player.state) === 'yellow'
+                    ? 'bg-yellow-500'
+                    : 'bg-red-500'
+                }`}
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-900">Players</p>
+                <p className="text-xs text-gray-600">
+                  {limits.player.used} of {formatLimit(limits.player.limit)} used
+                </p>
+              </div>
+            </div>
+            {limits.player.state === 'critical' && (
+              <p className="text-xs text-red-600">Limit reached</p>
+            )}
+          </div>
+
+          {/* Games This Month */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  getLimitStateColor(limits.games.state) === 'green'
+                    ? 'bg-green-500'
+                    : getLimitStateColor(limits.games.state) === 'yellow'
+                    ? 'bg-yellow-500'
+                    : 'bg-red-500'
+                }`}
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-900">Games This Month</p>
+                <p className="text-xs text-gray-600">
+                  {limits.games.used} of {formatLimit(limits.games.limit)} used
+                </p>
+              </div>
+            </div>
+            {limits.games.state === 'critical' && (
+              <p className="text-xs text-red-600">Limit reached</p>
+            )}
+          </div>
+
+          {/* Upgrade Note */}
+          {(limits.player.state === 'critical' || limits.games.state === 'critical') && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm text-gray-700">
+                Upgrade your plan to continue adding players or games.
+              </p>
+              <a
+                href="/dashboard/billing/change-plan"
+                className="text-sm text-blue-600 hover:underline font-medium mt-1 inline-block"
+              >
+                View Plans →
+              </a>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Manage Billing Panel */}

@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, Calendar, Target, PlusCircle, User, ChevronDown, Shield } from 'lucide-react';
+import { TrendingUp, Calendar, Target, PlusCircle, User, ChevronDown, Shield, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { getDashboardUser } from '@/lib/firebase/admin-auth';
@@ -19,6 +19,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { adminDb } from '@/lib/firebase/admin';
+import { evaluatePlanLimits, getLimitWarningMessage } from '@/lib/billing/plan-limits';
+import type { Workspace } from '@/types/firestore';
 
 // Calculate current soccer season dates (Aug 1 - Jul 31)
 function getCurrentSeasonDates() {
@@ -46,6 +49,23 @@ export default async function DashboardPage() {
   const user = await getDashboardUser();
   if (!user || !user.emailVerified) {
     redirect('/login');
+  }
+
+  // Fetch user's workspace for plan limits evaluation
+  const userDoc = await adminDb.collection('users').doc(user.uid).get();
+  const userData = userDoc.data();
+  const workspaceId = userData?.defaultWorkspaceId;
+
+  let limits = null;
+  if (workspaceId) {
+    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
+    if (workspaceDoc.exists) {
+      const workspace = {
+        id: workspaceDoc.id,
+        ...workspaceDoc.data(),
+      } as unknown as Workspace;
+      limits = evaluatePlanLimits(workspace);
+    }
   }
 
   // Fetch total games count across all athletes (Firestore Admin SDK)
@@ -76,6 +96,59 @@ export default async function DashboardPage() {
           Track your athletic development and monitor your progress
         </p>
       </div>
+
+      {/* Plan Limit Warnings */}
+      {limits && (
+        <>
+          {/* Player Limit Warning */}
+          {limits.player.state !== 'ok' && (
+            <div
+              className={`flex items-start gap-3 rounded-lg px-4 py-3 border ${
+                limits.player.state === 'warning'
+                  ? 'bg-yellow-50 border-yellow-300 text-yellow-900'
+                  : 'bg-red-50 border-red-300 text-red-900'
+              }`}
+            >
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-sm">
+                  {getLimitWarningMessage('player', limits.player.state)}
+                </p>
+                <p className="text-xs mt-1 opacity-90">
+                  {limits.player.used} of {limits.player.limit} players used
+                </p>
+              </div>
+              <Link href="/dashboard/billing/change-plan" className="text-xs font-medium underline whitespace-nowrap">
+                Upgrade Plan
+              </Link>
+            </div>
+          )}
+
+          {/* Games Limit Warning */}
+          {limits.games.state !== 'ok' && (
+            <div
+              className={`flex items-start gap-3 rounded-lg px-4 py-3 border ${
+                limits.games.state === 'warning'
+                  ? 'bg-yellow-50 border-yellow-300 text-yellow-900'
+                  : 'bg-red-50 border-red-300 text-red-900'
+              }`}
+            >
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-sm">
+                  {getLimitWarningMessage('games', limits.games.state)}
+                </p>
+                <p className="text-xs mt-1 opacity-90">
+                  {limits.games.used} of {limits.games.limit} games this month
+                </p>
+              </div>
+              <Link href="/dashboard/billing/change-plan" className="text-xs font-medium underline whitespace-nowrap">
+                Upgrade Plan
+              </Link>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Stats Cards */}
       <div className='grid gap-6 md:grid-cols-3'>
