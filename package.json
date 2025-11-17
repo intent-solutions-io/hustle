@@ -17,6 +17,7 @@
     "test:report": "playwright show-report",
     "test:all": "npm run test:unit && npm run test:e2e",
     "test:security": "npm audit --audit-level=moderate",
+    "test:runtime:workspace": "tsx 03-Tests/runtime/verify-workspace-status.ts",
     "smoke-test": "tsx tests/e2e/smoke-test.ts"
   },
   "dependencies": {
