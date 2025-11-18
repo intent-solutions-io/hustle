@@ -150,7 +150,12 @@ Hustle employs **5 specialized Vertex AI agents** coordinated via Google's A2A p
 4. **Onboarding Agent**: New user experience and setup flows
 5. **Analytics Agent**: Performance metrics and insights generation
 
-All agents communicate through Cloud Functions acting as the A2A gateway, maintaining session state via Vertex AI Memory Bank.
+**Agent Infrastructure:**
+- **Communication**: Cloud Functions as A2A gateway with HTTP/JSON protocol
+- **Session Management**: Vertex AI Memory Bank for conversation context persistence
+- **Telemetry**: Comprehensive tracking of agent invocations, response times, error rates
+- **Observability**: Cloud Logging integration with structured agent event logs
+- **Monitoring**: Custom dashboards for agent health, usage patterns, and performance metrics
 
 ---
 
