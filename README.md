@@ -6,10 +6,13 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Firestore](https://img.shields.io/badge/Firestore-Database-orange?logo=firebase&logoColor=white)](https://firebase.google.com/docs/firestore)
 [![License](https://img.shields.io/badge/license-Other-lightgrey)](./LICENSE)
+[![Built by](https://img.shields.io/badge/built%20by-Intent%20Solutions%20IO-18181b)](https://intentsolutions.io)
 
-**Youth Soccer Statistics Tracking Platform**
+**Performance Data Recruiters Trust**
 
-Empower youth athletes with comprehensive performance tracking, position-specific statistics, and real-time insights powered by Firebase and Vertex AI.
+Youth sports tracking platform delivering verified statistics, transparent performance records, and team-validated metrics. Built on Firebase with Vertex AI agent orchestration.
+
+*Creating the credibility layer for youth athletics.*
 
 [Live Dashboard](https://hustlestats.io) • [GitHub Pages](https://jeremylongshore.github.io/hustle/) • [Architecture Guide](./CLAUDE.md)
 
@@ -17,17 +20,21 @@ Empower youth athletes with comprehensive performance tracking, position-specifi
 
 ## What is Hustle?
 
-Hustle is a modern youth soccer statistics platform designed for parents, coaches, and players. Track performance across **13 specialized positions**, log game statistics, and gain insights that matter—all with a mobile-first, real-time experience.
+Hustle transforms subjective athletic impressions into verified statistics—creating transparent performance records that athletes, families, and recruiters can trust.
 
-Built on Firebase with Vertex AI agent orchestration, Hustle delivers professional-grade analytics while maintaining simplicity and speed for families on the go.
+Built for competitive youth soccer (ECNL, MLS Next, USYS), Hustle consolidates fragmented game data into a single verified digital record. Track performance across **13 specialized positions**, validate stats with team verification, and build credible athletic profiles that remove politics from recruiting.
 
-### Why Hustle?
+**The Problem We Solve:**
+Youth athletic data is scattered across coaches' notebooks, team apps, and parent spreadsheets. Recruiting decisions rely on subjective impressions rather than objective evidence. Hustle creates the accountability layer that makes performance transparent.
 
-- **Position Intelligence**: Track stats that matter for your child's actual position (GK, CB, CM, ST, etc.)
-- **League Coverage**: Support for 56 U.S. youth soccer leagues including ECNL, MLS Next, USYS, Rush Soccer
-- **Real-Time Sync**: Firestore-powered updates across all devices
-- **Parent-Focused**: COPPA-compliant design with parent/guardian controls
-- **Always Available**: Mobile-responsive design, offline-ready progressive web app
+### Platform Capabilities
+
+- **Verified Statistics**: Team-validated metrics eliminate bias and subjective claims
+- **Position Intelligence**: Track stats relevant to actual playing roles (GK, CB, DM, CM, ST, etc.)
+- **League Coverage**: 56 U.S. youth soccer leagues including ECNL, MLS Next, USYS, Rush Soccer
+- **Real-Time Sync**: Firebase-powered updates across all devices
+- **COPPA Compliant**: Privacy-first design with parent/guardian controls
+- **Production Infrastructure**: Built on Google Cloud with Vertex AI agent orchestration
 
 ---
 
@@ -339,6 +346,8 @@ This project uses a custom license. See the [LICENSE](./LICENSE) file for detail
 
 ---
 
-**Built with Firebase, Vertex AI, and Next.js** • Empowering youth soccer athletes and their families
+**Built with Firebase, Vertex AI, and Next.js**
 
-© 2025 Hustle. All rights reserved.
+A product by [Intent Solutions IO](https://intentsolutions.io) • Creating industries that don't exist
+
+© 2025 Intent Solutions IO. All rights reserved.
