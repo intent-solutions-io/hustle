@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -14,22 +13,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Sentry configuration options
-const sentryWebpackPluginOptions = {
-  // Suppresses source map uploading logs during build
-  silent: true,
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  // Upload source maps only in production
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-};
-
-const sentryOptions = {
-  // Hide Sentry from browser devtools
-  hideSourceMaps: true,
-  // Disable Sentry during local development
-  disableServerWebpackPlugin: process.env.NODE_ENV !== 'production',
-  disableClientWebpackPlugin: process.env.NODE_ENV !== 'production',
-};
-
-export default withSentryConfig(nextConfig, sentryWebpackPluginOptions, sentryOptions);
+export default nextConfig;
