@@ -1,7 +1,7 @@
 {
   "config": {
-    "configFile": "/home/jeremy/projects/hustle/playwright.config.ts",
-    "rootDir": "/home/jeremy/projects/hustle/03-Tests/e2e",
+    "configFile": "/home/jeremy/000-projects/hustle/playwright.config.ts",
+    "rootDir": "/home/jeremy/000-projects/hustle/03-Tests/e2e",
     "forbidOnly": false,
     "fullyParallel": true,
     "globalSetup": null,
@@ -10,9 +10,7 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {
-      "actualWorkers": 1
-    },
+    "metadata": {},
     "preserveOutput": "always",
     "reporter": [
       [
@@ -39,15 +37,13 @@
     "quiet": false,
     "projects": [
       {
-        "outputDir": "/home/jeremy/projects/hustle/test-results",
+        "outputDir": "/home/jeremy/000-projects/hustle/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "chromium",
         "name": "chromium",
-        "testDir": "/home/jeremy/projects/hustle/03-Tests/e2e",
+        "testDir": "/home/jeremy/000-projects/hustle/03-Tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -55,15 +51,13 @@
         "timeout": 30000
       },
       {
-        "outputDir": "/home/jeremy/projects/hustle/test-results",
+        "outputDir": "/home/jeremy/000-projects/hustle/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "firefox",
         "name": "firefox",
-        "testDir": "/home/jeremy/projects/hustle/03-Tests/e2e",
+        "testDir": "/home/jeremy/000-projects/hustle/03-Tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -71,15 +65,13 @@
         "timeout": 30000
       },
       {
-        "outputDir": "/home/jeremy/projects/hustle/test-results",
+        "outputDir": "/home/jeremy/000-projects/hustle/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "webkit",
         "name": "webkit",
-        "testDir": "/home/jeremy/projects/hustle/03-Tests/e2e",
+        "testDir": "/home/jeremy/000-projects/hustle/03-Tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -87,15 +79,13 @@
         "timeout": 30000
       },
       {
-        "outputDir": "/home/jeremy/projects/hustle/test-results",
+        "outputDir": "/home/jeremy/000-projects/hustle/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
-        "testDir": "/home/jeremy/projects/hustle/03-Tests/e2e",
+        "testDir": "/home/jeremy/000-projects/hustle/03-Tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -103,15 +93,13 @@
         "timeout": 30000
       },
       {
-        "outputDir": "/home/jeremy/projects/hustle/test-results",
+        "outputDir": "/home/jeremy/000-projects/hustle/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "Mobile Safari",
         "name": "Mobile Safari",
-        "testDir": "/home/jeremy/projects/hustle/03-Tests/e2e",
+        "testDir": "/home/jeremy/000-projects/hustle/03-Tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -119,15 +107,13 @@
         "timeout": 30000
       },
       {
-        "outputDir": "/home/jeremy/projects/hustle/test-results",
+        "outputDir": "/home/jeremy/000-projects/hustle/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "Microsoft Edge",
         "name": "Microsoft Edge",
-        "testDir": "/home/jeremy/projects/hustle/03-Tests/e2e",
+        "testDir": "/home/jeremy/000-projects/hustle/03-Tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -135,15 +121,13 @@
         "timeout": 30000
       },
       {
-        "outputDir": "/home/jeremy/projects/hustle/test-results",
+        "outputDir": "/home/jeremy/000-projects/hustle/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "Google Chrome",
         "name": "Google Chrome",
-        "testDir": "/home/jeremy/projects/hustle/03-Tests/e2e",
+        "testDir": "/home/jeremy/000-projects/hustle/03-Tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -163,106 +147,19 @@
       "timeout": 120000
     }
   },
-  "suites": [
+  "suites": [],
+  "errors": [
     {
-      "title": "auth/01-registration.spec.ts",
-      "file": "auth/01-registration.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [],
-      "suites": [
-        {
-          "title": "User Registration Flow",
-          "file": "auth/01-registration.spec.ts",
-          "line": 14,
-          "column": 6,
-          "specs": [
-            {
-              "title": "should register new user successfully",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 14083,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('text=/check.*email|verification.*sent|registered.*successfully/i')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=/check.*email|verification.*sent|registered.*successfully/i')\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('text=/check.*email|verification.*sent|registered.*successfully/i')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=/check.*email|verification.*sent|registered.*successfully/i')\u001b[22m\n\n    at /home/jeremy/projects/hustle/03-Tests/e2e/auth/01-registration.spec.ts:76:34",
-                        "location": {
-                          "file": "/home/jeremy/projects/hustle/03-Tests/e2e/auth/01-registration.spec.ts",
-                          "column": 34,
-                          "line": 76
-                        },
-                        "snippet": "  74 |     // Should show success message about checking email\n  75 |     const successMessage = page.locator('text=/check.*email|verification.*sent|registered.*successfully/i')\n> 76 |     await expect(successMessage).toBeVisible({ timeout: 10000 })\n     |                                  ^\n  77 |   })\n  78 |\n  79 |   test('should show error for duplicate email', async ({ page }) => {"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/home/jeremy/projects/hustle/03-Tests/e2e/auth/01-registration.spec.ts",
-                            "column": 34,
-                            "line": 76
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('text=/check.*email|verification.*sent|registered.*successfully/i')\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('text=/check.*email|verification.*sent|registered.*successfully/i')\u001b[22m\n\n\n  74 |     // Should show success message about checking email\n  75 |     const successMessage = page.locator('text=/check.*email|verification.*sent|registered.*successfully/i')\n> 76 |     await expect(successMessage).toBeVisible({ timeout: 10000 })\n     |                                  ^\n  77 |   })\n  78 |\n  79 |   test('should show error for duplicate email', async ({ page }) => {\n    at /home/jeremy/projects/hustle/03-Tests/e2e/auth/01-registration.spec.ts:76:34"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-09T03:12:07.063Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/home/jeremy/projects/hustle/test-results/auth-01-registration-User--0e224-ister-new-user-successfully-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/home/jeremy/projects/hustle/test-results/auth-01-registration-User--0e224-ister-new-user-successfully-chromium/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/home/jeremy/projects/hustle/test-results/auth-01-registration-User--0e224-ister-new-user-successfully-chromium/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/home/jeremy/projects/hustle/03-Tests/e2e/auth/01-registration.spec.ts",
-                        "column": 34,
-                        "line": 76
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "f0cf001369fcc33d1248-eb925706be05fd1419c4",
-              "file": "auth/01-registration.spec.ts",
-              "line": 55,
-              "column": 7
-            }
-          ]
-        }
-      ]
+      "message": "Error: No tests found.\nMake sure that arguments are regular expressions matching test files.\nYou may need to escape symbols like \"$\" or \"*\" and quote the arguments.",
+      "stack": "Error: No tests found.\nMake sure that arguments are regular expressions matching test files.\nYou may need to escape symbols like \"$\" or \"*\" and quote the arguments."
     }
   ],
-  "errors": [],
   "stats": {
-    "startTime": "2025-10-09T03:12:02.143Z",
-    "duration": 19462.94,
+    "startTime": "2025-11-18T03:47:59.644Z",
+    "duration": 22112.571,
     "expected": 0,
     "skipped": 0,
-    "unexpected": 1,
+    "unexpected": 0,
     "flaky": 0
   }
 }

@@ -6,6 +6,9 @@
  */
 
 import { Resend } from 'resend';
+import { createLogger } from './logger';
+
+const emailLogger = createLogger({ component: 'cloud-function' });
 
 // Initialize Resend client lazily
 let resendClient: Resend | null = null;
@@ -27,20 +30,26 @@ export interface EmailOptions {
   text?: string;
 }
 
+export interface EmailResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
 /**
  * Send email using Resend
  *
  * @param options - Email options (to, subject, html, text)
  * @returns Promise with success status
  */
-export async function sendEmail(options: EmailOptions) {
+export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
   const { to, subject, html, text } = options;
 
   // Get configuration from .env
   const emailFrom = process.env.EMAIL_FROM;
   if (!emailFrom) {
-    console.error('[Email] EMAIL_FROM not configured in functions/.env');
-    throw new Error('Email sender not configured');
+    emailLogger.error('EMAIL_FROM not configured in functions/.env');
+    return { success: false, error: 'Email sender not configured' };
   }
 
   try {
@@ -54,14 +63,17 @@ export async function sendEmail(options: EmailOptions) {
     });
 
     if (error) {
-      console.error('[Email] Error sending email:', error);
-      throw new Error(error.message);
+      emailLogger.error('Resend API error', new Error(error.message), { to, subject });
+      return { success: false, error: error.message };
     }
 
-    console.log(`[Email] Sent to: ${to} - Subject: ${subject} - ID: ${data?.id}`);
+    emailLogger.info('Email sent successfully', { to, subject, emailId: data?.id });
     return { success: true, data };
   } catch (error) {
-    console.error('[Email] Error sending email:', error);
-    throw error;
+    emailLogger.error('Failed to send email', error, { to, subject });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }

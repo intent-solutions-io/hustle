@@ -3,6 +3,7 @@
  * Hustle A2A Agent System - Cloud Functions
  *
  * This file contains the Cloud Functions that interface with Vertex AI agents.
+ * Phase 6 Task 3: Added scheduled trial reminder emails
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -38,14 +39,16 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendWelcomeEmail = exports.analyticsAgent = exports.onboardingAgent = exports.userCreationAgent = exports.validationAgent = exports.orchestrator = void 0;
+exports.sendTrialReminders = exports.sendWelcomeEmail = exports.analyticsAgent = exports.onboardingAgent = exports.userCreationAgent = exports.validationAgent = exports.orchestrator = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const a2a_client_1 = require("./a2a-client");
 const email_service_1 = require("./email-service");
 const email_templates_1 = require("./email-templates");
+const logger_1 = require("./logger");
 // Initialize Firebase Admin
 admin.initializeApp();
+const db = admin.firestore();
 /**
  * Orchestrator Agent Entry Point
  *
@@ -72,17 +75,20 @@ exports.orchestrator = functions
     memory: '512MB'
 })
     .https.onCall(async (data, context) => {
+    const startTime = Date.now();
+    const requestLogger = (0, logger_1.createLogger)({
+        component: 'cloud-function',
+        userId: context.auth?.uid,
+        requestId: String(context.instanceIdToken || Date.now()),
+    });
     try {
         const { intent, data: requestData } = data;
         // Validate authentication for most intents
         if (intent !== 'user_registration' && !context.auth) {
+            requestLogger.warn('Unauthenticated request attempt', { intent });
             throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated to perform this action');
         }
-        // Log request
-        console.log(`Orchestrator received intent: ${intent}`, {
-            userId: context.auth?.uid,
-            requestId: context.instanceIdToken
-        });
+        requestLogger.info('Orchestrator received intent', { intent });
         // Call Vertex AI agent via A2A protocol
         const a2aClient = (0, a2a_client_1.getA2AClient)();
         const response = await a2aClient.sendTask({
@@ -95,10 +101,13 @@ exports.orchestrator = functions
                 }
                 : undefined,
         });
+        const duration = Date.now() - startTime;
+        requestLogger.info('Orchestrator request completed', { intent, durationMs: duration });
         return response;
     }
     catch (error) {
-        console.error('Orchestrator error:', error);
+        const duration = Date.now() - startTime;
+        requestLogger.error('Orchestrator error', error, { durationMs: duration });
         throw new functions.https.HttpsError('internal', 'An error occurred processing your request');
     }
 });
@@ -189,8 +198,13 @@ exports.sendWelcomeEmail = functions
     memory: '256MB'
 })
     .auth.user().onCreate(async (user) => {
+    const startTime = Date.now();
+    const emailLogger = (0, logger_1.createLogger)({
+        component: 'cloud-function',
+        userId: user.uid,
+    });
     try {
-        console.log(`[WelcomeEmail] Triggered for new user: ${user.email}`);
+        emailLogger.info('Welcome email triggered for new user', { email: user.email });
         // Get user's first name from Firestore
         const userDoc = await admin.firestore()
             .collection('users')
@@ -198,32 +212,165 @@ exports.sendWelcomeEmail = functions
             .get();
         const userData = userDoc.data();
         const firstName = userData?.firstName || user.displayName?.split(' ')[0] || 'there';
-        console.log(`[WelcomeEmail] Sending welcome email to: ${user.email} (${firstName})`);
+        emailLogger.info('Sending welcome email', { email: user.email, firstName });
         // Send welcome email via Resend
         const template = email_templates_1.emailTemplates.welcome(firstName);
-        await (0, email_service_1.sendEmail)({
+        const emailResult = await (0, email_service_1.sendEmail)({
             to: user.email,
             subject: template.subject,
             html: template.html,
             text: template.text,
         });
-        console.log(`[WelcomeEmail] Successfully sent welcome email to: ${user.email}`);
-        return {
-            success: true,
-            email: user.email,
-            timestamp: new Date().toISOString(),
-        };
+        const duration = Date.now() - startTime;
+        if (emailResult.success) {
+            emailLogger.info('Welcome email sent successfully', { email: user.email, durationMs: duration });
+            return {
+                success: true,
+                email: user.email,
+                timestamp: new Date().toISOString(),
+            };
+        }
+        else {
+            emailLogger.error('Failed to send welcome email', new Error(emailResult.error || 'Unknown error'), {
+                email: user.email,
+                durationMs: duration,
+            });
+            return {
+                success: false,
+                error: emailResult.error || 'Unknown error',
+                email: user.email,
+                timestamp: new Date().toISOString(),
+            };
+        }
     }
     catch (error) {
-        console.error('[WelcomeEmail] Error sending welcome email:', error);
+        const duration = Date.now() - startTime;
+        emailLogger.error('Welcome email handler error', error, { email: user.email, durationMs: duration });
         // Don't throw - we don't want to block user creation if email fails
-        // Just log the error and continue
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error',
             email: user.email,
             timestamp: new Date().toISOString(),
         };
+    }
+});
+/**
+ * Daily Trial Reminder Emails (Phase 6 Task 3)
+ *
+ * Scheduled function that runs daily at 9:00 AM UTC to check for trials
+ * ending in 3 days and send reminder emails.
+ *
+ * Schedule: every day at 09:00 (UTC)
+ */
+exports.sendTrialReminders = functions
+    .region("us-central1")
+    .pubsub.schedule("0 9 * * *") // Every day at 9:00 AM UTC
+    .timeZone("UTC")
+    .onRun(async (context) => {
+    const startTime = Date.now();
+    const reminderLogger = (0, logger_1.createLogger)({
+        component: 'cloud-function',
+        requestId: context.eventId,
+    });
+    try {
+        reminderLogger.info('Starting daily trial reminder check');
+        // Calculate date 3 days from now (midnight)
+        const threeDaysFromNow = new Date();
+        threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+        threeDaysFromNow.setHours(0, 0, 0, 0);
+        // Calculate date 4 days from now (to create a range)
+        const fourDaysFromNow = new Date();
+        fourDaysFromNow.setDate(fourDaysFromNow.getDate() + 4);
+        fourDaysFromNow.setHours(0, 0, 0, 0);
+        // Query workspaces with trial status and trialEndsAt in range
+        const workspaces = await db
+            .collection("workspaces")
+            .where("status", "==", "trial")
+            .where("trialEndsAt", ">=", admin.firestore.Timestamp.fromDate(threeDaysFromNow))
+            .where("trialEndsAt", "<", admin.firestore.Timestamp.fromDate(fourDaysFromNow))
+            .get();
+        reminderLogger.info('Found workspaces with expiring trials', {
+            count: workspaces.size,
+            threeDaysFromNow: threeDaysFromNow.toISOString(),
+        });
+        let emailsSent = 0;
+        let emailsFailed = 0;
+        for (const workspaceDoc of workspaces.docs) {
+            try {
+                // Find workspace owner
+                const usersSnap = await db
+                    .collection("users")
+                    .where("defaultWorkspaceId", "==", workspaceDoc.id)
+                    .limit(1)
+                    .get();
+                if (usersSnap.empty) {
+                    reminderLogger.warn('No user found for workspace', { workspaceId: workspaceDoc.id });
+                    continue;
+                }
+                const userData = usersSnap.docs[0].data();
+                const userEmail = userData.email;
+                const userName = userData.firstName || "User";
+                if (!userEmail) {
+                    reminderLogger.warn('User has no email address', {
+                        userId: usersSnap.docs[0].id,
+                        workspaceId: workspaceDoc.id,
+                    });
+                    continue;
+                }
+                // Send trial ending soon email
+                const template = email_templates_1.emailTemplates.trialEndingSoon({
+                    name: userName,
+                    daysRemaining: 3,
+                    upgradeUrl: `${process.env.NEXTAUTH_URL}/billing/plans`,
+                });
+                const result = await (0, email_service_1.sendEmail)({
+                    to: userEmail,
+                    subject: template.subject,
+                    html: template.html,
+                    text: template.text,
+                });
+                if (result.success) {
+                    emailsSent++;
+                    reminderLogger.info('Trial reminder sent', {
+                        email: userEmail,
+                        workspaceId: workspaceDoc.id,
+                    });
+                }
+                else {
+                    emailsFailed++;
+                    reminderLogger.error('Failed to send trial reminder', result.error, {
+                        email: userEmail,
+                        workspaceId: workspaceDoc.id,
+                    });
+                }
+            }
+            catch (error) {
+                emailsFailed++;
+                reminderLogger.error('Error processing workspace', error, {
+                    workspaceId: workspaceDoc.id,
+                });
+            }
+        }
+        const duration = Date.now() - startTime;
+        reminderLogger.info('Trial reminder check complete', {
+            workspacesChecked: workspaces.size,
+            emailsSent,
+            emailsFailed,
+            durationMs: duration,
+        });
+        return {
+            success: true,
+            workspacesChecked: workspaces.size,
+            emailsSent,
+            emailsFailed,
+            timestamp: new Date().toISOString(),
+        };
+    }
+    catch (error) {
+        const duration = Date.now() - startTime;
+        reminderLogger.critical('Trial reminder check fatal error', error, { durationMs: duration });
+        throw error;
     }
 });
 //# sourceMappingURL=index.js.map
