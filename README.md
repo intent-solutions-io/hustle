@@ -214,7 +214,7 @@ See [CLAUDE.md](./CLAUDE.md) for detailed deployment and development workflows.
 | **Documentation** | README, GitHub Pages, CLAUDE.md, AGENTS.md |
 | **Supported Leagues** | 56 U.S. youth soccer leagues |
 | **Soccer Positions** | 13 specialized roles |
-| **Integrated Systems** | 3 (Core App, Vertex AI Agents, NWSL Pipeline) |
+| **Integrated Systems** | 2 (Core App, Vertex AI A2A Agents) |
 | **Test Coverage** | Unit + E2E with Vitest and Playwright |
 | **Deployment Model** | CI/CD via GitHub Actions with WIF |
 

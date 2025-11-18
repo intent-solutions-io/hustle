@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 First public release of Hustle - Youth Soccer Statistics Tracking Platform. This release marks the completion of the Firebase migration, production infrastructure setup, and comprehensive feature enrichment.
 
+### 🎯 Project Focus
+
+Hustle demonstrates production-grade cloud infrastructure and AI agent orchestration:
+- **Firebase Full Stack**: Authentication, Firestore, Cloud Functions, Hosting
+- **Vertex AI A2A Protocol**: Multi-agent system with 5 specialized agents
+- **Modern DevOps**: GitHub Actions with WIF, Terraform IaC, comprehensive CI/CD
+- **Production Ready**: Monitoring, observability, security rules, COPPA compliance
+
 ### ✨ Major Features
 
 #### Player Profile Enrichment
@@ -198,8 +206,8 @@ Built with:
 - **Live Dashboard**: https://hustlestats.io
 - **GitHub Pages**: https://jeremylongshore.github.io/hustle/
 - **Repository**: https://github.com/jeremylongshore/hustle
-- **Documentation**: https://github.com/jeremylongshore/hustle/tree/main/000-docs
-- **Deployment Guide**: [244-RUNBOOK-production-deploy-quick-start.md](./000-docs/244-RUNBOOK-production-deploy-quick-start.md)
+- **Architecture Guide**: [CLAUDE.md](./CLAUDE.md)
+- **Developer Docs**: [AGENTS.md](./AGENTS.md)
 
 ---
 
