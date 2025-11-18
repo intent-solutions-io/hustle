@@ -98,23 +98,28 @@ graph TB
 ### Data Model (Firestore)
 
 ```mermaid
-graph LR
-    Users[users/{userId}] --> Players[players/{playerId}]
-    Players --> Games[games/{gameId}]
+graph TD
+    Users[users/{userId}<br/>email, name, agreedToTerms<br/>isParentGuardian]
+    Players[players/{playerId}<br/>name, birthday, gender<br/>positions, league, team/club]
+    Games[games/{gameId}<br/>date, opponent, result<br/>position-specific stats, notes]
 
-    Users -.->|Profile| UserData[email, name<br/>agreedToTerms<br/>isParentGuardian]
-    Players -.->|Profile| PlayerData[name, birthday<br/>gender, positions<br/>league, team/club]
-    Games -.->|Statistics| GameData[date, opponent<br/>position-specific stats<br/>result, notes]
+    Users --> Players
+    Players --> Games
 
     style Users fill:#18181b,stroke:#27272a,stroke-width:2px,color:#fff
     style Players fill:#4285F4,stroke:#1967D2,stroke-width:2px,color:#fff
     style Games fill:#34A853,stroke:#0F9D58,stroke-width:2px,color:#fff
 ```
 
+**Hierarchical Collections:**
+- `users/{userId}` - Parent accounts with COPPA compliance
+- `users/{userId}/players/{playerId}` - Child player profiles (subcollection)
+- `users/{userId}/players/{playerId}/games/{gameId}` - Game statistics (nested subcollection)
+
 **Security Model:**
 - Firestore security rules enforce parent-child ownership
 - Users can only read/write their own players and games
-- COPPA compliance with parent/guardian verification
+- All player data cascades when parent user is deleted
 
 ---
 
