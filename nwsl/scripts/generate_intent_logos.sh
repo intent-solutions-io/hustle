@@ -7,7 +7,7 @@ set -euo pipefail
 PROJECT_ID=$(gcloud config get-value project)
 LOCATION="us-central1"
 MODEL_ID="imagen-4.0-generate-preview"
-API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:predictLongRunning"
+API_ENDPOINT="https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_ID}:predictLongRunning"
 BUCKET="gs://hustleapp-production-logos"
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${WORKDIR}/tmp/logos/raw"
