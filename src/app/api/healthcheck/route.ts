@@ -1,22 +1,15 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 
+/**
+ * Health check endpoint
+ * GET /api/healthcheck
+ * Returns 200 OK if service is running
+ */
 export async function GET() {
-  try {
-    // Test database connection by running a simple query
-    await prisma.$queryRaw`SELECT 1`
-
-    return NextResponse.json({
-      status: 'ok',
-      message: 'Database connection successful',
-      timestamp: new Date().toISOString()
-    })
-  } catch (error) {
-    console.error('Database connection error:', error)
-    return NextResponse.json({
-      status: 'error',
-      message: 'Database connection failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
-  }
+  return NextResponse.json({
+    status: 'ok',
+    message: 'Service is running',
+    timestamp: new Date().toISOString(),
+    database: 'Firestore' // Firebase/Firestore (no health check needed)
+  })
 }
