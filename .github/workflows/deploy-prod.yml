@@ -1,0 +1,90 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "DEPLOY" to confirm production deployment'
+        required: true
+        default: ''
+
+env:
+  PROJECT_ID: hustleapp-production
+  REGION: us-central1
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'DEPLOY'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Firestore Rules & Indexes
+        run: |
+          firebase deploy --only firestore --project=${{ env.PROJECT_ID }} --non-interactive
+
+      - name: Deploy Cloud Functions
+        run: |
+          cd functions
+          npm ci
+          npm run build
+          cd ..
+          firebase deploy --only functions --project=${{ env.PROJECT_ID }} --non-interactive
+
+      - name: Deploy Firebase Hosting
+        run: |
+          firebase deploy --only hosting --project=${{ env.PROJECT_ID }} --non-interactive
+
+      - name: Basic Health Check
+        run: |
+          echo "Waiting 30s for deployment to propagate..."
+          sleep 30
+          PROD_URL="https://${{ env.PROJECT_ID }}.web.app"
+          echo "Testing: $PROD_URL"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_URL" || echo "000")
+          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "301" ] || [ "$HTTP_STATUS" = "302" ]; then
+            echo "✅ Production site is reachable (HTTP $HTTP_STATUS)"
+          else
+            echo "❌ Production site returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "==================================="
+          echo "Production Deployment Summary"
+          echo "==================================="
+          echo "Project: ${{ env.PROJECT_ID }}"
+          echo "Region: ${{ env.REGION }}"
+          echo "URL: https://${{ env.PROJECT_ID }}.web.app"
+          echo "Commit: ${{ github.sha }}"
+          echo "==================================="
