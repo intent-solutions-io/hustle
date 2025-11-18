@@ -19,7 +19,8 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '../config';
-import type { PlayerDocument, Player } from '@/types/firestore';
+import type { PlayerDocument, Player, SoccerPositionCode, PlayerGender } from '@/types/firestore';
+import type { LeagueCode } from '@/types/league';
 
 /**
  * Convert Firestore PlayerDocument to client Player type
@@ -68,7 +69,12 @@ export async function createPlayer(
     workspaceId: string;  // REQUIRED (Phase 5)
     name: string;
     birthday: Date;
-    position: string;
+    gender: PlayerGender;
+    primaryPosition: SoccerPositionCode;
+    secondaryPositions?: SoccerPositionCode[];
+    positionNote?: string;
+    leagueCode: LeagueCode;
+    leagueOtherName?: string;
     teamClub: string;
     photoUrl?: string | null;
   }
@@ -82,7 +88,12 @@ export async function createPlayer(
     workspaceId: data.workspaceId,  // Phase 5: Link to workspace
     name: data.name,
     birthday: Timestamp.fromDate(data.birthday),
-    position: data.position,
+    gender: data.gender,
+    primaryPosition: data.primaryPosition,
+    secondaryPositions: data.secondaryPositions,
+    positionNote: data.positionNote,
+    leagueCode: data.leagueCode,
+    leagueOtherName: data.leagueOtherName,
     teamClub: data.teamClub,
     photoUrl: data.photoUrl || null,
     createdAt: now,
@@ -97,7 +108,12 @@ export async function createPlayer(
     workspaceId: data.workspaceId,
     name: data.name,
     birthday: data.birthday,
-    position: data.position,
+    gender: data.gender,
+    primaryPosition: data.primaryPosition,
+    secondaryPositions: data.secondaryPositions,
+    positionNote: data.positionNote,
+    leagueCode: data.leagueCode,
+    leagueOtherName: data.leagueOtherName,
     teamClub: data.teamClub,
     photoUrl: data.photoUrl || null,
     createdAt: new Date(),
@@ -111,7 +127,17 @@ export async function createPlayer(
 export async function updatePlayer(
   userId: string,
   playerId: string,
-  data: Partial<Pick<Player, 'name' | 'position' | 'teamClub' | 'photoUrl'>>
+  data: Partial<Pick<Player,
+    | 'name'
+    | 'gender'
+    | 'primaryPosition'
+    | 'secondaryPositions'
+    | 'positionNote'
+    | 'leagueCode'
+    | 'leagueOtherName'
+    | 'teamClub'
+    | 'photoUrl'
+  >>
 ): Promise<void> {
   const docRef = doc(db, `users/${userId}/players`, playerId);
   await updateDoc(docRef, {

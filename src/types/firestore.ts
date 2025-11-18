@@ -13,6 +13,31 @@
  */
 
 import { Timestamp } from 'firebase/firestore';
+import type { LeagueCode } from './league';
+
+/**
+ * Soccer Position Codes
+ * Standardized position abbreviations for player profiles
+ */
+export type SoccerPositionCode =
+  | 'GK'   // Goalkeeper
+  | 'CB'   // Center Back
+  | 'RB'   // Right Back
+  | 'LB'   // Left Back
+  | 'RWB'  // Right Wing Back
+  | 'LWB'  // Left Wing Back
+  | 'DM'   // Defensive Midfielder
+  | 'CM'   // Central Midfielder
+  | 'AM'   // Attacking Midfielder
+  | 'RW'   // Right Winger
+  | 'LW'   // Left Winger
+  | 'ST'   // Striker
+  | 'CF';  // Center Forward
+
+/**
+ * Player Gender
+ */
+export type PlayerGender = 'male' | 'female';
 
 /**
  * Workspace Plan Tiers
@@ -138,7 +163,23 @@ export interface PlayerDocument {
   // Profile
   name: string;
   birthday: Timestamp;
-  position: string;
+
+  // Gender (required for new players)
+  gender: PlayerGender;
+
+  // Structured Positions (new fields)
+  primaryPosition: SoccerPositionCode;
+  secondaryPositions?: SoccerPositionCode[];
+  positionNote?: string;
+
+  // Legacy position field (kept for backward compatibility)
+  position?: string;
+
+  // League Information
+  leagueCode: LeagueCode;
+  leagueOtherName?: string;  // Required when leagueCode === 'other'
+
+  // Team/Club Info
   teamClub: string;
   photoUrl?: string | null;
 

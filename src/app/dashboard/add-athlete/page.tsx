@@ -3,15 +3,25 @@
 import { useState, FormEvent } from 'react';
 import { ArrowLeft, Upload, User } from 'lucide-react';
 import Link from 'next/link';
+import { playerSchema } from '@/lib/validations/player';
+import { LEAGUE_LABELS, POSITION_LABELS } from '@/types/league';
+import type { SoccerPositionCode, PlayerGender } from '@/types/firestore';
+import type { LeagueCode } from '@/types/league';
 
 export default function AddAthlete() {
   const [loading, setLoading] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     name: '',
     birthday: '',
-    position: '',
+    gender: '' as PlayerGender | '',
+    primaryPosition: '' as SoccerPositionCode | '',
+    secondaryPositions: [] as SoccerPositionCode[],
+    positionNote: '',
+    leagueCode: '' as LeagueCode | '',
+    leagueOtherName: '',
     teamClub: '',
   });
 
@@ -27,16 +37,30 @@ export default function AddAthlete() {
     }
   };
 
+  const handleSecondaryPositionToggle = (position: SoccerPositionCode) => {
+    setFormData((prev) => {
+      const isSelected = prev.secondaryPositions.includes(position);
+      const newSecondary = isSelected
+        ? prev.secondaryPositions.filter((p) => p !== position)
+        : [...prev.secondaryPositions, position];
+      return { ...prev, secondaryPositions: newSecondary };
+    });
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrors({});
 
     try {
+      // Validate form data with Zod
+      const validatedData = playerSchema.parse(formData);
+
       // Create player first
       const playerResponse = await fetch('/api/players/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(validatedData),
       });
 
       if (!playerResponse.ok) {
@@ -64,8 +88,19 @@ export default function AddAthlete() {
       // Redirect to dashboard
       window.location.href = '/dashboard';
     } catch (error) {
-      console.error('Error creating athlete:', error);
-      alert('Failed to create athlete. Please try again.');
+      if (error instanceof Error && 'issues' in error) {
+        // Zod validation error
+        const zodError = error as any;
+        const fieldErrors: Record<string, string> = {};
+        zodError.issues.forEach((issue: any) => {
+          const path = issue.path.join('.');
+          fieldErrors[path] = issue.message;
+        });
+        setErrors(fieldErrors);
+      } else {
+        console.error('Error creating athlete:', error);
+        alert('Failed to create athlete. Please try again.');
+      }
       setLoading(false);
     }
   };
@@ -148,25 +183,138 @@ export default function AddAthlete() {
             />
           </div>
 
-          {/* Position */}
+          {/* Gender */}
           <div>
-            <label htmlFor="position" className="block text-sm font-medium text-zinc-900 mb-2">
-              Position <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-zinc-900 mb-2">
+              Gender <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="gender"
+                  value="male"
+                  checked={formData.gender === 'male'}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value as PlayerGender })}
+                  className="w-4 h-4 text-zinc-900 focus:ring-zinc-900"
+                />
+                <span className="text-sm text-zinc-700">Male</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="gender"
+                  value="female"
+                  checked={formData.gender === 'female'}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value as PlayerGender })}
+                  className="w-4 h-4 text-zinc-900 focus:ring-zinc-900"
+                />
+                <span className="text-sm text-zinc-700">Female</span>
+              </label>
+            </div>
+            {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
+          </div>
+
+          {/* Primary Position */}
+          <div>
+            <label htmlFor="primaryPosition" className="block text-sm font-medium text-zinc-900 mb-2">
+              Primary Position <span className="text-red-500">*</span>
             </label>
             <select
-              id="position"
-              required
-              value={formData.position}
-              onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+              id="primaryPosition"
+              value={formData.primaryPosition}
+              onChange={(e) => setFormData({ ...formData, primaryPosition: e.target.value as SoccerPositionCode })}
               className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
             >
-              <option value="">Select Position</option>
-              <option value="Forward">Forward</option>
-              <option value="Midfielder">Midfielder</option>
-              <option value="Defender">Defender</option>
-              <option value="Goalkeeper">Goalkeeper</option>
+              <option value="">Select Primary Position</option>
+              {Object.entries(POSITION_LABELS).map(([code, label]) => (
+                <option key={code} value={code}>{label}</option>
+              ))}
             </select>
+            {errors.primaryPosition && <p className="text-red-500 text-sm mt-1">{errors.primaryPosition}</p>}
           </div>
+
+          {/* Secondary Positions */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-900 mb-2">
+              Secondary Positions (Optional, max 3)
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {Object.entries(POSITION_LABELS)
+                .filter(([code]) => code !== formData.primaryPosition)
+                .map(([code, label]) => (
+                  <label key={code} className="flex items-center gap-2 cursor-pointer p-2 rounded border border-zinc-200 hover:bg-zinc-50">
+                    <input
+                      type="checkbox"
+                      checked={formData.secondaryPositions.includes(code as SoccerPositionCode)}
+                      onChange={() => handleSecondaryPositionToggle(code as SoccerPositionCode)}
+                      disabled={
+                        formData.secondaryPositions.length >= 3 &&
+                        !formData.secondaryPositions.includes(code as SoccerPositionCode)
+                      }
+                      className="w-4 h-4 text-zinc-900 focus:ring-zinc-900 rounded"
+                    />
+                    <span className="text-sm text-zinc-700">{label}</span>
+                  </label>
+                ))}
+            </div>
+            {errors.secondaryPositions && <p className="text-red-500 text-sm mt-1">{errors.secondaryPositions}</p>}
+          </div>
+
+          {/* Position Note */}
+          <div>
+            <label htmlFor="positionNote" className="block text-sm font-medium text-zinc-900 mb-2">
+              Position Note (Optional)
+            </label>
+            <input
+              type="text"
+              id="positionNote"
+              value={formData.positionNote}
+              onChange={(e) => setFormData({ ...formData, positionNote: e.target.value })}
+              className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+              placeholder="e.g., Can play both CB and DM"
+              maxLength={100}
+            />
+            {errors.positionNote && <p className="text-red-500 text-sm mt-1">{errors.positionNote}</p>}
+          </div>
+
+          {/* League */}
+          <div>
+            <label htmlFor="leagueCode" className="block text-sm font-medium text-zinc-900 mb-2">
+              League <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="leagueCode"
+              value={formData.leagueCode}
+              onChange={(e) => setFormData({ ...formData, leagueCode: e.target.value as LeagueCode })}
+              className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+            >
+              <option value="">Select League</option>
+              {Object.entries(LEAGUE_LABELS).map(([code, label]) => (
+                <option key={code} value={code}>{label}</option>
+              ))}
+            </select>
+            {errors.leagueCode && <p className="text-red-500 text-sm mt-1">{errors.leagueCode}</p>}
+          </div>
+
+          {/* Other League Name (conditional) */}
+          {formData.leagueCode === 'other' && (
+            <div>
+              <label htmlFor="leagueOtherName" className="block text-sm font-medium text-zinc-900 mb-2">
+                League Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="leagueOtherName"
+                value={formData.leagueOtherName}
+                onChange={(e) => setFormData({ ...formData, leagueOtherName: e.target.value })}
+                className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+                placeholder="Type your league name (e.g., Local Elite League)"
+                maxLength={100}
+              />
+              {errors.leagueOtherName && <p className="text-red-500 text-sm mt-1">{errors.leagueOtherName}</p>}
+            </div>
+          )}
 
           {/* Team/Club */}
           <div>
@@ -176,12 +324,13 @@ export default function AddAthlete() {
             <input
               type="text"
               id="teamClub"
-              required
               value={formData.teamClub}
               onChange={(e) => setFormData({ ...formData, teamClub: e.target.value })}
               className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
               placeholder="Elite FC"
+              maxLength={100}
             />
+            {errors.teamClub && <p className="text-red-500 text-sm mt-1">{errors.teamClub}</p>}
           </div>
 
           {/* Submit Button */}
