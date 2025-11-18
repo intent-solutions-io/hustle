@@ -11,7 +11,7 @@
 
 Empower youth athletes with comprehensive performance tracking, position-specific statistics, and real-time insights powered by Firebase and Vertex AI.
 
-[Live Dashboard](https://hustlestats.io) • [Documentation](./000-docs/) • [Deployment Guide](./000-docs/244-RUNBOOK-production-deploy-quick-start.md) • [Architecture](./CLAUDE.md)
+[Live Dashboard](https://hustlestats.io) • [GitHub Pages](https://jeremylongshore.github.io/hustle/) • [Architecture Guide](./CLAUDE.md)
 
 ---
 
@@ -203,7 +203,7 @@ git push origin main  # Auto-deploys to staging
 # Production: Manual workflow trigger in GitHub Actions
 ```
 
-See [Deployment Runbook](./000-docs/244-RUNBOOK-production-deploy-quick-start.md) for detailed production deployment steps.
+See [CLAUDE.md](./CLAUDE.md) for detailed deployment and development workflows.
 
 ---
 
@@ -211,7 +211,7 @@ See [Deployment Runbook](./000-docs/244-RUNBOOK-production-deploy-quick-start.md
 
 | Metric | Value |
 |--------|-------|
-| **Documentation Files** | 244+ in `000-docs/` |
+| **Documentation** | README, GitHub Pages, CLAUDE.md, AGENTS.md |
 | **Supported Leagues** | 56 U.S. youth soccer leagues |
 | **Soccer Positions** | 13 specialized roles |
 | **Integrated Systems** | 3 (Core App, Vertex AI Agents, NWSL Pipeline) |
@@ -222,19 +222,17 @@ See [Deployment Runbook](./000-docs/244-RUNBOOK-production-deploy-quick-start.md
 
 ## Documentation
 
-This repository uses a **flat numbered documentation system** in `000-docs/`:
+### Public Documentation
 
-### Key Documents
-
-- **[CLAUDE.md](./CLAUDE.md)** - Comprehensive project guide for Claude Code AI assistant
+- **[README.md](./README.md)** - This file - comprehensive project overview
+- **[GitHub Pages](https://jeremylongshore.github.io/hustle/)** - Interactive documentation site
+- **[CLAUDE.md](./CLAUDE.md)** - Technical architecture guide for developers
 - **[AGENTS.md](./AGENTS.md)** - Repository guidelines and coding standards
-- **[244-RUNBOOK-production-deploy-quick-start.md](./000-docs/244-RUNBOOK-production-deploy-quick-start.md)** - Production deployment
-- **[243-AA-REPT-hustle-player-profile-enrichment.md](./000-docs/243-AA-REPT-hustle-player-profile-enrichment.md)** - Latest feature: Player profile enrichment
-- **[242-AA-REPT-hustle-phase-3-monitoring-observability.md](./000-docs/242-AA-REPT-hustle-phase-3-monitoring-observability.md)** - Monitoring & observability setup
-- **[170-AT-ARCH-firestore-schema-design.md](./000-docs/170-AT-ARCH-firestore-schema-design.md)** - Database architecture
-- **[173-OD-DEPL-vertex-ai-a2a-deployment-guide.md](./000-docs/173-OD-DEPL-vertex-ai-a2a-deployment-guide.md)** - Vertex AI agent deployment
+- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and release notes
 
-All documentation follows **Document Filing System v2.0** with format: `NNN-CC-ABCD-description.ext`
+### For Contributors
+
+Internal documentation is maintained in `000-docs/` following Document Filing System v2.0. Contributors with repository access can reference these detailed technical documents.
 
 ---
 
@@ -320,7 +318,7 @@ Contributions are welcome! Please follow these guidelines:
 4. **Write tests** for new functionality
 5. **Ensure CI passes** before requesting review
 6. **Follow commit conventions** (Conventional Commits)
-7. **Update documentation** in `000-docs/` if needed
+7. **Update documentation** in README.md or CLAUDE.md if needed
 
 For major changes, please open an issue first to discuss what you would like to change.
 
@@ -335,8 +333,8 @@ This project uses a custom license. See the [LICENSE](./LICENSE) file for detail
 ## Support & Contact
 
 - **Issues**: [GitHub Issues](https://github.com/jeremylongshore/hustle/issues)
-- **Documentation**: [000-docs/](./000-docs/)
-- **Live Dashboard**: [hustleapp-production.web.app](https://hustleapp-production.web.app)
+- **Documentation**: [GitHub Pages](https://jeremylongshore.github.io/hustle/)
+- **Live Dashboard**: [hustlestats.io](https://hustlestats.io)
 
 ---
 
