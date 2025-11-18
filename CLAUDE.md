@@ -13,30 +13,39 @@ Hustle is a youth soccer statistics tracking application with three integrated s
 
 - **Frontend**: Next.js 15.5.4, React 19.1.0, TypeScript 5.x, Tailwind CSS
 - **Backend**: Next.js API Routes, Firebase Cloud Functions (Node.js 20)
-- **Database**: Firestore (primary), PostgreSQL/Prisma (legacy, being migrated)
-- **Authentication**: Firebase Auth (migrating from NextAuth v5)
+- **Database**: Firestore (exclusively - PostgreSQL decommissioned Phase 2)
+- **Authentication**: Firebase Auth (NextAuth removed Phase 1)
 - **AI/ML**: Vertex AI Agent Engine with A2A protocol, Veo 3.0, Lyria
 - **Testing**: Vitest (unit), Playwright (e2e), Testing Library
 - **Deployment**: Firebase Hosting + Cloud Run (staging), GitHub Actions + WIF
-- **Monitoring**: Sentry error tracking, Google Cloud Logging
+- **Monitoring**: Google Cloud Error Reporting, Cloud Logging (Sentry removed Phase 1)
 
 ## Migration Status (November 2025)
 
-**PHASE 1 EXECUTION: Go-Live Track**
+**✅ PHASE 1 COMPLETE: Clean Auth + Clean Observability**
 
-- ✅ Firebase project setup complete (`hustleapp-production`)
+- ✅ Firebase project setup (`hustleapp-production`)
+- ✅ Sentry removed ($26-99/mo savings)
+- ✅ NextAuth v5 removed (Firebase Auth only)
 - ✅ Firestore schema, services, and security rules deployed
 - ✅ Firebase Admin SDK integrated (`src/lib/firebase/`)
-- ✅ Migration script ready (`05-Scripts/migration/migrate-to-firestore.ts`)
-- ✅ Vertex AI A2A agents deployed (orchestrator + 4 sub-agents)
-- ✅ Step 1 (Local auth wiring) complete - Firebase Auth + Firestore verified
-- 🔄 **IN PROGRESS**: Phase 1 Go-Live Track (Tasks 2-8)
-- 🔲 **PENDING**: Production deployment and legacy cleanup
+- ✅ GCP-native observability (Error Reporting, Cloud Logging)
+- ✅ Build compiles successfully (zero import errors)
 
-See key docs:
-- `000-docs/190-PP-PLAN-phase1-go-live-track.md` - Phase 1 execution plan
-- `000-docs/189-AA-SUMM-hustle-step-1-auth-wiring-complete.md` - Step 1 completion
-- `000-docs/190-AA-MAAR-hustle-env-firebase-local-unblock.md` - Local environment setup
+**✅ PHASE 2 COMPLETE: Data Migration & Killing PostgreSQL**
+
+- ✅ Firestore schema made compatible (workspaceId optional)
+- ✅ Data migration verified (57/58 users already in Firebase)
+- ✅ PostgreSQL Docker container stopped and removed
+- ✅ Prisma dependencies removed from package.json (31 packages)
+- ✅ Prisma directory archived (`99-Archive/20251118-prisma-legacy/`)
+- ✅ .env.example updated (DATABASE_URL commented out)
+- ✅ Zero Prisma imports in codebase
+
+**Phase Status:**
+- Phase 1 AAR: `000-docs/236-AA-REPT-hustle-phase-1-auth-observability-migration.md`
+- Phase 2 AAR: `000-docs/[pending]`
+- Next: Phase 3 (Monitoring, Alerts, Agent Deployment Automation)
 
 ## Common Commands
 
@@ -54,14 +63,6 @@ firebase deploy --only firestore       # Deploy security rules & indexes
 firebase deploy --only functions       # Deploy Cloud Functions
 firebase deploy --only hosting         # Deploy Next.js app to Firebase Hosting
 firebase emulators:start               # Run Firebase emulators locally
-
-# Database operations (Prisma - legacy, being phased out)
-npx prisma generate        # Generate Prisma Client after schema changes
-npx prisma migrate dev     # Create and apply migration
-npx prisma studio          # Open Prisma Studio GUI (database browser)
-
-# Migration script (PostgreSQL → Firestore)
-npx tsx 05-Scripts/migration/migrate-to-firestore.ts  # Run data migration (when unblocked)
 
 # Testing
 npm test                   # Run all tests (unit + e2e)
@@ -81,22 +82,6 @@ npx tsc --noEmit          # TypeScript type check (no build output)
 # Build
 npm run build             # Production build with Turbopack
 npm start                 # Start production server
-```
-
-### Docker (Local Development)
-```bash
-# Start PostgreSQL database
-cd 06-Infrastructure/docker
-docker-compose up -d postgres
-
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs -f postgres
-
-# Access database directly
-docker exec -it hustle-postgres psql -U hustle_admin -d hustle_mvp
 ```
 
 ### Deployment
@@ -193,34 +178,28 @@ curl -X POST http://localhost:5001/hustleapp-production/us-central1/orchestrateT
 
 **Security**: `firestore.rules` enforces parent-child ownership, read/write permissions
 
-### Legacy Database (Prisma + PostgreSQL)
+### Legacy Systems (Decommissioned)
 
-**Status**: Being phased out, data migrating to Firestore
+**PostgreSQL + Prisma**: Decommissioned in Phase 2 (2025-11-18)
+- 57/58 users migrated to Firebase Auth + Firestore
+- Prisma archived: `99-Archive/20251118-prisma-legacy/`
+- Docker container stopped and removed
+- Zero Prisma imports in codebase
 
-8 Prisma models in `prisma/schema.prisma`:
-- **users**: Parent accounts (email, password, COPPA compliance)
-- **Player**: Youth player profiles
-- **Game**: Position-specific statistics (tackles, saves, etc.)
-- **accounts/sessions**: NextAuth v5 session management
-- **password_reset_tokens**: Time-limited reset tokens
-- **email_verification_tokens**: Email verification flow
-- **verification_tokens**: Generic tokens (NextAuth)
+**NextAuth v5**: Removed in Phase 1 (2025-11-18)
+- Replaced with Firebase Auth
+- Session tables and middleware removed
+- All auth flows now use Firebase SDK
 
-**Migration Path**: `05-Scripts/migration/migrate-to-firestore.ts` (58 users ready to migrate)
+### Authentication (Firebase Auth)
 
-### Authentication Patterns
-
-**Current (NextAuth v5)** - Being replaced:
-- Credentials provider (`src/lib/auth.ts`)
-- JWT sessions (30-day expiry)
-- Bcrypt password hashing (10 salt rounds)
-- Email verification required before login
-
-**Target (Firebase Auth)** - In progress:
-- Email/Password provider (waiting for Console enable)
-- Firebase Authentication SDK
+**Current Implementation**:
+- Email/Password provider (requires Console enable)
+- Firebase Authentication SDK (client + Admin SDK)
+- ID token-based sessions (1-hour expiry, auto-refresh)
 - Custom claims for role-based access
 - Integrated with Firestore security rules
+- Server-side: `src/lib/auth.ts` verifies ID tokens
 
 ### API Route Structure
 
@@ -305,8 +284,9 @@ hustle/
 │   │   ├── monitor_segments.sh
 │   │   └── download_ready_segments.sh
 │   └── gate.sh                    # CI enforcement gate (blocks local runs)
-├── scripts/                       # 🆕 Utility scripts
-│   └── migrate-to-firestore.ts    # PostgreSQL → Firestore migration
+├── 05-Scripts/                    # Utility scripts
+│   └── migration/
+│       └── migrate-to-firestore.ts    # PostgreSQL → Firestore migration
 ├── 06-Infrastructure/
 │   ├── docker/                    # Docker Compose for local PostgreSQL
 │   └── terraform/                 # Cloud Run infrastructure
@@ -473,37 +453,24 @@ Nine automated workflows in `.github/workflows/`:
 - **Test locally first**: Use `npm run dev` + Firebase emulators before staging deploy
 - **Staging gate**: Every task must pass staging verification before proceeding
 
-### Database Workflow (Dual Database Period)
+### Database Workflow (Firestore Only)
 
-**Primary (Firestore):**
-- Use Firebase services in `src/lib/firebase/services/`
+**Firestore Operations:**
+- Use Firebase services in `src/lib/firebase/services/` (users, players, games)
 - Deploy security rules: `firebase deploy --only firestore`
 - Deploy indexes: Automatically via `firestore.indexes.json`
 - Test locally: `firebase emulators:start`
+- Monitor: Firebase Console → Firestore Database
 
-**Legacy (Prisma + PostgreSQL):**
-- Always run `npx prisma generate` after schema changes
-- Use `npx prisma migrate dev` for schema changes (creates migration + applies)
-- Migrations committed to Git and run in production
-- **Being phased out**: Avoid new features on Prisma models
+**No PostgreSQL/Prisma**: Decommissioned in Phase 2
 
-### Authentication (Dual Auth Period)
+### COPPA Compliance
 
-**Current (NextAuth v5):**
-- Email verification required before login
-- Password reset uses time-limited tokens
-- JWT sessions (30-day expiry)
-
-**Target (Firebase Auth):**
-- Waiting for Email/Password provider enable
-- Custom claims for role-based access
-- Integrated with Firestore security rules
-
-### COPPA Compliance (Unchanged)
+Firebase Auth + Firestore implementation:
 - User model tracks `agreedToTerms`, `agreedToPrivacy`, `isParentGuardian`
-- Players are child profiles linked to parent User accounts
-- All player data cascade deletes when parent User is deleted
-- **Applies to both**: Prisma and Firestore schemas
+- Players are child profiles linked to parent User accounts (subcollections)
+- All player data cascade deletes when parent User is deleted (Firestore rules)
+- Email verification required for parent/guardian accounts
 
 ### Build System
 - **Turbopack**: Next.js 15's bundler (replaces Webpack)
@@ -549,39 +516,20 @@ firebase deploy --only firestore      # Rules + indexes
 # 3. Restart dev server after .env changes
 ```
 
-### Database Issues (Legacy Prisma)
-```bash
-# Reset PostgreSQL database (WARNING: deletes all data)
-npx prisma migrate reset
-
-# Check database connection
-npx prisma db pull
-
-# View/edit data visually
-npx prisma studio
-
-# Check migration status
-npx prisma migrate status
-
-# Fix "client out of sync" error
-npx prisma generate
-
-# Migration script troubleshooting
-npx tsx 05-Scripts/migration/migrate-to-firestore.ts --dry-run  # Preview migration
-```
-
 ### Authentication Issues
 ```bash
-# NextAuth (legacy)
-npx prisma studio  # Open users table, check emailVerified column
-
-# Firebase Auth (target)
+# Firebase Auth
 # Go to: Firebase Console → Authentication → Users
 # Check if Email/Password provider is enabled
 
-# Check active session
-# Browser DevTools → Application → Cookies → next-auth.session-token (NextAuth)
-# Browser DevTools → Application → Local Storage → firebase:authUser (Firebase)
+# Check active Firebase session
+# Browser DevTools → Application → Local Storage → firebase:authUser
+
+# Test Firebase Auth locally
+firebase emulators:start --only auth
+
+# Check Firebase Auth errors in logs
+firebase functions:log --only=auth
 ```
 
 ### Vertex AI Agent Issues
@@ -708,12 +656,11 @@ Current status: **190+ documents** in 000-docs/ (sequences 001-190)
 ### Security & Configuration
 - **Never commit secrets**: Use `.env.example` template, populate `.env` locally
 - **Validation**: `src/env.mjs` validates at runtime (if exists)
-- **Firebase/Prisma**: Sync credentials with Google Cloud Secret Manager
+- **Firebase Credentials**: Sync with Google Cloud Secret Manager
 - **Pre-Deploy**: Run `npm run lint`, `npm run test`, and CI workflow dry-run
 
 ### Specific to This Project
-- **Firebase First**: Prefer Firebase services over Prisma during migration
-- **No Breaking Prisma Changes**: Avoid during migration period
+- **Firebase Only**: Use Firestore services exclusively (PostgreSQL decommissioned)
 - **A2A Protocol**: Use Cloud Functions for agent communication
 - **NWSL CI-Only**: Never run video generation locally (enforced by `gate.sh`)
 - **WIF Only**: No service account keys, use Workload Identity Federation
