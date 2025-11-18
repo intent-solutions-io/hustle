@@ -2,13 +2,34 @@
 
 /**
  * React Error Boundary Component
- * Catches errors in React component tree and reports to Sentry
+ * Catches errors in React component tree and logs to Google Cloud Error Reporting
  */
 import React, { Component, ReactNode } from 'react';
-import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+/**
+ * Report error to Google Cloud Error Reporting
+ * Errors are automatically collected by Cloud Logging and Error Reporting
+ */
+function reportError(error: Error, errorInfo?: React.ErrorInfo) {
+  // Console errors are automatically captured by Cloud Logging
+  console.error('[Error Boundary]', error, errorInfo);
+
+  // In production, you can also send to /api/error endpoint
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+    fetch('/api/error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: error.message,
+        stack: error.stack,
+        componentStack: errorInfo?.componentStack,
+      }),
+    }).catch(console.error);
+  }
+}
 
 interface Props {
   children: ReactNode;
@@ -41,25 +62,14 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log error to Sentry
-    Sentry.captureException(error, {
-      contexts: {
-        react: {
-          componentStack: errorInfo.componentStack,
-        },
-      },
-    });
+    // Report error to Google Cloud Error Reporting
+    reportError(error, errorInfo);
 
     // Update state with error details
     this.setState({
       error,
       errorInfo,
     });
-
-    // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error boundary caught an error:', error, errorInfo);
-    }
   }
 
   handleReset = () => {
@@ -136,7 +146,7 @@ export class ErrorBoundary extends Component<Props, State> {
  */
 export function useErrorHandler() {
   return (error: Error) => {
-    Sentry.captureException(error);
+    reportError(error);
     throw error; // Re-throw to be caught by nearest error boundary
   };
 }
