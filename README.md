@@ -99,16 +99,12 @@ graph TB
 
 ```mermaid
 graph TD
-    Users[users/{userId}<br/>email, name, agreedToTerms<br/>isParentGuardian]
-    Players[players/{playerId}<br/>name, birthday, gender<br/>positions, league, team/club]
-    Games[games/{gameId}<br/>date, opponent, result<br/>position-specific stats, notes]
+    Users["users/{userId}\n- email\n- name\n- agreedToTerms\n- isParentGuardian\n- createdAt"]
+    Players["users/{userId}/players/{playerId}\n- name\n- birthday\n- gender\n- primaryPosition\n- secondaryPositions\n- leagueCode\n- teamClub"]
+    Games["users/{userId}/players/{playerId}/games/{gameId}\n- date\n- opponent\n- result\n- position\n- goals, assists, saves\n- tackles, passes, shots"]
 
     Users --> Players
     Players --> Games
-
-    style Users fill:#18181b,stroke:#27272a,stroke-width:2px,color:#fff
-    style Players fill:#4285F4,stroke:#1967D2,stroke-width:2px,color:#fff
-    style Games fill:#34A853,stroke:#0F9D58,stroke-width:2px,color:#fff
 ```
 
 **Hierarchical Collections:**
