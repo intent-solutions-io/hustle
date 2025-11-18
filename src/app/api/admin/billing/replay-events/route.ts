@@ -33,6 +33,7 @@ import {
   getPlanForPriceId,
   mapStripeStatusToWorkspaceStatus,
 } from '@/lib/stripe/plan-mapping';
+import { recordBillingEvent } from '@/lib/stripe/ledger';
 import type { Workspace } from '@/types/firestore';
 
 // Initialize Stripe
@@ -211,7 +212,8 @@ export async function POST(request: NextRequest) {
           case 'checkout.session.completed':
             await replayCheckoutSessionCompleted(
               event.data.object as Stripe.Checkout.Session,
-              workspaceId
+              workspaceId,
+              event.id
             );
             report.reprocessed.push({
               eventId: event.id,
@@ -223,7 +225,8 @@ export async function POST(request: NextRequest) {
           case 'customer.subscription.updated':
             await replaySubscriptionUpdated(
               event.data.object as Stripe.Subscription,
-              workspace.billing.stripeCustomerId
+              workspace.billing.stripeCustomerId,
+              event.id
             );
             report.reprocessed.push({
               eventId: event.id,
@@ -237,7 +240,8 @@ export async function POST(request: NextRequest) {
           case 'customer.subscription.deleted':
             await replaySubscriptionDeleted(
               event.data.object as Stripe.Subscription,
-              workspace.billing.stripeCustomerId
+              workspace.billing.stripeCustomerId,
+              event.id
             );
             report.reprocessed.push({
               eventId: event.id,
@@ -250,7 +254,8 @@ export async function POST(request: NextRequest) {
           case 'invoice.payment_failed':
             await replayPaymentFailed(
               event.data.object as Stripe.Invoice,
-              workspace.billing.stripeCustomerId
+              workspace.billing.stripeCustomerId,
+              event.id
             );
             report.reprocessed.push({
               eventId: event.id,
@@ -262,7 +267,8 @@ export async function POST(request: NextRequest) {
           case 'invoice.payment_succeeded':
             await replayPaymentSucceeded(
               event.data.object as Stripe.Invoice,
-              workspace.billing.stripeCustomerId
+              workspace.billing.stripeCustomerId,
+              event.id
             );
             report.reprocessed.push({
               eventId: event.id,
@@ -329,7 +335,8 @@ export async function POST(request: NextRequest) {
 
 async function replayCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
-  workspaceId: string
+  workspaceId: string,
+  eventId: string
 ) {
   const customerId = session.customer as string;
   const subscriptionId = session.subscription as string;
@@ -354,11 +361,24 @@ async function replayCheckoutSessionCompleted(
     stripeSubscriptionId: subscriptionId,
     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
   });
+
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspaceId, {
+    type: 'event_replayed',
+    stripeEventId: eventId,
+    statusBefore: null,
+    statusAfter: status,
+    planBefore: null,
+    planAfter: plan,
+    source: 'replay',
+    note: `Replayed checkout.session.completed event for ${plan} plan`,
+  });
 }
 
 async function replaySubscriptionUpdated(
   subscription: Stripe.Subscription,
-  customerId: string
+  customerId: string,
+  eventId: string
 ) {
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
 
@@ -366,6 +386,10 @@ async function replaySubscriptionUpdated(
     console.warn('[Replay] Workspace not found for customer:', customerId);
     return;
   }
+
+  // Capture before state
+  const statusBefore = workspace.status;
+  const planBefore = workspace.plan;
 
   const priceId = subscription.items.data[0].price.id;
   const plan = getPlanForPriceId(priceId);
@@ -377,11 +401,24 @@ async function replaySubscriptionUpdated(
   await updateWorkspaceBilling(workspace.id, {
     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
   });
+
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspace.id, {
+    type: 'event_replayed',
+    stripeEventId: eventId,
+    statusBefore,
+    statusAfter: status,
+    planBefore,
+    planAfter: plan,
+    source: 'replay',
+    note: `Replayed customer.subscription.updated event: ${planBefore}→${plan}, ${statusBefore}→${status}`,
+  });
 }
 
 async function replaySubscriptionDeleted(
   subscription: Stripe.Subscription,
-  customerId: string
+  customerId: string,
+  eventId: string
 ) {
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
 
@@ -390,15 +427,34 @@ async function replaySubscriptionDeleted(
     return;
   }
 
+  // Capture before state
+  const statusBefore = workspace.status;
+
   console.log('[Replay] Subscription deleted:', { workspaceId: workspace.id });
 
   await updateWorkspaceStatus(workspace.id, 'canceled');
   await updateWorkspaceBilling(workspace.id, {
     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
   });
+
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspace.id, {
+    type: 'event_replayed',
+    stripeEventId: eventId,
+    statusBefore,
+    statusAfter: 'canceled',
+    planBefore: workspace.plan,
+    planAfter: workspace.plan, // Plan doesn't change on cancellation
+    source: 'replay',
+    note: 'Replayed customer.subscription.deleted event',
+  });
 }
 
-async function replayPaymentFailed(invoice: Stripe.Invoice, customerId: string) {
+async function replayPaymentFailed(
+  invoice: Stripe.Invoice,
+  customerId: string,
+  eventId: string
+) {
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
 
   if (!workspace) {
@@ -406,12 +462,31 @@ async function replayPaymentFailed(invoice: Stripe.Invoice, customerId: string) 
     return;
   }
 
+  // Capture before state
+  const statusBefore = workspace.status;
+
   console.log('[Replay] Payment failed:', { workspaceId: workspace.id });
 
   await updateWorkspaceStatus(workspace.id, 'past_due');
+
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspace.id, {
+    type: 'event_replayed',
+    stripeEventId: eventId,
+    statusBefore,
+    statusAfter: 'past_due',
+    planBefore: workspace.plan,
+    planAfter: workspace.plan,
+    source: 'replay',
+    note: `Replayed invoice.payment_failed event`,
+  });
 }
 
-async function replayPaymentSucceeded(invoice: Stripe.Invoice, customerId: string) {
+async function replayPaymentSucceeded(
+  invoice: Stripe.Invoice,
+  customerId: string,
+  eventId: string
+) {
   const subscriptionId = invoice.subscription as string;
 
   if (!subscriptionId) {
@@ -426,6 +501,9 @@ async function replayPaymentSucceeded(invoice: Stripe.Invoice, customerId: strin
     return;
   }
 
+  // Capture before state
+  const statusBefore = workspace.status;
+
   console.log('[Replay] Payment succeeded:', { workspaceId: workspace.id });
 
   await updateWorkspaceStatus(workspace.id, 'active');
@@ -433,5 +511,17 @@ async function replayPaymentSucceeded(invoice: Stripe.Invoice, customerId: strin
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   await updateWorkspaceBilling(workspace.id, {
     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+  });
+
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspace.id, {
+    type: 'event_replayed',
+    stripeEventId: eventId,
+    statusBefore,
+    statusAfter: 'active',
+    planBefore: workspace.plan,
+    planAfter: workspace.plan,
+    source: 'replay',
+    note: `Replayed invoice.payment_succeeded event`,
   });
 }
