@@ -236,7 +236,7 @@ test.describe('Player Management - Security', () => {
 
   test('should only show players belonging to authenticated user', async ({ page, context }) => {
     // Login as first user and add a player
-    const user1 = await login(page);
+    await login(page);
 
     await page.goto('/dashboard/add-athlete');
     const player1Name = `User1 Player ${Date.now()}`;
