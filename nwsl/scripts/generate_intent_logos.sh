@@ -67,7 +67,7 @@ echo "${LOGOS_JSON}" | jq -c '.[]' | while read -r logo; do
       instances: [{prompt: $prompt}],
       parameters: {
         storageUri: $uri,
-        sampleCount: 3,
+        sampleCount: 1,
         aspectRatio: "1:1",
         personGeneration: "ALLOW_ADULT",
         safetyFilterLevel: "BLOCK_ONLY_HIGH",
@@ -139,8 +139,13 @@ echo
 echo "🎉 Logo generation complete!"
 echo "📁 Logos saved to: ${OUT_DIR}"
 echo
+echo "Generated 4 logo variants:"
+echo "  01 - Infrastructure Architect Badge"
+echo "  02 - Agent Orchestration Network"
+echo "  03 - Data Flow Architecture"
+echo "  04 - Category Creator Emblem"
+echo
 echo "Next steps:"
 echo "1. Review logos: ls -lh ${OUT_DIR}"
-echo "2. Select best variants from each set"
-echo "3. Vectorize using https://vectorizer.ai"
-echo "4. Deploy to https://intentsolutions.io"
+echo "2. Vectorize using https://vectorizer.ai"
+echo "3. Deploy to https://intentsolutions.io"
