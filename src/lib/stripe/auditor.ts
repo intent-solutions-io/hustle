@@ -2,9 +2,13 @@
  * Billing Consistency Auditor
  *
  * Phase 7 Task 7: Stripe Event Replay + Billing Consistency Auditor
+ * Phase 7 Task 9: Unified Plan Enforcement Engine (integrated)
  *
  * Cross-checks Firestore workspace data against Stripe subscription data
- * to detect drift and inconsistencies. Read-only - performs no mutations.
+ * to detect drift and inconsistencies.
+ *
+ * **Auto-Enforcement**: When simple drift is detected (status/plan mismatch),
+ * automatically applies enforcement to fix it via enforceWorkspacePlan().
  *
  * Usage:
  * ```typescript
@@ -14,6 +18,7 @@
  * if (report.drift) {
  *   console.log('Drift detected:', report.driftReasons);
  *   console.log('Recommended fix:', report.recommendedFix);
+ *   // If recommendedFix is 'run_event_replay', enforcement was auto-applied
  * }
  * ```
  */
@@ -26,6 +31,7 @@ import {
   mapStripeStatusToWorkspaceStatus,
 } from '@/lib/stripe/plan-mapping';
 import { recordBillingEvent } from '@/lib/stripe/ledger';
+import { enforceWorkspacePlan } from '@/lib/stripe/plan-enforcement';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -240,7 +246,23 @@ export async function auditWorkspaceBilling(
       report.recommendedFix = 'manual_stripe_review';
     }
 
-    // 8. Record drift detection in ledger (Phase 7 Task 8)
+    // 8. Apply automatic enforcement if drift can be fixed (Phase 7 Task 9)
+    if (
+      report.recommendedFix === 'run_event_replay' &&
+      report.stripePriceId &&
+      report.stripeStatus
+    ) {
+      // Drift is simple (status/plan mismatch) and can be automatically fixed
+      await enforceWorkspacePlan(workspaceId, {
+        stripePriceId: report.stripePriceId,
+        stripeStatus: report.stripeStatus,
+        source: 'auditor',
+        stripeEventId: null, // No specific Stripe event triggered this
+      });
+    }
+
+    // 9. Record drift detection in ledger (Phase 7 Task 8)
+    // Note: enforceWorkspacePlan also records in ledger, creating full audit trail
     await recordBillingEvent(workspaceId, {
       type: 'drift_detected',
       stripeEventId: null,
@@ -251,7 +273,7 @@ export async function auditWorkspaceBilling(
       planBefore: workspace.plan,
       planAfter: report.stripePlan,
       source: 'auditor',
-      note: `Drift detected: ${report.driftReasons.join('; ')}. Recommended fix: ${report.recommendedFix}`,
+      note: `Drift detected: ${report.driftReasons.join('; ')}. Recommended fix: ${report.recommendedFix}${report.recommendedFix === 'run_event_replay' ? ' (auto-applied via enforcement)' : ''}`,
     });
   }
 

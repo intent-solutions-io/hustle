@@ -24,16 +24,10 @@ import Stripe from 'stripe';
 import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { adminDb } from '@/lib/firebase/admin';
 import {
-  updateWorkspace,
   updateWorkspaceBilling,
-  updateWorkspaceStatus,
   getWorkspaceByStripeCustomerId,
 } from '@/lib/firebase/services/workspaces';
-import {
-  getPlanForPriceId,
-  mapStripeStatusToWorkspaceStatus,
-} from '@/lib/stripe/plan-mapping';
-import { recordBillingEvent } from '@/lib/stripe/ledger';
+import { enforceWorkspacePlan } from '@/lib/stripe/plan-enforcement';
 import type { Workspace } from '@/types/firestore';
 
 // Initialize Stripe
@@ -349,29 +343,27 @@ async function replayCheckoutSessionCompleted(
   // Fetch subscription details
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0].price.id;
-  const plan = getPlanForPriceId(priceId);
-  const status = mapStripeStatusToWorkspaceStatus(subscription.status);
 
-  console.log('[Replay] Checkout completed:', { workspaceId, plan, status });
+  console.log('[Replay] Checkout completed:', {
+    workspaceId,
+    priceId,
+    stripeStatus: subscription.status,
+    subscriptionId,
+  });
 
-  // Update workspace
-  await updateWorkspace(workspaceId, { plan, status });
+  // Enforce workspace plan and status (Phase 7 Task 9)
+  await enforceWorkspacePlan(workspaceId, {
+    stripePriceId: priceId,
+    stripeStatus: subscription.status,
+    source: 'replay',
+    stripeEventId: eventId,
+  });
+
+  // Update billing information
   await updateWorkspaceBilling(workspaceId, {
     stripeCustomerId: customerId,
     stripeSubscriptionId: subscriptionId,
     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-  });
-
-  // Record in ledger (Phase 7 Task 8)
-  await recordBillingEvent(workspaceId, {
-    type: 'event_replayed',
-    stripeEventId: eventId,
-    statusBefore: null,
-    statusAfter: status,
-    planBefore: null,
-    planAfter: plan,
-    source: 'replay',
-    note: `Replayed checkout.session.completed event for ${plan} plan`,
   });
 }
 
@@ -387,31 +379,26 @@ async function replaySubscriptionUpdated(
     return;
   }
 
-  // Capture before state
-  const statusBefore = workspace.status;
-  const planBefore = workspace.plan;
-
   const priceId = subscription.items.data[0].price.id;
-  const plan = getPlanForPriceId(priceId);
-  const status = mapStripeStatusToWorkspaceStatus(subscription.status);
 
-  console.log('[Replay] Subscription updated:', { workspaceId: workspace.id, plan, status });
-
-  await updateWorkspace(workspace.id, { plan, status });
-  await updateWorkspaceBilling(workspace.id, {
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+  console.log('[Replay] Subscription updated:', {
+    workspaceId: workspace.id,
+    priceId,
+    stripeStatus: subscription.status,
+    subscriptionId: subscription.id,
   });
 
-  // Record in ledger (Phase 7 Task 8)
-  await recordBillingEvent(workspace.id, {
-    type: 'event_replayed',
-    stripeEventId: eventId,
-    statusBefore,
-    statusAfter: status,
-    planBefore,
-    planAfter: plan,
+  // Enforce workspace plan and status (Phase 7 Task 9)
+  await enforceWorkspacePlan(workspace.id, {
+    stripePriceId: priceId,
+    stripeStatus: subscription.status,
     source: 'replay',
-    note: `Replayed customer.subscription.updated event: ${planBefore}→${plan}, ${statusBefore}→${status}`,
+    stripeEventId: eventId,
+  });
+
+  // Update billing information
+  await updateWorkspaceBilling(workspace.id, {
+    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
   });
 }
 
@@ -427,26 +414,25 @@ async function replaySubscriptionDeleted(
     return;
   }
 
-  // Capture before state
-  const statusBefore = workspace.status;
+  const priceId = subscription.items.data[0].price.id;
 
-  console.log('[Replay] Subscription deleted:', { workspaceId: workspace.id });
-
-  await updateWorkspaceStatus(workspace.id, 'canceled');
-  await updateWorkspaceBilling(workspace.id, {
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+  console.log('[Replay] Subscription deleted:', {
+    workspaceId: workspace.id,
+    subscriptionId: subscription.id,
   });
 
-  // Record in ledger (Phase 7 Task 8)
-  await recordBillingEvent(workspace.id, {
-    type: 'event_replayed',
-    stripeEventId: eventId,
-    statusBefore,
-    statusAfter: 'canceled',
-    planBefore: workspace.plan,
-    planAfter: workspace.plan, // Plan doesn't change on cancellation
+  // Enforce workspace plan and status (Phase 7 Task 9)
+  // Subscription deleted means status should be 'canceled'
+  await enforceWorkspacePlan(workspace.id, {
+    stripePriceId: priceId,
+    stripeStatus: 'canceled',
     source: 'replay',
-    note: 'Replayed customer.subscription.deleted event',
+    stripeEventId: eventId,
+  });
+
+  // Keep currentPeriodEnd for access grace period
+  await updateWorkspaceBilling(workspace.id, {
+    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
   });
 }
 
@@ -455,6 +441,13 @@ async function replayPaymentFailed(
   customerId: string,
   eventId: string
 ) {
+  const subscriptionId = invoice.subscription as string;
+
+  if (!subscriptionId) {
+    // One-time payment (not subscription), ignore
+    return;
+  }
+
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
 
   if (!workspace) {
@@ -462,23 +455,23 @@ async function replayPaymentFailed(
     return;
   }
 
-  // Capture before state
-  const statusBefore = workspace.status;
+  console.log('[Replay] Payment failed:', {
+    workspaceId: workspace.id,
+    invoiceId: invoice.id,
+    attemptCount: invoice.attempt_count,
+  });
 
-  console.log('[Replay] Payment failed:', { workspaceId: workspace.id });
+  // Fetch subscription to get price ID
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const priceId = subscription.items.data[0].price.id;
 
-  await updateWorkspaceStatus(workspace.id, 'past_due');
-
-  // Record in ledger (Phase 7 Task 8)
-  await recordBillingEvent(workspace.id, {
-    type: 'event_replayed',
-    stripeEventId: eventId,
-    statusBefore,
-    statusAfter: 'past_due',
-    planBefore: workspace.plan,
-    planAfter: workspace.plan,
+  // Enforce workspace plan and status (Phase 7 Task 9)
+  // Payment failed means status should be 'past_due'
+  await enforceWorkspacePlan(workspace.id, {
+    stripePriceId: priceId,
+    stripeStatus: 'past_due',
     source: 'replay',
-    note: `Replayed invoice.payment_failed event`,
+    stripeEventId: eventId,
   });
 }
 
@@ -490,7 +483,7 @@ async function replayPaymentSucceeded(
   const subscriptionId = invoice.subscription as string;
 
   if (!subscriptionId) {
-    // One-time payment, ignore
+    // One-time payment (not subscription), ignore
     return;
   }
 
@@ -501,27 +494,27 @@ async function replayPaymentSucceeded(
     return;
   }
 
-  // Capture before state
-  const statusBefore = workspace.status;
-
-  console.log('[Replay] Payment succeeded:', { workspaceId: workspace.id });
-
-  await updateWorkspaceStatus(workspace.id, 'active');
-
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  await updateWorkspaceBilling(workspace.id, {
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+  console.log('[Replay] Payment succeeded:', {
+    workspaceId: workspace.id,
+    invoiceId: invoice.id,
+    amount: invoice.amount_paid / 100, // Convert cents to dollars
   });
 
-  // Record in ledger (Phase 7 Task 8)
-  await recordBillingEvent(workspace.id, {
-    type: 'event_replayed',
-    stripeEventId: eventId,
-    statusBefore,
-    statusAfter: 'active',
-    planBefore: workspace.plan,
-    planAfter: workspace.plan,
+  // Fetch subscription to get price ID and updated period
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const priceId = subscription.items.data[0].price.id;
+
+  // Enforce workspace plan and status (Phase 7 Task 9)
+  // Payment succeeded means status should be 'active'
+  await enforceWorkspacePlan(workspace.id, {
+    stripePriceId: priceId,
+    stripeStatus: 'active',
     source: 'replay',
-    note: `Replayed invoice.payment_succeeded event`,
+    stripeEventId: eventId,
+  });
+
+  // Update renewal date
+  await updateWorkspaceBilling(workspace.id, {
+    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
   });
 }
