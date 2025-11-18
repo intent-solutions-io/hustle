@@ -132,8 +132,8 @@ export interface UserDocument {
  * Child profiles for tracking youth soccer players.
  */
 export interface PlayerDocument {
-  // Workspace Ownership (Phase 5)
-  workspaceId: string;  // Workspace that owns this player
+  // Workspace Ownership (Phase 5 - optional until workspace migration)
+  workspaceId?: string | null;  // Workspace that owns this player
 
   // Profile
   name: string;
@@ -154,8 +154,8 @@ export interface PlayerDocument {
  * Individual game statistics.
  */
 export interface GameDocument {
-  // Workspace Ownership (Phase 5 - denormalized for filtering)
-  workspaceId: string;  // Workspace that owns this game
+  // Workspace Ownership (Phase 5 - optional until workspace migration)
+  workspaceId?: string | null;  // Workspace that owns this game
 
   // Game info
   date: Timestamp;

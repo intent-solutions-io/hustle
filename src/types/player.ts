@@ -6,9 +6,9 @@
  */
 
 /**
- * Player data structure from Prisma database
+ * Player data structure from Firestore database
  *
- * Note: This matches the Prisma Player model schema
+ * Note: This matches the Firestore PlayerDocument schema
  */
 export interface PlayerData {
   id: string;

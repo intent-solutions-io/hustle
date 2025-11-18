@@ -5,23 +5,39 @@
  * statistics calculations, and display formatting used throughout the application.
  */
 
-import { Prisma } from '@prisma/client';
-
 /**
- * Game data structure from Prisma database
+ * Game data structure from Firestore database
  *
- * This type is derived from the Prisma Game model and includes all fields
- * from the database schema. Use this for raw game data from database queries.
+ * Use this for raw game data from Firestore queries.
  *
  * @example
  * ```typescript
- * const game: GameData = await prisma.game.findUnique({
- *   where: { id: gameId }
- * });
+ * import { getGames } from '@/lib/firebase/services/games';
+ * const games: GameData[] = await getGames(userId, playerId);
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type GameData = Prisma.GameGetPayload<{}>;
+export interface GameData {
+  id: string;
+  date: Date;
+  opponent: string;
+  result: 'Win' | 'Loss' | 'Draw';
+  finalScore: string;
+  minutesPlayed: number;
+  goals: number;
+  assists: number;
+  tackles: number | null;
+  interceptions: number | null;
+  clearances: number | null;
+  blocks: number | null;
+  aerialDuelsWon: number | null;
+  saves: number | null;
+  goalsAgainst: number | null;
+  cleanSheet: boolean | null;
+  verified: boolean;
+  verifiedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /**
  * Game result options
