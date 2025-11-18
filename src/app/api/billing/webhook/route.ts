@@ -24,6 +24,7 @@ import {
   getPlanForPriceId,
   mapStripeStatusToWorkspaceStatus,
 } from '@/lib/stripe/plan-mapping';
+import { recordBillingEvent } from '@/lib/stripe/ledger';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -69,23 +70,23 @@ export async function POST(request: NextRequest) {
     // 4. Handle event by type
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
+        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session, event.id);
         break;
 
       case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, event.id);
         break;
 
       case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, event.id);
         break;
 
       case 'invoice.payment_failed':
-        await handlePaymentFailed(event.data.object as Stripe.Invoice);
+        await handlePaymentFailed(event.data.object as Stripe.Invoice, event.id);
         break;
 
       case 'invoice.payment_succeeded':
-        await handlePaymentSucceeded(event.data.object as Stripe.Invoice);
+        await handlePaymentSucceeded(event.data.object as Stripe.Invoice, event.id);
         break;
 
       default:
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
  * Handle checkout.session.completed event
  * User completed first payment
  */
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, eventId: string) {
   const workspaceId = session.metadata?.workspaceId;
 
   if (!workspaceId) {
@@ -148,13 +149,25 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     stripeSubscriptionId: subscriptionId,
     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
   });
+
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspaceId, {
+    type: 'subscription_created',
+    stripeEventId: eventId,
+    statusBefore: 'trial', // Checkout happens from trial
+    statusAfter: status,
+    planBefore: 'free',
+    planAfter: plan,
+    source: 'webhook',
+    note: `Checkout completed for ${plan} plan`,
+  });
 }
 
 /**
  * Handle customer.subscription.updated event
  * Subscription changed (plan upgrade/downgrade, renewal)
  */
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription, eventId: string) {
   const customerId = subscription.customer as string;
 
   // Find workspace by Stripe customer ID
@@ -164,6 +177,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     console.error('Workspace not found for customer:', customerId);
     return;
   }
+
+  // Capture before state
+  const statusBefore = workspace.status;
+  const planBefore = workspace.plan;
 
   const priceId = subscription.items.data[0].price.id;
   const plan = getPlanForPriceId(priceId);
@@ -186,13 +203,25 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   await updateWorkspaceBilling(workspace.id, {
     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
   });
+
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspace.id, {
+    type: 'subscription_updated',
+    stripeEventId: eventId,
+    statusBefore,
+    statusAfter: status,
+    planBefore,
+    planAfter: plan,
+    source: 'webhook',
+    note: `Subscription updated: ${planBefore}→${plan}, ${statusBefore}→${status}`,
+  });
 }
 
 /**
  * Handle customer.subscription.deleted event
  * Subscription canceled (immediate or at period end)
  */
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription, eventId: string) {
   const customerId = subscription.customer as string;
 
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
@@ -201,6 +230,9 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     console.error('Workspace not found for customer:', customerId);
     return;
   }
+
+  // Capture before state
+  const statusBefore = workspace.status;
 
   console.log('Subscription deleted:', {
     workspaceId: workspace.id,
@@ -214,13 +246,25 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   await updateWorkspaceBilling(workspace.id, {
     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
   });
+
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspace.id, {
+    type: 'subscription_deleted',
+    stripeEventId: eventId,
+    statusBefore,
+    statusAfter: 'canceled',
+    planBefore: workspace.plan,
+    planAfter: workspace.plan, // Plan doesn't change on cancellation
+    source: 'webhook',
+    note: 'Subscription canceled',
+  });
 }
 
 /**
  * Handle invoice.payment_failed event
  * Payment failed (card declined, insufficient funds)
  */
-async function handlePaymentFailed(invoice: Stripe.Invoice) {
+async function handlePaymentFailed(invoice: Stripe.Invoice, eventId: string) {
   const customerId = invoice.customer as string;
 
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
@@ -229,6 +273,9 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
     console.error('Workspace not found for customer:', customerId);
     return;
   }
+
+  // Capture before state
+  const statusBefore = workspace.status;
 
   console.log('Payment failed:', {
     workspaceId: workspace.id,
@@ -239,6 +286,18 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   // Move workspace to past_due status (grace period)
   await updateWorkspaceStatus(workspace.id, 'past_due');
 
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspace.id, {
+    type: 'payment_failed',
+    stripeEventId: eventId,
+    statusBefore,
+    statusAfter: 'past_due',
+    planBefore: workspace.plan,
+    planAfter: workspace.plan,
+    source: 'webhook',
+    note: `Payment failed (attempt ${invoice.attempt_count})`,
+  });
+
   // TODO: Send email notification to user about failed payment
 }
 
@@ -246,7 +305,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
  * Handle invoice.payment_succeeded event
  * Payment succeeded (renewal or retry after failure)
  */
-async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
+async function handlePaymentSucceeded(invoice: Stripe.Invoice, eventId: string) {
   const customerId = invoice.customer as string;
   const subscriptionId = invoice.subscription as string;
 
@@ -262,6 +321,9 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
     return;
   }
 
+  // Capture before state
+  const statusBefore = workspace.status;
+
   console.log('Payment succeeded:', {
     workspaceId: workspace.id,
     invoiceId: invoice.id,
@@ -275,5 +337,17 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   await updateWorkspaceBilling(workspace.id, {
     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+  });
+
+  // Record in ledger (Phase 7 Task 8)
+  await recordBillingEvent(workspace.id, {
+    type: 'payment_succeeded',
+    stripeEventId: eventId,
+    statusBefore,
+    statusAfter: 'active',
+    planBefore: workspace.plan,
+    planAfter: workspace.plan,
+    source: 'webhook',
+    note: `Payment succeeded: $${(invoice.amount_paid / 100).toFixed(2)}`,
   });
 }

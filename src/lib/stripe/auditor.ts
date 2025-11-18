@@ -25,6 +25,7 @@ import {
   getPlanForPriceId,
   mapStripeStatusToWorkspaceStatus,
 } from '@/lib/stripe/plan-mapping';
+import { recordBillingEvent } from '@/lib/stripe/ledger';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -238,6 +239,20 @@ export async function auditWorkspaceBilling(
       // Complex drift (missing subscription, unknown price ID, etc.)
       report.recommendedFix = 'manual_stripe_review';
     }
+
+    // 8. Record drift detection in ledger (Phase 7 Task 8)
+    await recordBillingEvent(workspaceId, {
+      type: 'drift_detected',
+      stripeEventId: null,
+      statusBefore: workspace.status,
+      statusAfter: report.stripeStatus
+        ? mapStripeStatusToWorkspaceStatus(report.stripeStatus)
+        : null,
+      planBefore: workspace.plan,
+      planAfter: report.stripePlan,
+      source: 'auditor',
+      note: `Drift detected: ${report.driftReasons.join('; ')}. Recommended fix: ${report.recommendedFix}`,
+    });
   }
 
   return report;
