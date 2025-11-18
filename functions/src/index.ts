@@ -10,6 +10,7 @@ import * as admin from 'firebase-admin';
 import { getA2AClient } from './a2a-client';
 import { sendEmail } from './email-service';
 import { emailTemplates } from './email-templates';
+import { createLogger } from './logger';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -42,22 +43,26 @@ export const orchestrator = functions
     memory: '512MB'
   })
   .https.onCall(async (data, context) => {
+    const startTime = Date.now();
+    const requestLogger = createLogger({
+      component: 'cloud-function',
+      userId: context.auth?.uid,
+      requestId: String(context.instanceIdToken || Date.now()),
+    });
+
     try {
       const { intent, data: requestData } = data;
 
       // Validate authentication for most intents
       if (intent !== 'user_registration' && !context.auth) {
+        requestLogger.warn('Unauthenticated request attempt', { intent });
         throw new functions.https.HttpsError(
           'unauthenticated',
           'Must be authenticated to perform this action'
         );
       }
 
-      // Log request
-      console.log(`Orchestrator received intent: ${intent}`, {
-        userId: context.auth?.uid,
-        requestId: context.instanceIdToken
-      });
+      requestLogger.info('Orchestrator received intent', { intent });
 
       // Call Vertex AI agent via A2A protocol
       const a2aClient = getA2AClient();
@@ -72,9 +77,13 @@ export const orchestrator = functions
           : undefined,
       });
 
+      const duration = Date.now() - startTime;
+      requestLogger.info('Orchestrator request completed', { intent, durationMs: duration });
+
       return response;
     } catch (error) {
-      console.error('Orchestrator error:', error);
+      const duration = Date.now() - startTime;
+      requestLogger.error('Orchestrator error', error, { durationMs: duration });
       throw new functions.https.HttpsError(
         'internal',
         'An error occurred processing your request'
@@ -174,8 +183,14 @@ export const sendWelcomeEmail = functions
     memory: '256MB'
   })
   .auth.user().onCreate(async (user) => {
+    const startTime = Date.now();
+    const emailLogger = createLogger({
+      component: 'cloud-function',
+      userId: user.uid,
+    });
+
     try {
-      console.log(`[WelcomeEmail] Triggered for new user: ${user.email}`);
+      emailLogger.info('Welcome email triggered for new user', { email: user.email });
 
       // Get user's first name from Firestore
       const userDoc = await admin.firestore()
@@ -186,29 +201,43 @@ export const sendWelcomeEmail = functions
       const userData = userDoc.data();
       const firstName = userData?.firstName || user.displayName?.split(' ')[0] || 'there';
 
-      console.log(`[WelcomeEmail] Sending welcome email to: ${user.email} (${firstName})`);
+      emailLogger.info('Sending welcome email', { email: user.email, firstName });
 
       // Send welcome email via Resend
       const template = emailTemplates.welcome(firstName);
-      await sendEmail({
+      const emailResult = await sendEmail({
         to: user.email!,
         subject: template.subject,
         html: template.html,
         text: template.text,
       });
 
-      console.log(`[WelcomeEmail] Successfully sent welcome email to: ${user.email}`);
+      const duration = Date.now() - startTime;
 
-      return {
-        success: true,
-        email: user.email,
-        timestamp: new Date().toISOString(),
-      };
+      if (emailResult.success) {
+        emailLogger.info('Welcome email sent successfully', { email: user.email, durationMs: duration });
+        return {
+          success: true,
+          email: user.email,
+          timestamp: new Date().toISOString(),
+        };
+      } else {
+        emailLogger.error('Failed to send welcome email', new Error(emailResult.error || 'Unknown error'), {
+          email: user.email,
+          durationMs: duration,
+        });
+        return {
+          success: false,
+          error: emailResult.error || 'Unknown error',
+          email: user.email,
+          timestamp: new Date().toISOString(),
+        };
+      }
     } catch (error) {
-      console.error('[WelcomeEmail] Error sending welcome email:', error);
+      const duration = Date.now() - startTime;
+      emailLogger.error('Welcome email handler error', error, { email: user.email, durationMs: duration });
 
       // Don't throw - we don't want to block user creation if email fails
-      // Just log the error and continue
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -232,8 +261,14 @@ export const sendTrialReminders = functions
   .pubsub.schedule("0 9 * * *") // Every day at 9:00 AM UTC
   .timeZone("UTC")
   .onRun(async (context) => {
+    const startTime = Date.now();
+    const reminderLogger = createLogger({
+      component: 'cloud-function',
+      requestId: context.eventId,
+    });
+
     try {
-      console.log("[TrialReminders] Starting daily trial reminder check");
+      reminderLogger.info('Starting daily trial reminder check');
 
       // Calculate date 3 days from now (midnight)
       const threeDaysFromNow = new Date();
@@ -253,15 +288,16 @@ export const sendTrialReminders = functions
         .where("trialEndsAt", "<", admin.firestore.Timestamp.fromDate(fourDaysFromNow))
         .get();
 
-      console.log(`[TrialReminders] Found ${workspaces.size} workspaces with trials ending in 3 days`);
+      reminderLogger.info('Found workspaces with expiring trials', {
+        count: workspaces.size,
+        threeDaysFromNow: threeDaysFromNow.toISOString(),
+      });
 
       let emailsSent = 0;
       let emailsFailed = 0;
 
       for (const workspaceDoc of workspaces.docs) {
         try {
-          const workspaceData = workspaceDoc.data();
-
           // Find workspace owner
           const usersSnap = await db
             .collection("users")
@@ -270,7 +306,7 @@ export const sendTrialReminders = functions
             .get();
 
           if (usersSnap.empty) {
-            console.warn(`[TrialReminders] No user found for workspace ${workspaceDoc.id}`);
+            reminderLogger.warn('No user found for workspace', { workspaceId: workspaceDoc.id });
             continue;
           }
 
@@ -278,8 +314,11 @@ export const sendTrialReminders = functions
           const userEmail = userData.email;
           const userName = userData.firstName || "User";
 
-          if (\!userEmail) {
-            console.warn(`[TrialReminders] User ${usersSnap.docs[0].id} has no email`);
+          if (!userEmail) {
+            reminderLogger.warn('User has no email address', {
+              userId: usersSnap.docs[0].id,
+              workspaceId: workspaceDoc.id,
+            });
             continue;
           }
 
@@ -299,18 +338,32 @@ export const sendTrialReminders = functions
 
           if (result.success) {
             emailsSent++;
-            console.log(`[TrialReminders] Sent reminder to ${userEmail} (workspace: ${workspaceDoc.id})`);
+            reminderLogger.info('Trial reminder sent', {
+              email: userEmail,
+              workspaceId: workspaceDoc.id,
+            });
           } else {
             emailsFailed++;
-            console.error(`[TrialReminders] Failed to send to ${userEmail}:`, result.error);
+            reminderLogger.error('Failed to send trial reminder', result.error, {
+              email: userEmail,
+              workspaceId: workspaceDoc.id,
+            });
           }
         } catch (error) {
           emailsFailed++;
-          console.error(`[TrialReminders] Error processing workspace ${workspaceDoc.id}:`, error);
+          reminderLogger.error('Error processing workspace', error, {
+            workspaceId: workspaceDoc.id,
+          });
         }
       }
 
-      console.log(`[TrialReminders] Complete. Sent: ${emailsSent}, Failed: ${emailsFailed}`);
+      const duration = Date.now() - startTime;
+      reminderLogger.info('Trial reminder check complete', {
+        workspacesChecked: workspaces.size,
+        emailsSent,
+        emailsFailed,
+        durationMs: duration,
+      });
 
       return {
         success: true,
@@ -320,7 +373,8 @@ export const sendTrialReminders = functions
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.error("[TrialReminders] Fatal error:", error);
+      const duration = Date.now() - startTime;
+      reminderLogger.critical('Trial reminder check fatal error', error, { durationMs: duration });
       throw error;
     }
   });

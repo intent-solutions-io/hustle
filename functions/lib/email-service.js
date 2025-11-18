@@ -8,6 +8,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendEmail = sendEmail;
 const resend_1 = require("resend");
+const logger_1 = require("./logger");
+const emailLogger = (0, logger_1.createLogger)({ component: 'cloud-function' });
 // Initialize Resend client lazily
 let resendClient = null;
 const getResend = () => {
@@ -31,8 +33,8 @@ async function sendEmail(options) {
     // Get configuration from .env
     const emailFrom = process.env.EMAIL_FROM;
     if (!emailFrom) {
-        console.error('[Email] EMAIL_FROM not configured in functions/.env');
-        throw new Error('Email sender not configured');
+        emailLogger.error('EMAIL_FROM not configured in functions/.env');
+        return { success: false, error: 'Email sender not configured' };
     }
     try {
         const resend = getResend();
@@ -44,15 +46,18 @@ async function sendEmail(options) {
             text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML tags for plain text version
         });
         if (error) {
-            console.error('[Email] Error sending email:', error);
-            throw new Error(error.message);
+            emailLogger.error('Resend API error', new Error(error.message), { to, subject });
+            return { success: false, error: error.message };
         }
-        console.log(`[Email] Sent to: ${to} - Subject: ${subject} - ID: ${data?.id}`);
+        emailLogger.info('Email sent successfully', { to, subject, emailId: data?.id });
         return { success: true, data };
     }
     catch (error) {
-        console.error('[Email] Error sending email:', error);
-        throw error;
+        emailLogger.error('Failed to send email', error, { to, subject });
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+        };
     }
 }
 //# sourceMappingURL=email-service.js.map

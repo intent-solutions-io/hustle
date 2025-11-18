@@ -402,6 +402,240 @@ Thanks for keeping ${playerName}'s performance data accurate.
 © 2025 Hustle
       `.trim()
         };
+    },
+    /**
+     * Trial ending soon notification (Phase 6 Task 3)
+     *
+     * Sent 3 days before trial expiration to encourage upgrade
+     */
+    trialEndingSoon: (options) => {
+        const { name, daysRemaining, upgradeUrl } = options;
+        return {
+            subject: `Your Hustle trial expires in ${daysRemaining} days`,
+            html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${baseStyles}
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
+            </div>
+            <div class="content">
+              <h1>Hi ${name}, your trial is ending soon</h1>
+              <p>Your Hustle trial will expire in <strong>${daysRemaining} day${daysRemaining === 1 ? '' : 's'}</strong>.</p>
+              <div class="warning">
+                <p style="margin: 0;"><span class="expires">Trial expires: ${new Date(Date.now() + daysRemaining * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { dateStyle: 'long' })}</span></p>
+              </div>
+              <p>After your trial ends, you&apos;ll lose access to:</p>
+              <ul>
+                <li>Player profiles and game tracking</li>
+                <li>Performance analytics and trends</li>
+                <li>Verified stats for recruiters</li>
+                <li>All historical data</li>
+              </ul>
+              <p><strong>Upgrade now to keep tracking your athletes&apos; progress!</strong></p>
+              <p style="text-align: center; margin: 30px 0;">
+                <a href="${upgradeUrl}" class="button">Upgrade to Continue</a>
+              </p>
+              <p>Choose the plan that fits your needs:</p>
+              <ul>
+                <li><strong>Starter ($9/month)</strong> - Perfect for individual athletes</li>
+                <li><strong>Plus ($19/month)</strong> - Ideal for families with multiple players</li>
+                <li><strong>Pro ($39/month)</strong> - Complete solution for teams and coaches</li>
+              </ul>
+            </div>
+            <div class="footer">
+              <p>Questions about plans? Reply to this email or visit our <a href="${process.env.NEXTAUTH_URL}/help">help center</a>.</p>
+              <p style="margin-top: 10px;">© 2025 Hustle. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+            text: `
+Hi ${name},
+
+Your Hustle trial will expire in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}.
+
+After your trial ends, you'll lose access to:
+- Player profiles and game tracking
+- Performance analytics and trends
+- Verified stats for recruiters
+- All historical data
+
+Upgrade now: ${upgradeUrl}
+
+Choose your plan:
+- Starter ($9/month) - Perfect for individual athletes
+- Plus ($19/month) - Ideal for families with multiple players
+- Pro ($39/month) - Complete solution for teams and coaches
+
+Questions? Reply to this email or visit our help center.
+
+© 2025 Hustle
+      `.trim()
+        };
+    },
+    /**
+     * Payment failed notification (Phase 6 Task 3)
+     *
+     * Sent when Stripe invoice payment fails
+     */
+    paymentFailed: (options) => {
+        const { name, planName, amount, paymentMethodLast4, updatePaymentUrl, invoiceUrl } = options;
+        return {
+            subject: 'Payment failed - Action required',
+            html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${baseStyles}
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
+            </div>
+            <div class="content">
+              <h1>Hi ${name}, your payment failed</h1>
+              <p>We couldn&apos;t process your payment for the <strong>${planName}</strong> plan.</p>
+              <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; background: #f9fafb; margin: 20px 0;">
+                <p style="margin: 0; font-weight: 600;">Payment Details</p>
+                <ul style="margin: 12px 0 0 18px; padding: 0; color: #4b5563;">
+                  <li>Plan: <strong>${planName}</strong></li>
+                  <li>Amount: <strong>$${(amount / 100).toFixed(2)}</strong></li>
+                  ${paymentMethodLast4 ? `<li>Payment method ending in: <strong>${paymentMethodLast4}</strong></li>` : ''}
+                  <li>Attempted: <strong>${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}</strong></li>
+                </ul>
+              </div>
+              <div class="warning">
+                <p style="margin: 0;"><span class="expires">Update your payment method now to avoid service interruption</span></p>
+                <p style="margin: 8px 0 0 0;">You can still view existing data, but creating new players and games is disabled until payment is updated.</p>
+              </div>
+              <p style="text-align: center; margin: 30px 0;">
+                <a href="${updatePaymentUrl}" class="button">Update Payment Method</a>
+              </p>
+              ${invoiceUrl ? `<p>View invoice: <a href="${invoiceUrl}">Invoice details</a></p>` : ''}
+              <p><strong>Common reasons for payment failures:</strong></p>
+              <ul>
+                <li>Expired or canceled credit card</li>
+                <li>Insufficient funds</li>
+                <li>Bank declined the transaction</li>
+                <li>Incorrect billing address</li>
+              </ul>
+            </div>
+            <div class="footer">
+              <p>Need help? Contact us at <a href="mailto:support@hustle-app.com">support@hustle-app.com</a></p>
+              <p style="margin-top: 10px;">© 2025 Hustle. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+            text: `
+Hi ${name},
+
+We couldn't process your payment for the ${planName} plan.
+
+Payment Details:
+- Plan: ${planName}
+- Amount: $${(amount / 100).toFixed(2)}
+${paymentMethodLast4 ? `- Payment method ending in: ${paymentMethodLast4}` : ''}
+- Attempted: ${new Date().toLocaleDateString()}
+
+Update your payment method now: ${updatePaymentUrl}
+${invoiceUrl ? `\nView invoice: ${invoiceUrl}` : ''}
+
+You can still view existing data, but creating new content is disabled until payment is updated.
+
+Common reasons for failures:
+- Expired or canceled credit card
+- Insufficient funds
+- Bank declined the transaction
+- Incorrect billing address
+
+Need help? Reply to this email or contact support@hustle-app.com
+
+© 2025 Hustle
+      `.trim()
+        };
+    },
+    /**
+     * Subscription canceled notification (Phase 6 Task 3)
+     *
+     * Sent when user cancels subscription via Stripe portal
+     */
+    subscriptionCanceled: (options) => {
+        const { name, planName, cancellationDate, reactivateUrl } = options;
+        return {
+            subject: 'Your Hustle subscription has been canceled',
+            html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${baseStyles}
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 class="logo">HUSTLE<sup style="font-size: 0.5em; vertical-align: super;">&trade;</sup></h1>
+            </div>
+            <div class="content">
+              <h1>Hi ${name}, your subscription is canceled</h1>
+              <p>Your <strong>${planName}</strong> subscription has been canceled as of <strong>${cancellationDate}</strong>.</p>
+              <div class="warning">
+                <p style="margin: 0;">You no longer have access to:</p>
+                <ul style="margin: 8px 0 0 18px; padding: 0;">
+                  <li>Create new player profiles</li>
+                  <li>Log new game statistics</li>
+                  <li>View performance analytics</li>
+                  <li>Generate verified reports</li>
+                </ul>
+              </div>
+              <p>Your historical data is safe and will be retained for 90 days. If you reactivate within this period, all your data will be restored.</p>
+              <p><strong>Changed your mind?</strong> You can reactivate your subscription anytime:</p>
+              <p style="text-align: center; margin: 30px 0;">
+                <a href="${reactivateUrl}" class="button">Reactivate Subscription</a>
+              </p>
+              <p>We&apos;re sorry to see you go! If there&apos;s anything we could do better, please let us know by replying to this email.</p>
+            </div>
+            <div class="footer">
+              <p>We hope to see you back soon!</p>
+              <p style="margin-top: 10px;">© 2025 Hustle. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+            text: `
+Hi ${name},
+
+Your ${planName} subscription has been canceled as of ${cancellationDate}.
+
+You no longer have access to:
+- Create new player profiles
+- Log new game statistics
+- View performance analytics
+- Generate verified reports
+
+Your historical data is safe and will be retained for 90 days. Reactivate within this period to restore all your data.
+
+Reactivate now: ${reactivateUrl}
+
+We're sorry to see you go! If there's anything we could do better, please reply to this email.
+
+© 2025 Hustle
+      `.trim()
+        };
     }
 };
 //# sourceMappingURL=email-templates.js.map
