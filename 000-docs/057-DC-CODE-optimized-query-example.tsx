@@ -24,8 +24,9 @@
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import type { PlayerData } from '@/types/player';
-import type { GameData } from '@/types/game';
+// Unused types in example code (for documentation purposes only)
+// import type { PlayerData } from '@/types/player';
+// import type { GameData } from '@/types/game';
 
 export default async function AthleteDetailPageOptimized({
   params,
@@ -58,7 +59,7 @@ export default async function AthleteDetailPageOptimized({
   }
 
   // 3. EXTRACT GAMES: Access games from included relation
-  const games = athlete.games;
+  // const games = athlete.games; // Unused in this example
 
   // 4. CONTINUE WITH EXISTING LOGIC...
   // (Stats calculation, rendering, etc.)
@@ -102,39 +103,49 @@ export default async function AthleteDetailPageOptimized({
  * COMPARISON: Before vs After
  */
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // BEFORE (Current Implementation)
 // ---------------------------------
-// Query 1: Fetch athlete
-const athleteBefore = await prisma.player.findFirst({
-  where: { id: params.id, parentId: session.user.id },
-});
+// Example code for documentation - not executed
+function exampleBefore(params: { id: string }, session: { user: { id: string } }) {
+  // Query 1: Fetch athlete
+  const athleteBefore = prisma.player.findFirst({
+    where: { id: params.id, parentId: session.user.id },
+  });
 
-if (!athleteBefore) notFound();
+  if (!athleteBefore) notFound();
 
-// Query 2: Fetch games (separate DB round trip)
-const gamesBefore = await prisma.game.findMany({
-  where: { playerId: athleteBefore.id },
-  orderBy: { date: 'desc' },
-});
+  // Query 2: Fetch games (separate DB round trip)
+  const gamesBefore = prisma.game.findMany({
+    where: { playerId: params.id },
+    orderBy: { date: 'desc' },
+  });
+  return { athleteBefore, gamesBefore };
+}
 
 // Total: 2 database queries
 // Performance: 50-180ms (depending on game count)
 
 // AFTER (Optimized Implementation)
 // ---------------------------------
-// Single query with include
-const athleteAfter = await prisma.player.findFirst({
-  where: { id: params.id, parentId: session.user.id },
-  include: {
-    games: {
-      orderBy: { date: 'desc' },
+// Example code for documentation - not executed
+function exampleAfter(params: { id: string }, session: { user: { id: string } }) {
+  // Single query with include
+  const athleteAfter = prisma.player.findFirst({
+    where: { id: params.id, parentId: session.user.id },
+    include: {
+      games: {
+        orderBy: { date: 'desc' },
+      },
     },
-  },
-});
+  });
 
-if (!athleteAfter) notFound();
+  if (!athleteAfter) notFound();
 
-const gamesAfter = athleteAfter.games;
+  const gamesAfter = athleteAfter;
+  return gamesAfter;
+}
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 // Total: 1 database query (with JOIN)
 // Performance: 30-120ms (30-40% faster)

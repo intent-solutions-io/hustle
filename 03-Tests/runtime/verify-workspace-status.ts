@@ -49,8 +49,9 @@ import { exit } from 'process';
 
 // Configuration
 const BASE_URL = process.env.HUSTLE_BASE_URL || 'http://localhost:3000';
-const TEST_USER_EMAIL = process.env.HUSTLE_TEST_USER_EMAIL || 'test@example.com';
-const TEST_USER_PASSWORD = process.env.HUSTLE_TEST_USER_PASSWORD || 'test123';
+// Unused in current mock implementation, but defined for future use
+// const TEST_USER_EMAIL = process.env.HUSTLE_TEST_USER_EMAIL || 'test@example.com';
+// const TEST_USER_PASSWORD = process.env.HUSTLE_TEST_USER_PASSWORD || 'test123';
 
 // Color codes for terminal output
 const RESET = '\x1b[0m';
@@ -169,8 +170,9 @@ async function testWorkspaceStatus(
         );
       }
     }
-  } catch (error: any) {
-    fail(testName, `Unexpected error: ${error.message}`);
+  } catch (error: unknown) {
+    const err = error as Error;
+    fail(testName, `Unexpected error: ${err.message}`);
   }
 }
 
@@ -200,8 +202,9 @@ async function main() {
       printSummary();
       exit(1);
     }
-  } catch (error: any) {
-    fail('Connectivity', `Cannot reach server: ${error.message}`);
+  } catch (error: unknown) {
+    const err = error as Error;
+    fail('Connectivity', `Cannot reach server: ${err.message}`);
     warn('Make sure the server is running and HUSTLE_BASE_URL is correct');
     printSummary();
     exit(1);

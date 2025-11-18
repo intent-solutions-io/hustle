@@ -130,7 +130,7 @@ test.describe('Authentication Flow', () => {
     expect(url).toContain('/login');
   });
 
-  test('should allow logout', async ({ page, context }) => {
+  test('should allow logout', async ({ page }) => {
     // First login
     await page.goto('/register');
 

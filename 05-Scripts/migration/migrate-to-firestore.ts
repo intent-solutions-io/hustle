@@ -20,10 +20,10 @@
  *   Live Run: npx tsx 05-Scripts/migration/migrate-to-firestore.ts
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, User, Player, Game } from '@prisma/client';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import * as dotenv from 'dotenv';
 import * as crypto from 'crypto';
 
@@ -81,7 +81,7 @@ function generateRandomPassword(): string {
 /**
  * Migrate a single user from PostgreSQL to Firebase Auth + Firestore
  */
-async function migrateUser(user: any): Promise<string | null> {
+async function migrateUser(user: User): Promise<string | null> {
   try {
     if (DRY_RUN) {
       console.log(`[DRY RUN] Would migrate user: ${user.email} (UID: ${user.id})`);
@@ -102,8 +102,9 @@ async function migrateUser(user: any): Promise<string | null> {
         password: tempPassword, // Temporary password
       });
       console.log(`✅ Created Firebase Auth user: ${user.email}`);
-    } catch (authError: any) {
-      if (authError.code === 'auth/email-already-exists') {
+    } catch (authError: unknown) {
+      const error = authError as { code?: string };
+      if (error.code === 'auth/email-already-exists') {
         console.log(`⚠️  Firebase Auth user already exists: ${user.email}`);
         // Get existing user
         firebaseUser = await adminAuth.getUserByEmail(user.email);
@@ -113,7 +114,7 @@ async function migrateUser(user: any): Promise<string | null> {
     }
 
     // Step 2: Create Firestore user document
-    const userDoc: any = {
+    const userDoc: Record<string, unknown> = {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
@@ -138,10 +139,11 @@ async function migrateUser(user: any): Promise<string | null> {
 
     stats.usersSuccess++;
     return firebaseUser.uid;
-  } catch (error: any) {
-    console.error(`❌ Failed to migrate user ${user.email}:`, error.message);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error(`❌ Failed to migrate user ${user.email}:`, err.message);
     stats.usersFailed++;
-    stats.errors.push(`User ${user.email}: ${error.message}`);
+    stats.errors.push(`User ${user.email}: ${err.message}`);
     return null;
   }
 }
@@ -149,7 +151,7 @@ async function migrateUser(user: any): Promise<string | null> {
 /**
  * Migrate a single player from PostgreSQL to Firestore subcollection
  */
-async function migratePlayer(player: any, parentFirebaseUid: string): Promise<void> {
+async function migratePlayer(player: Player, parentFirebaseUid: string): Promise<void> {
   try {
     if (DRY_RUN) {
       console.log(`[DRY RUN] Would migrate player: ${player.name} (parent: ${parentFirebaseUid})`);
@@ -177,17 +179,18 @@ async function migratePlayer(player: any, parentFirebaseUid: string): Promise<vo
 
     console.log(`✅ Migrated player: ${player.name} (parent: ${parentFirebaseUid})`);
     stats.playersSuccess++;
-  } catch (error: any) {
-    console.error(`❌ Failed to migrate player ${player.name}:`, error.message);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error(`❌ Failed to migrate player ${player.name}:`, err.message);
     stats.playersFailed++;
-    stats.errors.push(`Player ${player.name}: ${error.message}`);
+    stats.errors.push(`Player ${player.name}: ${err.message}`);
   }
 }
 
 /**
  * Migrate a single game from PostgreSQL to Firestore subcollection
  */
-async function migrateGame(game: any, parentFirebaseUid: string, playerId: string): Promise<void> {
+async function migrateGame(game: Game, parentFirebaseUid: string, playerId: string): Promise<void> {
   try {
     if (DRY_RUN) {
       console.log(`[DRY RUN] Would migrate game: ${game.opponent} (player: ${playerId})`);
@@ -229,10 +232,11 @@ async function migrateGame(game: any, parentFirebaseUid: string, playerId: strin
 
     console.log(`✅ Migrated game: ${game.opponent} (player: ${playerId})`);
     stats.gamesSuccess++;
-  } catch (error: any) {
-    console.error(`❌ Failed to migrate game ${game.id}:`, error.message);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error(`❌ Failed to migrate game ${game.id}:`, err.message);
     stats.gamesFailed++;
-    stats.errors.push(`Game ${game.id}: ${error.message}`);
+    stats.errors.push(`Game ${game.id}: ${err.message}`);
   }
 }
 
