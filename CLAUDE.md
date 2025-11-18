@@ -4,10 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Hustle is a youth soccer statistics tracking application with three integrated systems:
+Hustle is a youth soccer statistics tracking application with two integrated systems:
 1. **Core App**: Next.js 15 web application with Firebase/Firestore backend
 2. **Vertex AI Agents**: Multi-agent A2A system for operations orchestration
-3. **NWSL Pipeline**: CI-only video generation using Vertex AI Veo 3.0
+
+**Live Site**: https://hustlestats.io
+**GitHub**: https://github.com/jeremylongshore/hustle
+**Tagline**: Performance data recruiters trust
 
 ## Technology Stack
 
@@ -42,9 +45,21 @@ Hustle is a youth soccer statistics tracking application with three integrated s
 - ✅ .env.example updated (DATABASE_URL commented out)
 - ✅ Zero Prisma imports in codebase
 
+**✅ GITHUB RELEASE COMPLETE (v1.0.0)**
+
+- ✅ Professional README.md with badges, Mermaid diagrams, architecture docs
+- ✅ GitHub Pages site deployed (`docs/index.html`)
+- ✅ Repository made public with 10 topics
+- ✅ v1.0.0 release created with comprehensive CHANGELOG.md
+- ✅ Intent Solutions IO branding added
+- ✅ Vertex AI Agent Engine telemetry and monitoring highlighted
+- ✅ All CI/CD ESLint errors fixed (type safety, unused variables)
+- ✅ Documentation: `000-docs/245-AA-SUMM-github-release-preparation.md`
+
 **Phase Status:**
 - Phase 1 AAR: `000-docs/236-AA-REPT-hustle-phase-1-auth-observability-migration.md`
 - Phase 2 AAR: `000-docs/[pending]`
+- GitHub Release: `000-docs/245-AA-SUMM-github-release-preparation.md`
 - Next: Phase 3 (Monitoring, Alerts, Agent Deployment Automation)
 
 ## Common Commands
