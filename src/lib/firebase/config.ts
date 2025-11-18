@@ -1,13 +1,19 @@
 /**
  * Firebase Configuration
  *
- * Client-side Firebase initialization for Authentication and Firestore.
+ * Client-side Firebase initialization for Authentication, Firestore, and Performance Monitoring.
  * Environment variables are exposed to the browser via NEXT_PUBLIC_ prefix.
+ *
+ * Performance Monitoring:
+ * - Automatic traces: Page load, network requests
+ * - Custom traces: Available via performance.trace(name)
+ * - Reference: 000-docs/238-MON-SPEC-hustle-gcp-firebase-observability-baseline.md
  */
 
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getPerformance } from 'firebase/performance';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -22,7 +28,12 @@ const firebaseConfig = {
 // Initialize Firebase (singleton pattern)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// Export Firebase services
+// Initialize Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Initialize Firebase Performance Monitoring (browser only)
+// Automatically collects page load and network request traces
+export const performance = typeof window !== 'undefined' ? getPerformance(app) : null;
+
 export { app };
