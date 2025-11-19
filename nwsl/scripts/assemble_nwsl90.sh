@@ -72,9 +72,15 @@ echo "  5. Export final 90-second MP4"
 echo
 echo "⚙️  Starting assembly..."
 
-# Step 1: Create concat list for existing segments
+# Step 1: Trim existing fade clips to 6 seconds for segments 10-12
+echo "  ✂️  Trimming fade clips to 6 seconds..."
+ffmpeg -i "${CLIPS_DIR}/039-MS-CLIP-field-fade.mp4" -t 6 -c copy "${TMP_DIR}/seg10-field-fade-6s.mp4" -y 2>/dev/null
+ffmpeg -i "${CLIPS_DIR}/035-MS-CLIP-ball-fade.mp4" -t 6 -c copy "${TMP_DIR}/seg11-ball-fade-6s.mp4" -y 2>/dev/null
+ffmpeg -i "${CLIPS_DIR}/041-MS-CLIP-lights-fade.mp4" -t 6 -c copy "${TMP_DIR}/seg12-lights-fade-6s.mp4" -y 2>/dev/null
+
+# Step 2: Create concat list for ALL 12 segments
 cat > "${TMP_DIR}/concat_list.txt" <<EOF
-# NWSL 90-Second Segment List
+# NWSL 90-Second Complete Segment List
 file '${CLIPS_DIR}/009-MS-CLIP-segment-01-soccer-final.mp4'
 file '${CLIPS_DIR}/013-MS-CLIP-segment-02-best.mp4'
 file '${CLIPS_DIR}/016-MS-CLIP-segment-03-best.mp4'
@@ -84,33 +90,18 @@ file '${CLIPS_DIR}/025-MS-CLIP-segment-06-best.mp4'
 file '${CLIPS_DIR}/028-MS-CLIP-segment-07-best.mp4'
 file '${CLIPS_DIR}/031-MS-CLIP-segment-08-best.mp4'
 file '${CLIPS_DIR}/033-MS-CLIP-segment-09-best.mp4'
+file '${TMP_DIR}/seg10-field-fade-6s.mp4'
+file '${TMP_DIR}/seg11-ball-fade-6s.mp4'
+file '${TMP_DIR}/seg12-lights-fade-6s.mp4'
 EOF
 
-# Step 2: Concatenate existing segments
-echo "  🔗 Concatenating segments 01-09..."
+# Step 3: Concatenate all segments
+echo "  🔗 Concatenating all 12 segments..."
 ffmpeg -f concat -safe 0 -i "${TMP_DIR}/concat_list.txt" \
-    -c copy "${TMP_DIR}/segments_01-09.mp4" -y 2>/dev/null
-
-current_duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${TMP_DIR}/segments_01-09.mp4" 2>/dev/null | cut -d. -f1)
-echo "  ✅ Segments 01-09 concatenated (${current_duration}s)"
-
-# Step 3: Create black placeholder for missing segments (10-14)
-remaining=$((90 - current_duration))
-echo "  ⚫ Creating ${remaining}s black placeholder for missing segments..."
-ffmpeg -f lavfi -i color=c=black:s=1920x1080:d=${remaining} \
-    -f lavfi -i anullsrc=r=48000:cl=stereo \
-    -t ${remaining} -pix_fmt yuv420p \
-    "${TMP_DIR}/placeholder_10-14.mp4" -y 2>/dev/null
-
-# Step 4: Combine existing + placeholder
-echo "  🎞️  Merging segments + placeholder..."
-cat > "${TMP_DIR}/final_concat.txt" <<EOF
-file '${TMP_DIR}/segments_01-09.mp4'
-file '${TMP_DIR}/placeholder_10-14.mp4'
-EOF
-
-ffmpeg -f concat -safe 0 -i "${TMP_DIR}/final_concat.txt" \
     -c copy "${TMP_DIR}/video_base.mp4" -y 2>/dev/null
+
+current_duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${TMP_DIR}/video_base.mp4" 2>/dev/null | cut -d. -f1)
+echo "  ✅ All 12 segments concatenated (${current_duration}s)"
 
 # Step 5: Add audio mix (if available)
 if [[ -f "${AUDIO_DIR}/007-MS-AUDM-master-mix.wav" ]]; then
@@ -151,10 +142,11 @@ if [[ ${vo_count} -gt 0 ]]; then
     filter_complex="[0:a]volume=0.8[music]"
 
     # Check if voiceover files exist
-    for i in {01..14}; do
-        vo_file="${VO_DIR}/vo_${i}.wav"
+    for i in {1..14}; do
+        i_padded=$(printf "%02d" $i)
+        vo_file="${VO_DIR}/vo_${i_padded}.wav"
         if [[ -f "${vo_file}" ]]; then
-            filter_complex="${filter_complex};[${i}:a]adelay=delays=$((i*1000)):all=1[vo${i}]"
+            filter_complex="${filter_complex};[${i}:a]adelay=delays=$((i*1000)):all=1[vo${i_padded}]"
         fi
     done
 
