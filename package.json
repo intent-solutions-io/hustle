@@ -18,7 +18,10 @@
     "test:all": "npm run test:unit && npm run test:e2e",
     "test:security": "npm audit --audit-level=moderate",
     "test:runtime:workspace": "tsx 03-Tests/runtime/verify-workspace-status.ts",
-    "smoke-test": "tsx tests/e2e/smoke-test.ts"
+    "smoke-test": "tsx tests/e2e/smoke-test.ts",
+    "qa:e2e": "playwright test --project=chromium",
+    "qa:e2e:smoke": "playwright test 03-Tests/e2e/05-login-healthcheck.spec.ts 03-Tests/e2e/04-complete-user-journey.spec.ts --project=chromium",
+    "qa:seed:staging": "tsx 05-Scripts/seed-staging.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
