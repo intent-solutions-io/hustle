@@ -277,7 +277,7 @@ def compare_to_benchmarks(
 # Stats Logger Agent - Records game statistics
 stats_logger_agent = Agent(
     name="stats_logger",
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.0-flash",
     description="Handles logging game statistics and player performance data using 'log_game_stats'.",
     instruction="""
 Your ONLY task: Log game statistics when provided.
@@ -298,7 +298,7 @@ DO NOT handle other types of requests. Stay focused on logging stats.
 # Performance Analyst Agent - Analyzes trends and insights
 performance_analyst_agent = Agent(
     name="performance_analyst",
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.0-flash",
     description="Analyzes player performance trends and statistics using 'get_player_stats' and 'analyze_trends'.",
     instruction="""
 Your ONLY task: Analyze player performance and provide insights.
@@ -322,7 +322,7 @@ DO NOT log stats or handle recruitment questions. Stay focused on analysis.
 # Recruitment Advisor Agent - College recruitment guidance
 recruitment_advisor_agent = Agent(
     name="recruitment_advisor",
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.0-flash",
     description="Provides college recruitment insights and readiness analysis using 'get_recruitment_insights'.",
     instruction="""
 Your ONLY task: Provide college recruitment guidance.
@@ -356,7 +356,7 @@ DO NOT log stats or analyze trends. Stay focused on recruitment.
 # Benchmark Specialist Agent - Percentile comparisons
 benchmark_specialist_agent = Agent(
     name="benchmark_specialist",
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.0-flash",
     description="Compares player statistics to college benchmarks by position using 'compare_to_benchmarks'.",
     instruction="""
 Your ONLY task: Compare players to college recruitment benchmarks.
@@ -384,7 +384,7 @@ DO NOT log stats, analyze trends, or provide recruitment advice. Stay focused on
 
 lead_scout_agent = Agent(
     name="lead_scout",
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.0-flash",
     description="Lead coordinator for Hustle Scout team. Routes requests to specialized sub-agents and provides friendly conversation.",
     instruction="""
 You are Scout, the lead coordinator for a team of youth sports specialists.
