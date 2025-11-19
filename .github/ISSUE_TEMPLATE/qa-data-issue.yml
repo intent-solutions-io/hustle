@@ -1,0 +1,90 @@
+name: "QA Data / Stats Issue"
+description: "Use this when numbers, stats, names, or other content look wrong, missing, or duplicated."
+title: "[QA DATA]: <short summary>"
+labels:
+  - source:qa-playtest
+  - type:data-issue
+  - triage:needed
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when something looks wrong with numbers, stats, names, or any information being shown.
+        Example: wrong goal count, wrong team name, wrong plan price, missing items, duplicates, etc.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Short summary
+      description: "Example: 'Player goals total is wrong' or 'Wrong league name on dashboard'."
+      placeholder: "Example: Player stats on dashboard do not match game stats."
+    validations:
+      required: true
+
+  - type: textarea
+    id: where
+    attributes:
+      label: Where did you see this?
+      description: "Describe the page/section and what you were viewing."
+      placeholder: "Example: On the player stats page for Player X, under Season Totals."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_wrong
+    attributes:
+      label: What looks wrong?
+      description: "Describe the incorrect numbers or text. Copy it if you can."
+      placeholder: |
+        Example: It says 12 goals, but I counted 9 in the game list below.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_expected
+    attributes:
+      label: What should it be instead? (if you know)
+      description: "If you know the correct value, write it here. If not, say 'not sure'."
+      placeholder: "Example: It should say 9 goals total based on the games listed."
+    validations:
+      required: false
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or specific items
+      description: "List specific players, teams, games, invoices, etc. where this happens."
+      placeholder: |
+        Example:
+        - Player: Emma #10, Season 2024
+        - Game dates: 09/10, 09/17, 09/24
+    validations:
+      required: false
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: How serious is this?
+      options:
+        - "High – This makes the app untrustworthy or confusing"
+        - "Medium – Important but I can still test"
+        - "Low – Small mistake but worth fixing"
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recording (optional)
+      description: "If possible, show both the wrong data and where you think it should come from."
+      placeholder: "Drop screenshots or links here."
+
+  - type: textarea
+    id: machine_metadata
+    attributes:
+      label: (For Claude / Devs) Extra technical details (optional)
+      description: "Ignore this if you're not sure."
+      placeholder: |
+        ENV: staging / production
+        URL:
+        USER_ID:

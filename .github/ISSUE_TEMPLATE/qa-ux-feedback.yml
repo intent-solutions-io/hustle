@@ -1,0 +1,59 @@
+name: "QA UX Feedback / Confusing Flow"
+description: "Use this when something is confusing, hard to find, or could be improved, even if it's not broken."
+title: "[QA UX]: <short summary>"
+labels:
+  - source:qa-playtest
+  - type:ux
+  - triage:needed
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this if something *works* but feels confusing, unclear, or annoying.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Short summary
+      description: "Example: 'I could not tell if my changes saved' or 'Team setup flow was confusing.'"
+      placeholder: "Example: I'm not sure if I finished creating my player."
+    validations:
+      required: true
+
+  - type: textarea
+    id: where
+    attributes:
+      label: Where in the app were you?
+      description: "Describe the page, section, or what you were trying to do."
+      placeholder: "Example: On the 'Add Player' screen after I filled out the form."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_confusing
+    attributes:
+      label: What felt confusing or frustrating?
+      description: "Describe what made it hard to use or understand."
+      placeholder: "Example: There was no message saying 'Saved', so I didn't know if it worked."
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: How could this be clearer or easier?
+      description: "There are no wrong answers. Just say what would help you personally."
+      placeholder: "Example: Show a green check mark and 'Player saved successfully' message."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: How much does this impact your ability to use the app?
+      options:
+        - "I almost gave up / this is really frustrating"
+        - "Slowed me down, but I got through it"
+        - "Just a small annoyance or suggestion"
+    validations:
+      required: true

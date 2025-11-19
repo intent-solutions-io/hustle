@@ -1,0 +1,124 @@
+name: "QA Bug Report"
+description: "Use this when something seems broken, missing, or not working as expected."
+title: "[QA BUG]: <short summary>"
+labels:
+  - source:qa-playtest
+  - type:bug
+  - triage:needed
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping test the app. Please answer these as simply as you can.
+        If you're not sure about something, just say "not sure".
+
+  - type: input
+    id: summary
+    attributes:
+      label: Short summary (one sentence)
+      description: Example - "Cannot log in with my email" or "Stats page never finishes loading."
+      placeholder: "Example: I clicked Save and nothing happened."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: What did you do right before the problem?
+      description: "List each step on its own line. Example:\n1. I opened the app\n2. I clicked Login\n3. I entered my email and password\n4. I clicked the Login button"
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_result
+    attributes:
+      label: What actually happened?
+      description: "Describe what you saw, including any error messages or weird behavior."
+      placeholder: "Example: The page stayed on 'Loading...' for more than 30 seconds."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_result
+    attributes:
+      label: What did you expect to happen instead?
+      description: "What were you hoping or expecting the app would do?"
+      placeholder: "Example: I expected it to log me in and show my dashboard."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How bad is this?
+      description: "Pick the option that feels closest."
+      options:
+        - "Blocker – I cannot continue testing at all"
+        - "High – A key feature is broken"
+        - "Medium – Annoying but I can work around it"
+        - "Low – Small bug, typo, or visual issue"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where were you in the app?
+      description: "If you're not sure, pick 'Not sure/Other'."
+      options:
+        - "Login / Signup"
+        - "Dashboard / Home"
+        - "Player setup / Profile"
+        - "Leagues / Teams"
+        - "Billing / Payments / Stripe"
+        - "Settings"
+        - "Other / Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: What device are you using?
+      description: "Example: iPhone 14, Android phone, Windows laptop, MacBook."
+      placeholder: "Example: iPhone 14 Pro, Safari"
+    validations:
+      required: false
+
+  - type: input
+    id: time
+    attributes:
+      label: Approximate time of problem
+      description: "Local time is fine. Example: 'Around 3:45 PM today'."
+      placeholder: "Example: Today around 3:45 PM"
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or screen recording (optional)
+      description: "If you can, drag and drop images or paste a screen recording link here."
+      placeholder: "Drop screenshots below or add a link."
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else we should know?
+      description: "If something felt confusing, weird, or you have a guess what caused it, tell us here."
+      placeholder: "Example: It only broke when I tried it with this one player."
+
+  - type: textarea
+    id: machine_metadata
+    attributes:
+      label: (For Claude / Devs) Extra details (optional)
+      description: "Ignore this if you're not sure. This is for more technical notes."
+      placeholder: |
+        ENV: staging / production
+        URL:
+        USER_ID:
+        BROWSER:

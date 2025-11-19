@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **QA Automation Infrastructure**: 5 GitHub issue templates for structured bug reporting and feedback
+  - QA Bug Report template with severity levels and structured fields
+  - QA UX Feedback template for usability improvements
+  - QA Question template for onboarding gaps
+  - QA Data/Stats Issue template for data integrity problems
+  - QA Feature Idea template for enhancement requests
+- **Appauditmini**: Quick reference slash command (`/appauditmini`) generating 1-2 page architecture cheat sheets
+- **Documentation**:
+  - `249-RM-REFC-appauditmini-quick-reference.md` - MVP customer journey and architecture quick reference
+  - `250-PP-PLAN-agentic-qa-automation-workflow.md` - Comprehensive plan for Vertex AI agent-driven QA automation
+- **Intent Solutions IO Branding**:
+  - Downloaded 3 generated logos (Category Creator Emblem variants) to `000-docs/logos/`
+  - Imagen 3 generation with `block_only_high` safety filter
+
+### Changed
+- Updated NWSL logo generation script to use Imagen 3 (`imagegeneration@006`) instead of Imagen 4
+- Lowered safety filter from `block_some` to `block_only_high` for logo generation
+
+---
+
 ## [1.0.0] - 2025-11-18
 
 ### 🎉 Initial Public Release
