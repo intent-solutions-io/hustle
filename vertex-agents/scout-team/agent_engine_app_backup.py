@@ -1,8 +1,20 @@
 """
 Scout Team - Agent Engine Entrypoint for ADK CLI Deployment
 
-ADK CLI expects an `app` variable that is a Runner instance.
-The Runner automatically exposes query methods to Agent Engine.
+This file is REQUIRED by the 'adk deploy agent_engine' command.
+
+When deploying with:
+    adk deploy agent_engine scout-team \
+      --project hustleapp-production \
+      --region us-central1 \
+      --staging_bucket gs://hustleapp-production-agent-staging
+
+ADK CLI will:
+1. Find this file (agent_engine_app.py)
+2. Import the 'app' variable (must be a Runner instance)
+3. Package everything into a Docker container
+4. Upload to staging bucket
+5. Deploy to Vertex AI Agent Engine
 """
 
 from google.adk.runners import Runner
@@ -25,11 +37,12 @@ LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 AGENT_ENGINE_ID = os.getenv("AGENT_ENGINE_ID", "")  # Set by Agent Engine at runtime
 
 logger.info(
-    f"Creating Agent Engine App",
+    f"Creating Runner for Agent Engine deployment via ADK CLI",
     extra={
         "app_name": APP_NAME,
         "project_id": PROJECT_ID,
         "location": LOCATION,
+        "deployment_method": "adk-cli"
     }
 )
 
@@ -42,7 +55,6 @@ session_service = VertexAiSessionService(
 logger.info("✅ Session service initialized")
 
 # Create Runner with Lead Scout multi-agent team
-# ADK CLI expects a Runner instance named 'app'
 app = Runner(
     agent=lead_scout_agent,
     app_name=APP_NAME,
@@ -50,7 +62,7 @@ app = Runner(
 )
 
 logger.info(
-    "✅ Runner created - ready for Agent Engine deployment",
+    "✅ Runner created - ready for ADK deployment to Vertex AI Agent Engine",
     extra={
         "app_name": APP_NAME,
         "project_id": PROJECT_ID,
@@ -61,14 +73,5 @@ logger.info(
     }
 )
 
-# The Runner automatically exposes methods to Agent Engine:
-# - create_session
-# - get_session
-# - list_sessions
-# - delete_session
-# - async versions of above
-#
-# To call the agent, use session-based workflow:
-# 1. Create a session
-# 2. Use run_async(user_id, session_id, user_msg)
-# 3. Get response from the agent
+# The Agent Engine will call app.run_async() or app.run_live()
+# when handling requests. The Runner manages the full execution lifecycle.
