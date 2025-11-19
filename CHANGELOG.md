@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **ADK Documentation Crawler Pipeline**: Production-grade infrastructure for crawling Google ADK docs
+  - Complete Python package in `tools/adk_docs_crawler/` with 8 modules
+  - Respects robots.txt, rate limiting (500ms between requests)
+  - Generates RAG-ready chunks (1500 tokens max, 150 token overlap)
+  - GCS upload with structured paths for Vertex AI consumption
+  - Makefile targets: `crawl-adk-docs`, `crawl-adk-docs-local`, `setup-crawler`
+  - GitHub Actions workflow for automated weekly crawls
+  - Successfully crawled 118 pages, generated 2,568 chunks
+  - Documentation: `000-docs/6781-AT-ARCH-adk-docs-crawl-pipeline.md`
+- **Strategic Planning Documentation**:
+  - `249-AA-STRT-cto-critical-path-scout-agent-rag.md` - CTO strategy with CoT reasoning
+  - `250-LS-STAT-adk-crawler-execution-complete.md` - Crawler execution summary
+  - `251-PP-PLAN-hustle-go-live-roadmap.md` - Production launch roadmap
 - **QA Automation Infrastructure**: 5 GitHub issue templates for structured bug reporting and feedback
   - QA Bug Report template with severity levels and structured fields
   - QA UX Feedback template for usability improvements

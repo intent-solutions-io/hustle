@@ -343,6 +343,33 @@ This project uses a custom license. See the [LICENSE](./LICENSE) file for detail
 
 ---
 
+## Development Status & Notes
+
+### Recent Development (November 2025)
+
+**Infrastructure Improvements:**
+- ✅ Production-grade ADK documentation crawler pipeline (`tools/adk_docs_crawler/`)
+- ✅ GCS-based artifact storage with structured paths
+- ✅ Automated crawl workflows via GitHub Actions
+
+**Migration Complete:**
+- ✅ Phase 1: Firebase Auth + Clean Observability (Sentry removed, NextAuth removed)
+- ✅ Phase 2: Full PostgreSQL → Firestore migration (57/58 users migrated)
+- ✅ Prisma decommissioned, Docker PostgreSQL stopped
+
+**Current Focus:**
+- Production readiness for core youth soccer stats platform
+- Performance optimization and monitoring improvements
+- QA automation and synthetic testing infrastructure
+
+**Known Items:**
+- ADK crawler pipeline built as reusable infrastructure (not yet integrated into main app)
+- Vertex AI agents deployed but running standalone (A2A orchestration in development)
+
+For detailed technical documentation, see `000-docs/` directory (internal access only).
+
+---
+
 ## Support & Contact
 
 - **Issues**: [GitHub Issues](https://github.com/jeremylongshore/hustle/issues)
