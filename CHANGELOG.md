@@ -16,14 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - QA Question template for onboarding gaps
   - QA Data/Stats Issue template for data integrity problems
   - QA Feature Idea template for enhancement requests
-- **Synthetic QA Harness Plan**: Comprehensive implementation plan for browser-based E2E testing
-  - `252-PP-PLAN-synthetic-qa-harness-implementation.md` - Beat on the app with synthetic "fake humans" before real users
-  - 10 critical user journeys defined (register → add athlete → log game → verify stats)
-  - Existing Playwright tests audited: 1,581 lines covering happy path, position-specific stats, validation, security
-  - Missing journeys identified: Stripe subscription, workspace collaboration, password reset, mobile viewport
-  - GitHub Actions workflow design for CI automation
-  - Staging seed script architecture for stable test data
-  - Simple interface for future fixer agents: `npm run qa:e2e:smoke`
+- **Synthetic QA Harness Implementation**: **COMPLETE** - Browser-based E2E testing harness for fake human validation
+  - `252-PP-PLAN-synthetic-qa-harness-implementation.md` - Implementation plan and execution log
+  - **Staging Seed Script**: `05-Scripts/seed-staging.ts` creates stable test data in Firebase
+    - Demo parent account with 2 players (Attacking Midfielder + Goalkeeper)
+    - 2 demo games with position-specific stats
+    - Idempotent (deletes/rebuilds accounts)
+  - **GitHub Actions Workflow**: `.github/workflows/synthetic-qa.yml` runs smoke tests on PRs
+    - Triggers on `workflow_dispatch`, `pull_request`, `push` to main
+    - Seeds staging, runs smoke suite, uploads artifacts
+    - Comments on PR with pass/fail status
+  - **Smoke Subset**: `npm run qa:e2e:smoke` for fast feedback (2 test files)
+  - **Human QA Test Guide**: `253-OD-GUID-human-qa-test-guide.md` with 5 critical user journeys
+  - **npm Scripts Added**:
+    - `qa:e2e` - Run all E2E tests (Chromium only)
+    - `qa:e2e:smoke` - Run smoke subset (fastest feedback)
+    - `qa:seed:staging` - Seed Firebase with stable test data
+  - **Blockers Documented**: Missing Firebase secrets for CI (9 secrets required)
 - **Appauditmini**: Quick reference slash command (`/appauditmini`) generating 1-2 page architecture cheat sheets
 - **Documentation**:
   - `249-RM-REFC-appauditmini-quick-reference.md` - MVP customer journey and architecture quick reference

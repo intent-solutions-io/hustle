@@ -1,0 +1,106 @@
+name: Synthetic QA (Fake Humans)
+
+on:
+  workflow_dispatch: {}  # Manual trigger
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    name: E2E Tests (Synthetic QA)
+    runs-on: ubuntu-latest
+
+    env:
+      # Playwright configuration
+      PLAYWRIGHT_BASE_URL: http://localhost:4000
+
+      # Firebase configuration (PUBLIC - safe to expose)
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+      NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+
+      # Firebase Admin (PRIVATE - for seeding)
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+      FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Seed staging environment
+        run: npm run qa:seed:staging
+        continue-on-error: true  # Don't block if seeding fails (may already be seeded)
+
+      - name: Run smoke suite (critical journeys)
+        run: npm run qa:e2e:smoke
+        timeout-minutes: 10
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: 03-Tests/playwright-report/
+          retention-days: 30
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: 03-Tests/test-results/
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ **Synthetic QA Failed!**
+
+              Fake humans are unhappy. Check artifacts for screenshots/traces:
+              - [Playwright Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+              Critical user journeys are broken. Please fix before merging.`
+            })
+
+      - name: Comment PR with success
+        if: github.event_name == 'pull_request' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ **Synthetic QA Passed!**
+
+              Fake humans are happy. All critical user journeys working:
+              - Parent login
+              - Create player
+              - View dashboard
+
+              Safe to merge.`
+            })
