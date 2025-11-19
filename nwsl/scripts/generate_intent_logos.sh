@@ -6,8 +6,8 @@ set -euo pipefail
 
 PROJECT_ID=$(gcloud config get-value project)
 LOCATION="us-central1"
-MODEL_ID="imagen-4.0-generate-preview"
-API_ENDPOINT="https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_ID}:predictLongRunning"
+MODEL_ID="imagegeneration@006"
+API_ENDPOINT="https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_ID}:predict"
 BUCKET="gs://hustleapp-production-logos"
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${WORKDIR}/tmp/logos/raw"
@@ -63,77 +63,44 @@ echo "${LOGOS_JSON}" | jq -c '.[]' | while read -r logo; do
 
   echo "LOGO ${id} – ${name}"
 
-  payload=$(jq -n --arg prompt "${prompt}" --arg uri "${BUCKET}/logo-${id}/" '{
-      instances: [{prompt: $prompt}],
-      parameters: {
-        storageUri: $uri,
-        sampleCount: 3,
-        aspectRatio: "1:1",
-        personGeneration: "ALLOW_ADULT",
-        safetyFilterLevel: "BLOCK_ONLY_HIGH",
-        outputMimeType: "image/png"
-      }
-    }')
+  # Imagen 3 uses synchronous predict, generate 3 samples sequentially
+  for sample in {1..3}; do
+    payload=$(jq -n --arg prompt "${prompt}" '{
+        instances: [{
+          prompt: $prompt
+        }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: "1:1",
+          safetyFilterLevel: "block_some",
+          personGeneration: "allow_adult"
+        }
+      }')
 
-  response=$(curl -s -X POST \
-    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-    -H "Content-Type: application/json" \
-    "${API_ENDPOINT}" \
-    -d "${payload}")
+    response=$(curl -s -X POST \
+      -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+      -H "Content-Type: application/json" \
+      "${API_ENDPOINT}" \
+      -d "${payload}")
 
-  operation=$(echo "${response}" | jq -r '.name // empty')
-  if [[ -z "${operation}" ]]; then
-    echo "  ❌ Submit failed: ${response}" | tee -a "${LOG_DIR}/submit.log"
-    continue
-  fi
+    # Check for image data in response
+    image_data=$(echo "${response}" | jq -r '.predictions[0].bytesBase64Encoded // empty')
+    if [[ -z "${image_data}" ]]; then
+      echo "  ❌ Sample ${sample} failed: $(echo "${response}" | jq -r '.error.message // "Unknown error"')" | tee -a "${LOG_DIR}/submit.log"
+      continue
+    fi
 
-  echo "  ✅ Submitted: ${operation}" | tee -a "${LOG_DIR}/operations.log"
+    # Save image
+    output_file="${OUT_DIR}/logo-${id}_${name}_variant-${sample}.png"
+    echo "${image_data}" | base64 -d > "${output_file}"
+    echo "  ✅ Sample ${sample} saved: ${output_file}"
+  done
+
   echo
 done
 
 echo
-echo "✅ All logo generation requests submitted"
-echo
-echo "📥 Waiting for generation to complete and downloading..."
-echo
-
-# Download function
-download_logo () {
-  local id="$1"
-  local name="$2"
-  local attempt=1
-  local objects
-
-  echo "Waiting for logo-${id} (${name})..."
-
-  while true; do
-    objects=$(gsutil ls "${BUCKET}/logo-${id}/*/*.png" 2>/dev/null || true)
-    if [[ -n "${objects}" ]]; then
-      count=0
-      while IFS= read -r object; do
-        count=$((count + 1))
-        gsutil cp "${object}" "${OUT_DIR}/logo-${id}_${name}_variant-${count}.png" >/dev/null
-        echo "  ✅ Downloaded ${OUT_DIR}/logo-${id}_${name}_variant-${count}.png"
-      done <<< "${objects}"
-      break
-    fi
-
-    if [[ ${attempt} -ge 30 ]]; then
-      echo "  ⚠️  Timed out waiting for logo-${id}"
-      break
-    fi
-
-    attempt=$((attempt+1))
-    sleep 10
-  done
-}
-
-# Download all logos
-echo "${LOGOS_JSON}" | jq -c '.[]' | while read -r logo; do
-  id=$(echo "${logo}" | jq -r '.id')
-  name=$(echo "${logo}" | jq -r '.name')
-  download_logo "${id}" "${name}"
-done
+echo "✅ All logo generation complete!"
 
 echo
 echo "🎉 Logo generation complete!"
