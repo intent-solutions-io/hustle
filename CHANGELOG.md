@@ -16,13 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - QA Question template for onboarding gaps
   - QA Data/Stats Issue template for data integrity problems
   - QA Feature Idea template for enhancement requests
+- **Synthetic QA Harness Plan**: Comprehensive implementation plan for browser-based E2E testing
+  - `252-PP-PLAN-synthetic-qa-harness-implementation.md` - Beat on the app with synthetic "fake humans" before real users
+  - 10 critical user journeys defined (register → add athlete → log game → verify stats)
+  - Existing Playwright tests audited: 1,581 lines covering happy path, position-specific stats, validation, security
+  - Missing journeys identified: Stripe subscription, workspace collaboration, password reset, mobile viewport
+  - GitHub Actions workflow design for CI automation
+  - Staging seed script architecture for stable test data
+  - Simple interface for future fixer agents: `npm run qa:e2e:smoke`
 - **Appauditmini**: Quick reference slash command (`/appauditmini`) generating 1-2 page architecture cheat sheets
 - **Documentation**:
   - `249-RM-REFC-appauditmini-quick-reference.md` - MVP customer journey and architecture quick reference
   - `250-PP-PLAN-agentic-qa-automation-workflow.md` - Comprehensive plan for Vertex AI agent-driven QA automation
+  - `251-AA-AUDT-cto-critical-issues.md` - CTO-level critical issues audit (corrected: migration Phases 1-3 complete)
 - **Intent Solutions IO Branding**:
   - Downloaded 3 generated logos (Category Creator Emblem variants) to `000-docs/logos/`
   - Imagen 3 generation with `block_only_high` safety filter
+  - `BLOCKED_PROMPTS.md` documenting why 3 logo prompts failed safety filter
 
 ### Changed
 - Updated NWSL logo generation script to use Imagen 3 (`imagegeneration@006`) instead of Imagen 4
