@@ -72,7 +72,7 @@ echo "${LOGOS_JSON}" | jq -c '.[]' | while read -r logo; do
         parameters: {
           sampleCount: 1,
           aspectRatio: "1:1",
-          safetyFilterLevel: "block_some",
+          safetyFilterLevel: "block_only_high",
           personGeneration: "allow_adult"
         }
       }')
