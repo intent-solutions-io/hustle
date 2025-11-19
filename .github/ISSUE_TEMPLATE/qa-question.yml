@@ -1,0 +1,41 @@
+name: "QA – I'm Stuck / Question"
+description: "Use this when you don't know what to do next or the app instructions are unclear."
+title: "[QA QUESTION]: <short summary>"
+labels:
+  - source:qa-playtest
+  - type:question
+  - triage:needed
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Short summary
+      description: "Example: 'Not sure which league to pick' or 'Don't know how to add my team.'"
+      placeholder: "Example: Not sure what this screen is asking me to do."
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: What were you trying to do?
+      description: "Explain your goal in your own words."
+      placeholder: "Example: I was trying to set up my daughter's team in the correct league."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_confusing
+    attributes:
+      label: What exactly is confusing?
+      description: "Copy any unclear text or describe the screen if you can."
+      placeholder: "Example: It asks for 'Club League Tier' but I don't know what that means."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_would_help
+    attributes:
+      label: What would have helped you here?
+      description: "More help text? Better button labels? Examples?"
+      placeholder: "Example: A short description telling me which option most parents should pick."
