@@ -73,6 +73,15 @@ async def test_scout_agent():
     user_id = "test_user"
     session_id = "test_session_001"
 
+    # Create session before running
+    await session_service.create_session(
+        app_name="hustle_scout",
+        user_id=user_id,
+        session_id=session_id,
+    )
+    print(f"✅ Session created: {session_id}")
+    print()
+
     for i, scenario in enumerate(test_scenarios, 1):
         print(f"Test Scenario {i}/{len(test_scenarios)}: {scenario['name']}")
         print(f"Expected: {scenario['expected']}")
@@ -145,6 +154,13 @@ async def interactive_test():
 
     user_id = "interactive_user"
     session_id = "interactive_session"
+
+    # Create session before running
+    await session_service.create_session(
+        app_name="hustle_scout",
+        user_id=user_id,
+        session_id=session_id,
+    )
 
     print("Scout: Hi! I'm Scout, your personal sports statistician. How can I help you today?")
     print()
