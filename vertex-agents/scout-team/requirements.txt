@@ -1,0 +1,13 @@
+# Hustle Scout Agent Dependencies
+# Following Google ADK standards
+
+# Core ADK SDK (verified version from official install)
+google-adk==1.18.0
+
+# Google Cloud integrations
+google-cloud-aiplatform>=1.111
+google-cloud-firestore>=2.21.0
+google-cloud-logging>=3.12.1
+
+# Gemini API
+google-genai>=1.51.0
