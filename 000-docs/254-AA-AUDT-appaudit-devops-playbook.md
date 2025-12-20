@@ -150,10 +150,10 @@ Discovery → Registration → Player Setup → Game Logging → Stats Review �
 
 | Service | Purpose | Environment(s) | Key Config | Monthly Cost | Owner | Vendor Risk |
 |---------|---------|----------------|------------|--------------|-------|-------------|
-| Firebase Auth | User authentication | All | Email/password provider | ~$50 | Platform | Low |
-| Firestore | Database | All | Hierarchical collections | ~$100 | Platform | Low |
-| Cloud Run | SSR runtime | Staging/Prod | 1 CPU, 512MB RAM | ~$30 | DevOps | Low |
-| Vertex AI Agent Engine | AI orchestration | Prod | 5 deployed agents | ~$150 | AI Team | Medium |
+| Firebase Auth | User authentication | All | Email/password provider | **$0 (free tier)** | Platform | Low |
+| Firestore | Database | All | Hierarchical collections | **$0-5 (free tier)** | Platform | Low |
+| Cloud Run | SSR runtime | Staging/Prod | 1 CPU, 512MB RAM | **$0-10 (free tier)** | DevOps | Low |
+| Vertex AI Agent Engine | AI orchestration | Prod | ❌ Not deployed | **$0** | AI Team | Medium |
 | Cloud Storage (GCS) | File storage | All | Regional buckets | ~$20 | DevOps | Low |
 | Cloud Logging | Observability | All | 30-day retention | ~$25 | DevOps | Low |
 | GitHub Actions | CI/CD | N/A | 2000 minutes/month | Free tier | DevOps | Low |
@@ -602,12 +602,19 @@ Key Files:
 
 ### Current Costs (Estimated Monthly)
 
-**Total Monthly Spend**: ~$250 (estimated)
-- Compute (Cloud Run): $30 (12%)
-- Database (Firestore): $100 (40%)
-- Storage (GCS): $20 (8%)
-- Observability: $25 (10%)
-- Authentication: $50 (20%)
+**Total Monthly Spend**: **~$0-25** (MVP on Firebase free tier)
+- **Firebase Auth**: $0 (100% free tier coverage)
+- **Firestore**: $0-5 (under 50K reads/day, 20K writes/day free limit)
+- **Cloud Run**: $0-10 (under 2M requests/month free limit)
+- **Cloud Storage**: $0 (6MB docs, under 5GB free limit)
+- **Observability**: $0-10 (Cloud Logging free tier)
+
+**Free Tier Limits:**
+- Firebase Auth: Unlimited users
+- Firestore: 1GB storage, 50K reads/day, 20K writes/day
+- Cloud Functions: 2M invocations/month
+- Cloud Run: 2M requests/month, 360K GHz-sec
+- Cloud Storage: 5GB storage, 1GB/day downloads
 - Other services: $25 (10%)
 - AI/ML (Vertex AI): $0 (agents not deployed)
 
