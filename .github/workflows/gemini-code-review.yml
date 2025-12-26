@@ -1,0 +1,130 @@
+name: Gemini Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  PROJECT_ID: hustleapp-production
+  LOCATION: us-central1
+
+jobs:
+  gemini-review:
+    name: Gemini Code Assist Review
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          # Get list of changed files
+          FILES=$(gh pr diff ${{ github.event.pull_request.number }} --name-only | head -50)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          # Get the diff for code review (limited to 30000 chars for API limits)
+          DIFF=$(gh pr diff ${{ github.event.pull_request.number }} | head -c 30000)
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Gemini Code Review
+        id: review
+        run: |
+          # Prepare the prompt for Gemini
+          cat > /tmp/review_prompt.json << 'PROMPT_EOF'
+          {
+            "contents": [{
+              "role": "user",
+              "parts": [{
+                "text": "You are an expert code reviewer. Review the following pull request diff and provide constructive feedback.\n\nPR Title: ${{ github.event.pull_request.title }}\n\nChanged Files:\n${{ steps.changed-files.outputs.files }}\n\nDiff:\n```\n${{ steps.diff.outputs.diff }}\n```\n\nProvide a code review with:\n1. **Summary**: Brief overview of the changes\n2. **Strengths**: What's done well\n3. **Suggestions**: Specific improvements (with file:line references where possible)\n4. **Security**: Any security concerns\n5. **Performance**: Any performance considerations\n\nKeep the review concise and actionable. Use markdown formatting."
+              }]
+            }],
+            "generationConfig": {
+              "temperature": 0.2,
+              "maxOutputTokens": 2048
+            }
+          }
+          PROMPT_EOF
+
+          # Call Vertex AI Gemini API
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            "https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/gemini-1.5-flash:generateContent" \
+            -d @/tmp/review_prompt.json)
+
+          # Extract the review text
+          REVIEW=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "Unable to generate review"')
+
+          # Save review to file (for multiline handling)
+          echo "$REVIEW" > /tmp/review.md
+
+          # Check if review was successful
+          if [ "$REVIEW" == "Unable to generate review" ] || [ -z "$REVIEW" ]; then
+            echo "::warning::Gemini review could not be generated"
+            echo "review_success=false" >> $GITHUB_OUTPUT
+          else
+            echo "review_success=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post Review Comment
+        if: steps.review.outputs.review_success == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('/tmp/review.md', 'utf8');
+
+            const body = `## 🤖 Gemini Code Review
+
+            ${review}
+
+            ---
+            *Powered by Vertex AI Gemini 1.5 Flash*`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+      - name: Review Summary
+        run: |
+          echo "================================"
+          echo "Gemini Code Review Complete"
+          echo "================================"
+          echo "PR: #${{ github.event.pull_request.number }}"
+          echo "Title: ${{ github.event.pull_request.title }}"
+          echo "Review Status: ${{ steps.review.outputs.review_success }}"
+          echo "================================"
