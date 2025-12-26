@@ -9,7 +9,7 @@
  * - Checkout session creation for plan changes
  */
 
-import Stripe from 'stripe';
+import { getStripeClient } from '@/lib/stripe/client';
 import type { Workspace, WorkspacePlan } from '@/types/firestore';
 import {
   getPriceIdForPlan,
@@ -18,11 +18,6 @@ import {
   getPlanPrice,
   getPlanLimits,
 } from '@/lib/stripe/plan-mapping';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
 
 /**
  * Available Plan Option
@@ -116,13 +111,13 @@ export async function getProrationPreview(
 
   try {
     // Fetch current subscription
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
 
     // Get subscription item ID (first item in subscription)
     const subscriptionItemId = subscription.items.data[0].id;
 
     // Preview upcoming invoice with plan change
-    const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+    const upcomingInvoice = await getStripeClient().invoices.retrieveUpcoming({
       customer: subscription.customer as string,
       subscription: subscriptionId,
       subscription_items: [
@@ -190,7 +185,7 @@ export async function buildCheckoutSession(
     const cancelUrl = `${baseUrl}/dashboard/billing/change-plan?canceled=true`;
 
     // Create Checkout session for subscription update
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripeClient().checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       line_items: [
