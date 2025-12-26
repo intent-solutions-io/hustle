@@ -76,13 +76,13 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
 
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: player, isLoading: playerLoading, refetch: refetchPlayer } = usePlayer(id);
-  const { data: games, isLoading: gamesLoading, refetch: refetchGames } = useGames(id);
+  const { data: player, isLoading: playerLoading, isRefetching: playerRefetching, refetch: refetchPlayer } = usePlayer(id);
+  const { data: games, isLoading: gamesLoading, isRefetching: gamesRefetching, refetch: refetchGames } = useGames(id);
   const { stats } = usePlayerStats(id);
   const deleteGame = useDeleteGame();
 
   const isLoading = playerLoading || gamesLoading;
-  const isRefetching = false;
+  const isRefetching = playerRefetching || gamesRefetching;
 
   const handleRefresh = () => {
     refetchPlayer();
