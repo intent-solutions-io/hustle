@@ -32,15 +32,20 @@ export default function Login() {
       const idToken = await user.getIdToken();
 
       // Set cookie via API route
-      await fetch('/api/auth/set-session', {
+      const sessionRes = await fetch('/api/auth/set-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken }),
+        credentials: 'include', // Ensure cookies are included
       });
 
-      // Success - redirect to dashboard
-      router.push('/dashboard');
-      router.refresh();
+      if (!sessionRes.ok) {
+        throw new Error('Failed to set session');
+      }
+
+      // Success - redirect to dashboard with full page navigation
+      // Using window.location ensures the browser sends the cookie with the request
+      window.location.href = '/dashboard';
     } catch (error: any) {
       // Handle Firebase Auth errors
       if (error.message) {
