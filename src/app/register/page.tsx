@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { signUp } from '@/lib/firebase/auth';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -77,29 +78,31 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone.replace(/[\s-()]/g, ''),
-          password: formData.password,
-        }),
+      await signUp({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone.replace(/[\s-()]/g, ''),
+        password: formData.password,
+        agreedToTerms: true,
+        agreedToPrivacy: true,
+        isParentGuardian: true,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErrors({ submit: data.error || 'Registration failed' });
-        return;
-      }
-
-      // Redirect to login or dashboard
+      // Redirect to login with success message
       window.location.href = '/login?registered=true';
-    } catch {
-      setErrors({ submit: 'An error occurred. Please try again.' });
+    } catch (error: unknown) {
+      // Handle Firebase Auth errors
+      const firebaseError = error as { code?: string; message?: string };
+      if (firebaseError.code === 'auth/email-already-in-use') {
+        setErrors({ submit: 'An account with this email already exists.' });
+      } else if (firebaseError.code === 'auth/weak-password') {
+        setErrors({ submit: 'Password is too weak. Please use a stronger password.' });
+      } else if (firebaseError.code === 'auth/invalid-email') {
+        setErrors({ submit: 'Please enter a valid email address.' });
+      } else {
+        setErrors({ submit: firebaseError.message || 'An error occurred. Please try again.' });
+      }
     } finally {
       setIsLoading(false);
     }

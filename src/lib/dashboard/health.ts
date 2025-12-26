@@ -11,16 +11,11 @@
  * - Email verification status
  */
 
-import Stripe from 'stripe';
+import { getStripeClient } from '@/lib/stripe/client';
 import { adminDb } from '@/lib/firebase/admin';
 import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import type { Workspace, WorkspaceStatus, WorkspacePlan } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
 
 /**
  * Workspace Health Data Shape
@@ -109,7 +104,7 @@ export async function getWorkspaceHealth(): Promise<WorkspaceHealthData | null> 
   if (stripeCustomerId) {
     try {
       // Fetch subscription from Stripe
-      const subscription = await stripe.subscriptions.list({
+      const subscription = await getStripeClient().subscriptions.list({
         customer: stripeCustomerId,
         limit: 1,
         status: 'all',
