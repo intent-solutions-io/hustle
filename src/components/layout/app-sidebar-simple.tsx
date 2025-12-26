@@ -13,7 +13,7 @@ import {
   SidebarRail,
   useSidebar
 } from '@/components/ui/sidebar';
-import { Home, Users, Calendar, BarChart3, Settings, LogOut } from 'lucide-react';
+import { Home, Users, Calendar, BarChart3, Settings, LogOut, Dumbbell } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut as firebaseSignOut } from '@/lib/firebase/auth';
@@ -33,6 +33,11 @@ const navItems = [
     title: 'Games',
     href: '/dashboard/games',
     icon: Calendar
+  },
+  {
+    title: 'Dream Gym',
+    href: '/dashboard/dream-gym',
+    icon: Dumbbell
   },
   {
     title: 'Analytics',
