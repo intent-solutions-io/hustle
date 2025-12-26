@@ -6,15 +6,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
+import { getStripeClient } from '@/lib/stripe/client';
 import { auth } from '@/lib/auth';
 import { getWorkspaceById, updateWorkspaceBilling } from '@/lib/firebase/services/workspaces';
 import { z } from 'zod';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
 
 // Request validation schema
 const checkoutRequestSchema = z.object({
@@ -74,7 +69,7 @@ export async function POST(request: NextRequest) {
     let customerId = workspace.billing.stripeCustomerId;
 
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripeClient().customers.create({
         email: session.user.email || undefined,
         metadata: {
           workspaceId,
@@ -92,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     // 5. Create Stripe Checkout Session
     const baseUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || 'http://localhost:3000';
-    const checkoutSession = await stripe.checkout.sessions.create({
+    const checkoutSession = await getStripeClient().checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       line_items: [

@@ -13,17 +13,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
+import { getStripeClient } from '@/lib/stripe/client';
 import { adminDb } from '@/lib/firebase/admin';
 import { sendEmail } from '@/lib/email';
 import { emailTemplates } from '@/lib/email-templates';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/webhooks/stripe');
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
-});
 
 // Webhook secret from Stripe Dashboard
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -48,7 +44,7 @@ export async function POST(request: NextRequest) {
     // Verify webhook signature
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET);
+      event = getStripeClient().webhooks.constructEvent(body, signature, WEBHOOK_SECRET);
     } catch (err: any) {
       logger.error('Webhook signature verification failed', err);
       return NextResponse.json(
