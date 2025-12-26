@@ -24,6 +24,7 @@
  */
 
 import Stripe from 'stripe';
+import { getStripeClient } from '@/lib/stripe/client';
 import { adminDb } from '@/lib/firebase/admin';
 import type { Workspace, WorkspacePlan, WorkspaceStatus } from '@/types/firestore';
 import {
@@ -32,11 +33,6 @@ import {
 } from '@/lib/stripe/plan-mapping';
 import { recordBillingEvent } from '@/lib/stripe/ledger';
 import { enforceWorkspacePlan } from '@/lib/stripe/plan-enforcement';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
 
 /**
  * Audit Report
@@ -145,7 +141,7 @@ export async function auditWorkspaceBilling(
   // 4. Fetch Stripe subscription
   let subscription: Stripe.Subscription;
   try {
-    subscription = await stripe.subscriptions.retrieve(workspace.billing.stripeSubscriptionId);
+    subscription = await getStripeClient().subscriptions.retrieve(workspace.billing.stripeSubscriptionId);
   } catch (error: any) {
     // Subscription not found in Stripe
     report.drift = true;

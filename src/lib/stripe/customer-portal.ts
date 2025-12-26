@@ -13,11 +13,7 @@
  */
 
 import Stripe from 'stripe';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
+import { getStripeClient } from '@/lib/stripe/client';
 
 /**
  * Create a Stripe Customer Portal session
@@ -44,7 +40,7 @@ export async function createCustomerPortalSession(
   returnUrl: string
 ): Promise<Stripe.BillingPortal.Session> {
   try {
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await getStripeClient().billingPortal.sessions.create({
       customer: customerId,
       return_url: returnUrl,
     });

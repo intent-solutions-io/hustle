@@ -8,14 +8,9 @@
  * - Invoice history retrieval
  */
 
-import Stripe from 'stripe';
+import { getStripeClient } from '@/lib/stripe/client';
 import { adminDb } from '@/lib/firebase/admin';
 import type { Workspace } from '@/types/firestore';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
 
 /**
  * Invoice DTO for dashboard display
@@ -77,7 +72,7 @@ export async function getOrCreateBillingPortalUrl(
     const returnUrl = `${baseUrl}${returnPath}`;
 
     // 4. Create Stripe Customer Portal session
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await getStripeClient().billingPortal.sessions.create({
       customer: customerId,
       return_url: returnUrl,
     });
@@ -129,7 +124,7 @@ export async function listRecentInvoices(
     }
 
     // 3. Fetch invoices from Stripe
-    const invoices = await stripe.invoices.list({
+    const invoices = await getStripeClient().invoices.list({
       customer: customerId,
       limit,
     });

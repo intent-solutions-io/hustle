@@ -75,19 +75,27 @@ export async function signUp(data: {
  * Sign in with email and password
  *
  * Requires email verification before allowing login.
+ * E2E test mode: Set NEXT_PUBLIC_E2E_TEST_MODE=true to skip email verification.
  */
 export async function signIn(email: string, password: string): Promise<FirebaseUser> {
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
-  // Enforce email verification
-  if (!user.emailVerified) {
+  // Skip email verification in E2E test mode (localhost only)
+  const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+  const isLocalhost = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  // Enforce email verification (unless in E2E test mode on localhost)
+  if (!user.emailVerified && !(isE2ETestMode && isLocalhost)) {
     await firebaseSignOut(auth);
     throw new Error('Please verify your email before logging in. Check your inbox for the verification link.');
   }
 
-  // Sync email verification status to Firestore
-  await markEmailVerified(user.uid);
+  // Sync email verification status to Firestore (skip in E2E test mode)
+  if (user.emailVerified) {
+    await markEmailVerified(user.uid);
+  }
 
   return user;
 }

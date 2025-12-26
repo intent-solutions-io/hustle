@@ -21,6 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { getStripeClient } from '@/lib/stripe/client';
 import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { adminDb } from '@/lib/firebase/admin';
 import {
@@ -29,11 +30,6 @@ import {
 } from '@/lib/firebase/services/workspaces';
 import { enforceWorkspacePlan } from '@/lib/stripe/plan-enforcement';
 import type { Workspace } from '@/types/firestore';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
 
 /**
  * Admin allow-list (UIDs)
@@ -169,7 +165,7 @@ export async function POST(request: NextRequest) {
     };
 
     // 7. Fetch recent Stripe events for this customer
-    const events = await stripe.events.list({
+    const events = await getStripeClient().events.list({
       limit: 100, // Last 100 events
       type: [
         'checkout.session.completed',
@@ -341,7 +337,7 @@ async function replayCheckoutSessionCompleted(
   }
 
   // Fetch subscription details
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0].price.id;
 
   console.log('[Replay] Checkout completed:', {
@@ -462,7 +458,7 @@ async function replayPaymentFailed(
   });
 
   // Fetch subscription to get price ID
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0].price.id;
 
   // Enforce workspace plan and status (Phase 7 Task 9)
@@ -501,7 +497,7 @@ async function replayPaymentSucceeded(
   });
 
   // Fetch subscription to get price ID and updated period
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0].price.id;
 
   // Enforce workspace plan and status (Phase 7 Task 9)

@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { getStripeClient } from '@/lib/stripe/client';
 import {
   getWorkspaceByStripeCustomerId,
   updateWorkspace,
@@ -26,11 +27,6 @@ import {
 } from '@/lib/stripe/plan-mapping';
 import { recordBillingEvent } from '@/lib/stripe/ledger';
 import { enforceWorkspacePlan } from '@/lib/stripe/plan-enforcement';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -53,7 +49,7 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = getStripeClient().webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err: any) {
       console.error('Webhook signature verification failed:', err.message);
       return NextResponse.json(
@@ -126,7 +122,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   }
 
   // Fetch subscription details
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0].price.id;
 
   console.log('Checkout completed:', {
@@ -253,7 +249,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice, eventId: string) {
   });
 
   // Fetch subscription to get price ID
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0].price.id;
 
   // Enforce workspace plan and status (Phase 7 Task 9)
@@ -295,7 +291,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice, eventId: string) 
   });
 
   // Fetch subscription to get price ID and updated period
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0].price.id;
 
   // Enforce workspace plan and status (Phase 7 Task 9)
