@@ -16,6 +16,7 @@ import {
   updateDoc,
   serverTimestamp,
   Timestamp,
+  type FieldValue,
 } from 'firebase/firestore';
 import { db } from '../config';
 import type {
@@ -99,10 +100,12 @@ export async function upsertDreamGym(
     });
   } else {
     // Create new document
-    const dreamGymDoc: Omit<DreamGymDocument, 'createdAt' | 'updatedAt'> & {
-      createdAt: any;
-      updatedAt: any;
-    } = {
+    // Use type that accepts FieldValue for serverTimestamp()
+    type NewDreamGymDoc = Omit<DreamGymDocument, 'createdAt' | 'updatedAt'> & {
+      createdAt: FieldValue;
+      updatedAt: FieldValue;
+    };
+    const dreamGymDoc: NewDreamGymDoc = {
       playerId,
       profile: data.profile,
       schedule: data.schedule,
@@ -177,10 +180,14 @@ export async function addDreamGymEvent(
   }
 
   const eventId = `event_${Date.now()}`;
+  // Convert date to Timestamp - handle both Date objects and serialized dates
+  const eventDate = event.date instanceof Timestamp
+    ? event.date
+    : Timestamp.fromDate(event.date instanceof Date ? event.date : new Date(String(event.date)));
   const newEvent: DreamGymEvent = {
     ...event,
     id: eventId,
-    date: Timestamp.fromDate(event.date instanceof Date ? event.date : new Date(event.date as unknown as string)) as any,
+    date: eventDate,
   };
 
   const existingEvents = docSnap.data().events || [];
@@ -232,7 +239,7 @@ export async function addMentalCheckIn(
   const now = Timestamp.now();
   const newCheckIn: DreamGymMentalCheckIn = {
     ...checkIn,
-    date: now as any,
+    date: now,
   };
 
   const existingCheckIns = docSnap.data().mental?.checkIns || [];
