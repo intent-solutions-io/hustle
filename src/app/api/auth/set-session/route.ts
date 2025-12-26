@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
-import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,18 +23,10 @@ export async function POST(request: NextRequest) {
     const decodedToken = await adminAuth.verifyIdToken(idToken, true);
 
     // Set session cookie (14 days expiry)
-    const expiresIn = 60 * 60 * 24 * 14 * 1000; // 14 days in milliseconds
-    const cookieStore = await cookies();
+    const expiresIn = 60 * 60 * 24 * 14; // 14 days in seconds
 
-    cookieStore.set('__session', idToken, {
-      maxAge: expiresIn / 1000, // Convert to seconds
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-    });
-
-    return NextResponse.json({
+    // Create response with cookie set in headers (ensures browser receives it)
+    const response = NextResponse.json({
       success: true,
       message: 'Session set successfully',
       user: {
@@ -44,6 +35,17 @@ export async function POST(request: NextRequest) {
         emailVerified: decodedToken.email_verified,
       },
     });
+
+    // Set cookie on response object to ensure it's in the Set-Cookie header
+    response.cookies.set('__session', idToken, {
+      maxAge: expiresIn,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    return response;
   } catch (error: unknown) {
     console.error('Set session error:', error);
 
