@@ -264,6 +264,184 @@ export interface WorkspaceInviteDocument {
   updatedAt: Timestamp;
 }
 
+// ============================================================================
+// DREAM GYM TYPES
+// ============================================================================
+
+/**
+ * Dream Gym Training Goals
+ */
+export type DreamGymGoal =
+  | 'fat_loss'
+  | 'muscle_build'
+  | 'core'
+  | 'leg_power'
+  | 'soccer_offday';
+
+/**
+ * Dream Gym Intensity Level
+ */
+export type DreamGymIntensity = 'light' | 'normal' | 'beast_mode';
+
+/**
+ * Dream Gym Day Type (for practice schedule)
+ */
+export type DreamGymDayType =
+  | 'off'
+  | 'practice_light'
+  | 'practice_medium'
+  | 'practice_hard'
+  | 'game'
+  | 'tournament';
+
+/**
+ * Dream Gym Equipment Tags
+ */
+export type DreamGymEquipment =
+  | 'dumbbells'
+  | 'barbell'
+  | 'bands'
+  | 'kettlebell'
+  | 'bench'
+  | 'pull_up_bar'
+  | 'cable'
+  | 'jump_rope'
+  | 'foam_roller'
+  | 'medicine_ball';
+
+/**
+ * Dream Gym Profile
+ * Training preferences and physical info for workout generation
+ */
+export interface DreamGymProfile {
+  hasGymAccess: boolean;
+  hasHomeEquipment: boolean;
+  equipmentTags: DreamGymEquipment[];
+  heightCm?: number | null;
+  weightKg?: number | null;
+  sport: 'soccer';
+  position: SoccerPositionCode;
+  goals: DreamGymGoal[];
+  intensity: DreamGymIntensity;
+  onboardingComplete: boolean;
+}
+
+/**
+ * Dream Gym Practice Schedule
+ * Weekly schedule template for load management
+ */
+export interface DreamGymSchedule {
+  monday: DreamGymDayType;
+  tuesday: DreamGymDayType;
+  wednesday: DreamGymDayType;
+  thursday: DreamGymDayType;
+  friday: DreamGymDayType;
+  saturday: DreamGymDayType;
+  sunday: DreamGymDayType;
+}
+
+/**
+ * Dream Gym Event (game, tournament, special practice)
+ */
+export interface DreamGymEvent {
+  id: string;
+  date: Timestamp;
+  type: 'game' | 'tournament' | 'tryout' | 'camp';
+  name: string;
+  notes?: string | null;
+}
+
+/**
+ * Dream Gym Mental Check-in
+ * Daily readiness assessment for load management
+ */
+export interface DreamGymMentalCheckIn {
+  date: Timestamp;
+  mood: 1 | 2 | 3 | 4 | 5;
+  energy: 'low' | 'ok' | 'high';
+  soreness: 'low' | 'medium' | 'high';
+  stress: 'low' | 'medium' | 'high';
+  notes?: string | null;
+}
+
+/**
+ * Dream Gym Document
+ * Subcollection: /users/{userId}/players/{playerId}/dreamGym
+ *
+ * Complete Dream Gym data for a player
+ */
+export interface DreamGymDocument {
+  // Player reference
+  playerId: string;
+
+  // Profile & preferences
+  profile: DreamGymProfile;
+
+  // Weekly schedule template
+  schedule: DreamGymSchedule;
+
+  // Upcoming events
+  events: DreamGymEvent[];
+
+  // Mental game tracking
+  mental: {
+    checkIns: DreamGymMentalCheckIn[];
+    favoriteTips: string[];
+    lastCheckIn?: Timestamp | null;
+  };
+
+  // Timestamps
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Exercise Definition (for workout library)
+ */
+export interface ExerciseDefinition {
+  id: string;
+  name: string;
+  mode: 'gym' | 'home' | 'both';
+  equipment: DreamGymEquipment[];
+  targets: string[];
+  category: 'legs' | 'core' | 'upper' | 'conditioning';
+  videoUrl?: string | null;
+  instructions?: string | null;
+}
+
+/**
+ * Workout Exercise (in a generated workout)
+ */
+export interface WorkoutExercise {
+  exerciseId: string;
+  name: string;
+  sets: number;
+  reps: string; // e.g., "10-12" or "30s"
+  rest: string; // e.g., "60s"
+  notes?: string | null;
+}
+
+/**
+ * Generated Workout
+ */
+export interface GeneratedWorkout {
+  id: string;
+  playerId: string;
+  date: Timestamp;
+  type: 'strength' | 'conditioning' | 'recovery' | 'soccer_specific';
+  title: string;
+  duration: number; // minutes
+  exercises: WorkoutExercise[];
+  warmup: string[];
+  cooldown: string[];
+  completed: boolean;
+  completedAt?: Timestamp | null;
+}
+
+// ============================================================================
+// CLIENT-SIDE TYPES
+// ============================================================================
+
 /**
  * Client-side types (with Date instead of Timestamp)
  * Used in React components and API routes.
@@ -316,4 +494,30 @@ export interface WorkspaceInvite extends Omit<WorkspaceInviteDocument, 'createdA
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Dream Gym client-side types
+export interface DreamGymEventClient extends Omit<DreamGymEvent, 'date'> {
+  date: Date;
+}
+
+export interface DreamGymMentalCheckInClient extends Omit<DreamGymMentalCheckIn, 'date'> {
+  date: Date;
+}
+
+export interface DreamGym extends Omit<DreamGymDocument, 'createdAt' | 'updatedAt' | 'events' | 'mental'> {
+  id: string;
+  events: DreamGymEventClient[];
+  mental: {
+    checkIns: DreamGymMentalCheckInClient[];
+    favoriteTips: string[];
+    lastCheckIn?: Date | null;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Workout extends Omit<GeneratedWorkout, 'date' | 'completedAt'> {
+  date: Date;
+  completedAt: Date | null;
 }
