@@ -82,7 +82,13 @@ export const adminAuth = {
 
 export const adminDb = {
   collection: (...args: Parameters<Firestore['collection']>) => getAdminDb().collection(...args),
+  collectionGroup: (...args: Parameters<Firestore['collectionGroup']>) => getAdminDb().collectionGroup(...args),
   doc: (...args: Parameters<Firestore['doc']>) => getAdminDb().doc(...args),
   batch: () => getAdminDb().batch(),
-  runTransaction: <T>(...args: Parameters<Firestore['runTransaction']>) => getAdminDb().runTransaction<T>(...args as [any]),
+  runTransaction: <T>(
+    updateFunction: (transaction: FirebaseFirestore.Transaction) => Promise<T>,
+    transactionOptions?: FirebaseFirestore.ReadWriteTransactionOptions
+  ) => getAdminDb().runTransaction(updateFunction, transactionOptions),
+  getAll: (...args: Parameters<Firestore['getAll']>) => getAdminDb().getAll(...args),
+  bulkWriter: (options?: FirebaseFirestore.BulkWriterOptions) => getAdminDb().bulkWriter(options),
 };

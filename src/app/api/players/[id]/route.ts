@@ -7,6 +7,49 @@ import { assertWorkspaceActive } from '@/lib/workspaces/enforce';
 import { WorkspaceAccessError } from '@/lib/firebase/access-control';
 
 /**
+ * GET /api/players/[id] - Get single athlete
+ * Security: Verifies parent ownership
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+
+    // Get player (Firestore - ownership verified by subcollection path)
+    const player = await getPlayer(session.user.id, id);
+
+    if (!player) {
+      return NextResponse.json(
+        { error: 'Player not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      player
+    });
+  } catch (error) {
+    console.error('Error fetching player:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch player' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * PUT /api/players/[id] - Update athlete profile
  * Security: Verifies parent ownership before update
  */

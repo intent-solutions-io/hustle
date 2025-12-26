@@ -40,7 +40,12 @@ const createPlayerSchema = z.object({
   primaryPosition: z.string().min(1, 'Position is required'),
   leagueCode: z.string().min(1, 'League is required'),
   gender: z.enum(['male', 'female']),
+  birthYear: z.number().min(2005).max(2020),
 });
+
+// Generate birth years for youth soccer (ages 5-20)
+const currentYear = new Date().getFullYear();
+const BIRTH_YEARS = Array.from({ length: 16 }, (_, i) => currentYear - 5 - i);
 
 type CreatePlayerFormData = z.infer<typeof createPlayerSchema>;
 
@@ -113,6 +118,7 @@ function AddPlayerModal({
       primaryPosition: 'CM',
       leagueCode: 'local_travel',
       gender: 'male',
+      birthYear: currentYear - 12, // Default to 12-year-old
     },
   });
 
@@ -223,6 +229,52 @@ function AddPlayerModal({
               />
             </View>
 
+            {/* Birth Year */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Birth Year</Text>
+              <Controller
+                control={control}
+                name="birthYear"
+                render={({ field: { onChange, value } }) => (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.birthYearScroll}
+                  >
+                    <View style={styles.birthYearRow}>
+                      {BIRTH_YEARS.map((year) => (
+                        <TouchableOpacity
+                          key={year}
+                          style={[
+                            styles.birthYearOption,
+                            value === year && styles.birthYearOptionSelected,
+                          ]}
+                          onPress={() => onChange(year)}
+                        >
+                          <Text
+                            style={[
+                              styles.birthYearText,
+                              value === year && styles.birthYearTextSelected,
+                            ]}
+                          >
+                            {year}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.birthYearAge,
+                              value === year && styles.birthYearAgeSelected,
+                            ]}
+                          >
+                            Age {currentYear - year}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                )}
+              />
+            </View>
+
             {/* Position */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Primary Position</Text>
@@ -284,7 +336,7 @@ export default function PlayersScreen() {
         primaryPosition: data.primaryPosition as SoccerPositionCode,
         leagueCode: data.leagueCode as LeagueCode,
         gender: data.gender as PlayerGender,
-        birthday: new Date(2010, 0, 1), // Default birthday (will be editable later)
+        birthday: new Date(data.birthYear, 0, 1), // Use selected birth year
       });
       setModalVisible(false);
     } catch (error) {
@@ -559,6 +611,43 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   positionNameSelected: {
+    color: '#dbeafe',
+  },
+  birthYearScroll: {
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+  },
+  birthYearRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  birthYearOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    minWidth: 70,
+  },
+  birthYearOptionSelected: {
+    backgroundColor: '#1e40af',
+    borderColor: '#1e40af',
+  },
+  birthYearText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  birthYearTextSelected: {
+    color: '#fff',
+  },
+  birthYearAge: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  birthYearAgeSelected: {
     color: '#dbeafe',
   },
 });
