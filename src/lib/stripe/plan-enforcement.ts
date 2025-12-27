@@ -26,13 +26,31 @@
  */
 
 import { adminDb } from '@/lib/firebase/admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { Workspace, WorkspacePlan, WorkspaceStatus } from '@/types/firestore';
 import {
   getPlanForPriceId,
   mapStripeStatusToWorkspaceStatus,
 } from '@/lib/stripe/plan-mapping';
 import { recordBillingEvent, LedgerEventSource } from '@/lib/stripe/ledger';
+
+/** Safely convert Firestore Timestamp to Date with warning on missing data */
+function safeTimestampToDate(
+  value: unknown,
+  fieldName: string,
+  docId: string
+): Date {
+  if (value instanceof Timestamp) {
+    return value.toDate();
+  }
+  if (value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  console.warn(
+    `[plan-enforcement] Missing or invalid ${fieldName} for workspace ${docId}, using current time`
+  );
+  return new Date();
+}
 
 /**
  * Enforcement input parameters
@@ -118,17 +136,17 @@ export async function enforceWorkspacePlan(
   const workspace = {
     id: workspaceDoc.id,
     ...workspaceData,
-    createdAt: workspaceData?.createdAt?.toDate() || new Date(),
-    updatedAt: workspaceData?.updatedAt?.toDate() || new Date(),
+    createdAt: safeTimestampToDate(workspaceData?.createdAt, 'createdAt', workspaceId),
+    updatedAt: safeTimestampToDate(workspaceData?.updatedAt, 'updatedAt', workspaceId),
     deletedAt: workspaceData?.deletedAt?.toDate() || null,
     billing: {
       stripeCustomerId: workspaceData?.billing?.stripeCustomerId || null,
       stripeSubscriptionId: workspaceData?.billing?.stripeSubscriptionId || null,
       currentPeriodEnd: workspaceData?.billing?.currentPeriodEnd?.toDate() || null,
     },
-    members: (workspaceData?.members || []).map((member: any) => ({
+    members: (workspaceData?.members || []).map((member: { addedAt?: unknown; [key: string]: unknown }) => ({
       ...member,
-      addedAt: member.addedAt?.toDate() || new Date(),
+      addedAt: safeTimestampToDate(member.addedAt, 'member.addedAt', workspaceId),
     })),
   } as unknown as Workspace;
 
@@ -167,8 +185,9 @@ export async function enforceWorkspacePlan(
   // 5. Update workspace if mismatch detected
   if (planChanged || statusChanged) {
     // Update Firestore workspace document
-    const updates: Partial<Workspace> = {
-      updatedAt: FieldValue.serverTimestamp() as any,
+    // Note: Using Record type as FieldValue.serverTimestamp() is a sentinel, not a Date
+    const updates: Record<string, WorkspacePlan | WorkspaceStatus | ReturnType<typeof FieldValue.serverTimestamp>> = {
+      updatedAt: FieldValue.serverTimestamp(),
     };
 
     if (planChanged) {
