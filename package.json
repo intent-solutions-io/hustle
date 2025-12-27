@@ -21,6 +21,7 @@
     "smoke-test": "tsx tests/e2e/smoke-test.ts",
     "qa:e2e": "playwright test --project=chromium",
     "qa:e2e:smoke": "playwright test 03-Tests/e2e/05-login-healthcheck.spec.ts 03-Tests/e2e/04-complete-user-journey.spec.ts --project=chromium",
+    "qa:e2e:update-snapshots": "playwright test --update-snapshots --project=chromium",
     "qa:seed:staging": "tsx 05-Scripts/seed-staging.ts"
   },
   "dependencies": {
