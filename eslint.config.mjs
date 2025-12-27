@@ -22,8 +22,10 @@ const eslintConfig = [
       "05-Scripts/**",
       // Archived legacy code
       "99-Archive/**",
-      // Compiled Cloud Functions output
-      "functions/lib/**",
+      // Cloud Functions (separate TypeScript project)
+      "functions/**",
+      // Mobile app (separate Expo project)
+      "mobile/**",
       // Test utility scripts
       "03-Tests/scripts/**/*.js",
     ],
