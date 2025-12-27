@@ -26,6 +26,7 @@
 import Stripe from 'stripe';
 import { getStripeClient } from '@/lib/stripe/client';
 import { adminDb } from '@/lib/firebase/admin';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { Workspace, WorkspacePlan, WorkspaceStatus } from '@/types/firestore';
 import {
   getPlanForPriceId,
@@ -33,6 +34,24 @@ import {
 } from '@/lib/stripe/plan-mapping';
 import { recordBillingEvent } from '@/lib/stripe/ledger';
 import { enforceWorkspacePlan } from '@/lib/stripe/plan-enforcement';
+
+/** Safely convert Firestore Timestamp to Date with warning on missing data */
+function safeTimestampToDate(
+  value: unknown,
+  fieldName: string,
+  docId: string
+): Date {
+  if (value instanceof Timestamp) {
+    return value.toDate();
+  }
+  if (value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  console.warn(
+    `[auditor] Missing or invalid ${fieldName} for workspace ${docId}, using current time`
+  );
+  return new Date();
+}
 
 /**
  * Audit Report
@@ -89,18 +108,18 @@ export async function auditWorkspaceBilling(
   const workspace = {
     id: workspaceDoc.id,
     ...workspaceData,
-    // Convert Firestore Timestamps to Dates
-    createdAt: workspaceData?.createdAt?.toDate() || new Date(),
-    updatedAt: workspaceData?.updatedAt?.toDate() || new Date(),
+    // Convert Firestore Timestamps to Dates (with warning on missing data)
+    createdAt: safeTimestampToDate(workspaceData?.createdAt, 'createdAt', workspaceId),
+    updatedAt: safeTimestampToDate(workspaceData?.updatedAt, 'updatedAt', workspaceId),
     deletedAt: workspaceData?.deletedAt?.toDate() || null,
     billing: {
       stripeCustomerId: workspaceData?.billing?.stripeCustomerId || null,
       stripeSubscriptionId: workspaceData?.billing?.stripeSubscriptionId || null,
       currentPeriodEnd: workspaceData?.billing?.currentPeriodEnd?.toDate() || null,
     },
-    members: (workspaceData?.members || []).map((member: any) => ({
+    members: (workspaceData?.members || []).map((member: { addedAt?: unknown; [key: string]: unknown }) => ({
       ...member,
-      addedAt: member.addedAt?.toDate() || new Date(),
+      addedAt: safeTimestampToDate(member.addedAt, 'member.addedAt', workspaceId),
     })),
   } as unknown as Workspace;
 

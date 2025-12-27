@@ -70,7 +70,12 @@ export function getAdminDb(): Firestore {
   return _adminDb;
 }
 
-// Legacy exports for backward compatibility (lazy getters)
+/**
+ * Legacy exports for backward compatibility (lazy getters)
+ *
+ * These proxies forward common Firestore methods to lazily-initialized instances.
+ * For full Firestore functionality (e.g., settings, terminate), use getAdminDb() directly.
+ */
 export const adminAuth = {
   verifyIdToken: (...args: Parameters<Auth['verifyIdToken']>) => getAdminAuth().verifyIdToken(...args),
   getUser: (...args: Parameters<Auth['getUser']>) => getAdminAuth().getUser(...args),

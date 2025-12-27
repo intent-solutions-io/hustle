@@ -164,13 +164,18 @@ export async function updateDreamGymSchedule(
   });
 }
 
+/** Input type for adding events - accepts Date or Timestamp for flexibility */
+type DreamGymEventInput = Omit<DreamGymEvent, 'id' | 'date'> & {
+  date: Date | Timestamp;
+};
+
 /**
  * Add an event to Dream Gym
  */
 export async function addDreamGymEvent(
   userId: string,
   playerId: string,
-  event: Omit<DreamGymEvent, 'id'>
+  event: DreamGymEventInput
 ): Promise<string> {
   const docRef = doc(db, `users/${userId}/players/${playerId}/dreamGym`, DREAM_GYM_DOC_ID);
   const docSnap = await getDoc(docRef);
