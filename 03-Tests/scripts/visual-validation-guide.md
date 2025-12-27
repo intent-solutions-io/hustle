@@ -26,8 +26,8 @@ Our E2E tests capture screenshots at these key journey points:
 ## How to Generate Screenshots
 
 ```bash
-# Run E2E tests to generate screenshots
-npm run test:e2e -- --update-snapshots
+# Run E2E tests to generate/update screenshots (Chromium only)
+npm run qa:e2e:update-snapshots
 
 # Screenshots are saved to: 03-Tests/snapshots/
 ```

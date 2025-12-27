@@ -161,7 +161,13 @@ test.describe('Dashboard - Responsive Design', () => {
     expect(body?.width).toBeLessThanOrEqual(390);
 
     // Visual regression: mobile layout
-    await expect(page).toHaveScreenshot('dashboard-mobile.png', { fullPage: true });
+    await expect(page).toHaveScreenshot('dashboard-mobile.png', {
+      fullPage: true,
+      mask: [
+        page.locator('[data-testid="timestamp"]'),
+        page.locator('[data-testid="user-name"]'),
+      ],
+    });
   });
 
   test('should work on tablet (iPad)', async ({ page }) => {
@@ -172,7 +178,13 @@ test.describe('Dashboard - Responsive Design', () => {
     await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible();
 
     // Visual regression: tablet layout
-    await expect(page).toHaveScreenshot('dashboard-tablet.png', { fullPage: true });
+    await expect(page).toHaveScreenshot('dashboard-tablet.png', {
+      fullPage: true,
+      mask: [
+        page.locator('[data-testid="timestamp"]'),
+        page.locator('[data-testid="user-name"]'),
+      ],
+    });
   });
 
   test('should work on desktop (1920x1080)', async ({ page }) => {
@@ -183,7 +195,13 @@ test.describe('Dashboard - Responsive Design', () => {
     await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible();
 
     // Visual regression: desktop layout
-    await expect(page).toHaveScreenshot('dashboard-desktop.png', { fullPage: true });
+    await expect(page).toHaveScreenshot('dashboard-desktop.png', {
+      fullPage: true,
+      mask: [
+        page.locator('[data-testid="timestamp"]'),
+        page.locator('[data-testid="user-name"]'),
+      ],
+    });
   });
 });
 
