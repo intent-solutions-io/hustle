@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPlayer } from '@/lib/firebase/services/players';
 import { addDreamGymEvent } from '@/lib/firebase/services/dream-gym';
-import { Timestamp } from 'firebase/firestore';
 
 /**
  * POST /api/players/[id]/dream-gym/events - Add a Dream Gym event
@@ -42,9 +41,9 @@ export async function POST(
       );
     }
 
-    // Add event
+    // Add event - service handles date-to-Timestamp conversion
     const eventId = await addDreamGymEvent(session.user.id, playerId, {
-      date: Timestamp.fromDate(new Date(date)) as any,
+      date: new Date(date),
       type,
       name,
       notes: notes || null,
