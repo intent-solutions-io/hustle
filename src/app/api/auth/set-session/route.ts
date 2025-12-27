@@ -41,10 +41,12 @@ export async function POST(request: NextRequest) {
 
     // Set cookie on response (single source of truth)
     // Using response.cookies ensures the Set-Cookie header is properly sent
+    // Note: secure=false in E2E tests (localhost HTTP), true in production (HTTPS)
+    const isE2ETest = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
     response.cookies.set('__session', idToken, {
       maxAge: expiresIn,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' && !isE2ETest,
       sameSite: 'lax',
       path: '/',
     });
