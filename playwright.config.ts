@@ -98,7 +98,7 @@ export default defineConfig({
   webServer: {
     command: 'NEXT_PUBLIC_E2E_TEST_MODE=true npm run dev -- -H 0.0.0.0 -p 4000',
     url: 'http://localhost:4000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI, // Reuse in local dev, start fresh in CI
     timeout: 120 * 1000,
   },
 });
