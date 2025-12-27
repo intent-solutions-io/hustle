@@ -18,6 +18,14 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Utility scripts (not production code)
+      "05-Scripts/**",
+      // Archived legacy code
+      "99-Archive/**",
+      // Compiled Cloud Functions output
+      "functions/lib/**",
+      // Test utility scripts
+      "03-Tests/scripts/**/*.js",
     ],
   },
 ];
