@@ -45,6 +45,15 @@ test.describe('Dashboard - Basic Functionality', () => {
 
     // Check for dashboard elements
     await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible();
+
+    // Visual regression: capture dashboard main view
+    await expect(page).toHaveScreenshot('dashboard-main.png', {
+      fullPage: true,
+      mask: [
+        page.locator('[data-testid="timestamp"]'),
+        page.locator('[data-testid="user-name"]'),
+      ],
+    });
   });
 
   test('should show welcome message or user name', async ({ page }) => {
@@ -150,6 +159,15 @@ test.describe('Dashboard - Responsive Design', () => {
     // Content should not overflow
     const body = await page.locator('body').boundingBox();
     expect(body?.width).toBeLessThanOrEqual(390);
+
+    // Visual regression: mobile layout
+    await expect(page).toHaveScreenshot('dashboard-mobile.png', {
+      fullPage: true,
+      mask: [
+        page.locator('[data-testid="timestamp"]'),
+        page.locator('[data-testid="user-name"]'),
+      ],
+    });
   });
 
   test('should work on tablet (iPad)', async ({ page }) => {
@@ -158,6 +176,15 @@ test.describe('Dashboard - Responsive Design', () => {
     await login(page);
 
     await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible();
+
+    // Visual regression: tablet layout
+    await expect(page).toHaveScreenshot('dashboard-tablet.png', {
+      fullPage: true,
+      mask: [
+        page.locator('[data-testid="timestamp"]'),
+        page.locator('[data-testid="user-name"]'),
+      ],
+    });
   });
 
   test('should work on desktop (1920x1080)', async ({ page }) => {
@@ -166,6 +193,15 @@ test.describe('Dashboard - Responsive Design', () => {
     await login(page);
 
     await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible();
+
+    // Visual regression: desktop layout
+    await expect(page).toHaveScreenshot('dashboard-desktop.png', {
+      fullPage: true,
+      mask: [
+        page.locator('[data-testid="timestamp"]'),
+        page.locator('[data-testid="user-name"]'),
+      ],
+    });
   });
 });
 
