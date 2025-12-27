@@ -13,8 +13,20 @@ export default defineConfig({
 
   // Expect timeout for assertions
   expect: {
-    timeout: 5000
+    timeout: 5000,
+    // Visual regression testing configuration
+    toHaveScreenshot: {
+      // Allow 0.2% pixel difference (handles anti-aliasing, font rendering)
+      maxDiffPixelRatio: 0.002,
+      // Threshold for individual pixel color difference (0-1)
+      threshold: 0.2,
+    },
   },
+
+  // Snapshot directory for visual regression screenshots
+  snapshotDir: './03-Tests/snapshots',
+  // Snapshot file naming pattern
+  snapshotPathTemplate: '{snapshotDir}/{testFileDir}/{testFileName}-{projectName}/{arg}{ext}',
 
   // Run tests in files in parallel
   fullyParallel: true,
