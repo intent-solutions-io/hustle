@@ -23,5 +23,14 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "99-Archive/**/*", "claudes-docs/**/*"]
+  "exclude": [
+    "node_modules",
+    "99-Archive/**/*",
+    "claudes-docs/**/*",
+    "000-docs/**/*",
+    "05-Scripts/**/*",
+    "scripts/**/*",
+    "mobile/**/*",
+    "functions/**/*"
+  ]
 }

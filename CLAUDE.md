@@ -1,20 +1,5 @@
-## Task Tracking (Beads / bd)
-- Use `bd` for ALL tasks/issues (no markdown TODO lists).
-- Start of session: `bd ready`
-- Create work: `bd create "Title" -p 1 --description "Context + acceptance criteria"`
-- Update status: `bd update <id> --status in_progress`
-- Finish: `bd close <id> --reason "Done"`
-- End of session: `bd sync` (flush/import/export + git sync)
-- Manual testing safety:
-  - Prefer `BEADS_DIR` to isolate a workspace if needed. (`BEADS_DB` exists but is deprecated.)
-
-
 # CLAUDE.md
 
-
-### Beads upgrades
-- After upgrading `bd`, run: `bd info --whats-new`
-- If `bd info` warns about hooks, run: `bd hooks install`
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -23,32 +8,77 @@ Hustle is a youth soccer statistics tracking platform. **Live**: https://hustles
 
 **Stack**: Next.js 15 + React 19 + TypeScript | Firebase (Auth, Firestore, Functions, Hosting) | Vertex AI Agent Engine (A2A) | Stripe | GitHub Actions with WIF
 
-## Commands
+## Task Tracking (Beads / bd)
+
+Use `bd` for ALL tasks/issues (no markdown TODO lists).
 
 ```bash
-# Development
+bd ready                                    # Start of session - see ready work
+bd create "Title" -p 1 --description "..."  # Create work item
+bd update <id> --status in_progress         # Update status
+bd close <id> --reason "Done"               # Finish work
+bd sync                                     # End of session - flush + git sync
+```
+
+**After upgrading bd**: Run `bd info --whats-new` and `bd hooks install` if warned.
+
+## Commands
+
+### Web App (Next.js)
+```bash
 npm run dev                    # Turbopack dev server (http://localhost:3000)
 npm run build                  # Production build with Turbopack
 npm run lint                   # ESLint (flat config)
 npx tsc --noEmit               # Type check
+```
 
-# Testing
+### Mobile App (React Native / Expo)
+```bash
+cd mobile
+npm start                      # Expo dev server
+npm run ios                    # iOS simulator
+npm run android                # Android emulator
+npm run web                    # Web browser
+npx expo prebuild              # Generate native projects
+npx eas build --platform ios   # EAS cloud build
+```
+
+### Testing
+```bash
 npm run test:unit              # Vitest unit tests (src/**/*.test.ts)
 npm run test:watch             # Vitest watch mode
 npm run test:coverage          # Coverage report (V8)
-npm run test:e2e               # Playwright E2E (03-Tests/e2e/)
-npm run test:e2e:ui            # Playwright UI mode
+npm run test:e2e               # Playwright E2E (03-Tests/e2e/) - headless
+npm run test:e2e:ui            # Playwright UI mode (interactive)
+npm run test:e2e:headed        # Run with visible browser
+npm run test:e2e:debug         # Debug mode (PWDEBUG=1, headed, Chromium)
 npm run qa:e2e:smoke           # Quick smoke tests (login + journey)
+npm run qa:e2e:update-snapshots # Update visual regression baselines
 
 # Run single test file
 npx vitest run src/lib/billing/plan-limits.test.ts
 npx playwright test 03-Tests/e2e/01-authentication.spec.ts
+```
 
-# Firebase
+**CI vs Local**: CI runs headless mode automatically. Use `test:e2e:debug` locally to step through tests with Playwright Inspector.
+
+### Firebase & Cloud Functions
+```bash
+# Emulators
 firebase emulators:start       # Local emulators (Auth, Firestore, Functions)
+
+# Functions development
+cd functions
+npm run build                  # Compile TypeScript
+npm run serve                  # Run functions locally
+npm run shell                  # Interactive functions shell
+npm run logs                   # View function logs
+
+# Deployment
 firebase deploy --only hosting
 firebase deploy --only functions
 firebase deploy --only firestore:rules
+firebase deploy                # Deploy everything
 ```
 
 ## Architecture

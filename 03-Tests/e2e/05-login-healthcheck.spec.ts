@@ -7,6 +7,12 @@ test.describe('Login and Health Check', () => {
     await expect(page).toHaveTitle(/Hustle|Login/);
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
+
+    // Visual regression: capture login page screenshot
+    await expect(page).toHaveScreenshot('login-page.png', {
+      fullPage: true,
+      mask: [page.locator('[data-testid="timestamp"]')], // Mask dynamic content if any
+    });
   });
 
   test('should show validation errors for empty form', async ({ page }) => {
