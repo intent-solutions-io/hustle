@@ -26,6 +26,9 @@ export interface DashboardUser {
  * Verifies Firebase ID token from cookies and fetches user data from Firestore.
  * Returns null if not authenticated.
  *
+ * E2E Test Mode: When NEXT_PUBLIC_E2E_TEST_MODE=true, email verification is
+ * bypassed to allow testing without real email verification.
+ *
  * @returns DashboardUser or null
  */
 export async function getDashboardUser(): Promise<DashboardUser | null> {
@@ -55,12 +58,17 @@ export async function getDashboardUser(): Promise<DashboardUser | null> {
 
     const userData = userDoc.data() as User;
 
+    // E2E test mode: bypass email verification for testing
+    // This matches the client-side behavior in src/lib/firebase/auth.ts
+    const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+    const emailVerified = isE2ETestMode ? true : (decodedToken.email_verified || false);
+
     return {
       uid: decodedToken.uid,
       email: decodedToken.email || null,
       firstName: userData.firstName,
       lastName: userData.lastName,
-      emailVerified: decodedToken.email_verified || false,
+      emailVerified,
     };
   } catch (error: any) {
     console.error('Error getting dashboard user:', error.message);
