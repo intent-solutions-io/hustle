@@ -26,6 +26,7 @@ const eslintConfig = [
       "next-env.d.ts",
       // Utility scripts (not production code)
       "05-Scripts/**",
+      "scripts/**",
       // Archived legacy code
       "99-Archive/**",
       // Cloud Functions (separate TypeScript project)
