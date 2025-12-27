@@ -20,9 +20,34 @@ This plan establishes a **two-layer testing strategy** for Hustle:
 - ✅ 1,581 lines of Playwright E2E tests exist (7 test files)
 - ✅ Comprehensive journey coverage (register → add athlete → log game → verify stats)
 - ✅ Validation tests (XSS, rate limiting, result-score consistency)
-- ❌ **NO GitHub Actions workflow** to run tests on PRs/main
+- ✅ **GitHub Actions CI workflow** runs E2E tests on PRs/main
+- ✅ **E2E Auth Fix** - Server-side email verification bypass in test mode
 - ❌ **NO staging seed script** for stable test data
 - ❌ Missing critical journeys (Stripe, workspace collaboration, password reset, mobile)
+
+---
+
+## E2E Auth & Session Fix (2025-12-27)
+
+### Problem
+E2E tests in CI were failing because:
+1. Client-side `signIn()` bypassed email verification in E2E mode (`NEXT_PUBLIC_E2E_TEST_MODE=true`)
+2. But server-side `getDashboardUser()` still checked `emailVerified` from the Firebase token
+3. New test users have `email_verified: false`, so dashboard redirected back to login
+
+### Solution
+Updated `src/lib/firebase/admin-auth.ts` to also respect E2E test mode:
+
+```typescript
+// E2E test mode: bypass email verification for testing
+const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+const emailVerified = isE2ETestMode ? true : (decodedToken.email_verified || false);
+```
+
+### Production Safety
+- `NEXT_PUBLIC_E2E_TEST_MODE` is only set in CI workflow and Playwright config
+- Production deployments do NOT set this variable
+- Real email verification is enforced in production
 
 ---
 
