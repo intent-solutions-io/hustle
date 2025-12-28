@@ -25,6 +25,20 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
 };
 
+// Validate Firebase config at runtime (helps catch build-time env issues)
+if (typeof window !== 'undefined') {
+  const missingKeys = Object.entries(firebaseConfig)
+    .filter(([_, value]) => !value || value === 'undefined')
+    .map(([key]) => key);
+
+  if (missingKeys.length > 0) {
+    console.error('[Firebase] Missing config keys:', missingKeys);
+    console.error('[Firebase] This usually means environment variables were not embedded at build time.');
+  } else {
+    console.log('[Firebase] Config loaded for project:', firebaseConfig.projectId);
+  }
+}
+
 // Initialize Firebase (singleton pattern)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 

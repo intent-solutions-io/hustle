@@ -72,13 +72,19 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[RegisterPage] Form submitted');
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      console.log('[RegisterPage] Form validation failed');
+      return;
+    }
 
     setIsLoading(true);
+    setErrors({}); // Clear previous errors
+    console.log('[RegisterPage] Starting signup for:', formData.email);
 
     try {
-      await signUp({
+      const result = await signUp({
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
@@ -89,21 +95,34 @@ export default function RegisterPage() {
         isParentGuardian: true,
       });
 
+      console.log('[RegisterPage] Signup successful, redirecting to login');
       // Redirect to login with success message
       window.location.href = '/login?registered=true';
     } catch (error: unknown) {
+      console.error('[RegisterPage] Signup failed:', error);
+
       // Handle Firebase Auth errors
       const firebaseError = error as { code?: string; message?: string };
+      console.error('[RegisterPage] Error code:', firebaseError.code);
+      console.error('[RegisterPage] Error message:', firebaseError.message);
+
       if (firebaseError.code === 'auth/email-already-in-use') {
         setErrors({ submit: 'An account with this email already exists.' });
       } else if (firebaseError.code === 'auth/weak-password') {
         setErrors({ submit: 'Password is too weak. Please use a stronger password.' });
       } else if (firebaseError.code === 'auth/invalid-email') {
         setErrors({ submit: 'Please enter a valid email address.' });
+      } else if (firebaseError.code === 'auth/network-request-failed') {
+        setErrors({ submit: 'Network error. Please check your internet connection.' });
+      } else if (firebaseError.code === 'auth/too-many-requests') {
+        setErrors({ submit: 'Too many attempts. Please try again later.' });
+      } else if (firebaseError.message?.includes('timed out')) {
+        setErrors({ submit: 'Request timed out. Please try again.' });
       } else {
         setErrors({ submit: firebaseError.message || 'An error occurred. Please try again.' });
       }
     } finally {
+      console.log('[RegisterPage] Setting isLoading to false');
       setIsLoading(false);
     }
   };

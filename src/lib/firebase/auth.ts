@@ -29,6 +29,18 @@ import type { User } from '@/types/firestore';
  * 3. Send email verification
  * 4. Create user document in Firestore
  */
+/**
+ * Helper to add timeout to any promise
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${operation} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 export async function signUp(data: {
   email: string;
   password: string;
@@ -39,34 +51,74 @@ export async function signUp(data: {
   agreedToPrivacy: boolean;
   isParentGuardian: boolean;
 }): Promise<{ user: FirebaseUser; firestoreUser: User }> {
-  // Create Firebase Auth account
-  const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+  console.log('[signUp] Starting registration for:', data.email);
+  console.log('[signUp] Firebase auth initialized:', !!auth);
+  console.log('[signUp] Firebase config project:', auth?.app?.options?.projectId);
+
+  // Create Firebase Auth account with timeout
+  console.log('[signUp] Creating Firebase Auth account...');
+  let userCredential;
+  try {
+    userCredential = await withTimeout(
+      createUserWithEmailAndPassword(auth, data.email, data.password),
+      30000,
+      'Firebase Auth createUser'
+    );
+    console.log('[signUp] Firebase Auth account created:', userCredential.user.uid);
+  } catch (error: any) {
+    console.error('[signUp] Firebase Auth failed:', error.code, error.message);
+    throw error;
+  }
   const user = userCredential.user;
 
   try {
-    // Update display name
-    await updateProfile(user, {
-      displayName: `${data.firstName} ${data.lastName}`,
-    });
+    // Update display name with timeout
+    console.log('[signUp] Updating profile...');
+    await withTimeout(
+      updateProfile(user, {
+        displayName: `${data.firstName} ${data.lastName}`,
+      }),
+      10000,
+      'Update profile'
+    );
+    console.log('[signUp] Profile updated');
 
-    // Send email verification
-    await sendEmailVerification(user);
+    // Send email verification with timeout
+    console.log('[signUp] Sending verification email...');
+    await withTimeout(
+      sendEmailVerification(user),
+      10000,
+      'Send verification email'
+    );
+    console.log('[signUp] Verification email sent');
 
-    // Create Firestore user document
-    const firestoreUser = await createUser(user.uid, {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
-      phone: data.phone || null,
-      agreedToTerms: data.agreedToTerms,
-      agreedToPrivacy: data.agreedToPrivacy,
-      isParentGuardian: data.isParentGuardian,
-    });
+    // Create Firestore user document with timeout
+    console.log('[signUp] Creating Firestore user doc...');
+    const firestoreUser = await withTimeout(
+      createUser(user.uid, {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone || null,
+        agreedToTerms: data.agreedToTerms,
+        agreedToPrivacy: data.agreedToPrivacy,
+        isParentGuardian: data.isParentGuardian,
+      }),
+      15000,
+      'Create Firestore user'
+    );
+    console.log('[signUp] Firestore user created, registration complete!');
 
     return { user, firestoreUser };
-  } catch (error) {
+  } catch (error: any) {
+    console.error('[signUp] Post-auth step failed:', error.message);
     // Rollback: delete Firebase Auth user if Firestore creation fails
-    await user.delete();
+    try {
+      await user.delete();
+      console.log('[signUp] Rolled back Firebase Auth user');
+    } catch (deleteError) {
+      console.error('[signUp] Failed to rollback user:', deleteError);
+    }
     throw error;
   }
 }
