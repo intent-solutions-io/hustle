@@ -14,6 +14,9 @@ interface WorkoutHistoryListProps {
 
 type FilterType = 'all' | 'strength' | 'conditioning' | 'core' | 'recovery' | 'custom';
 
+// Filter types defined outside component for better performance
+const FILTER_TYPES: FilterType[] = ['all', 'strength', 'conditioning', 'core', 'recovery', 'custom'];
+
 /**
  * WorkoutHistoryList - Displays a filterable list of past workout logs
  *
@@ -76,7 +79,7 @@ export function WorkoutHistoryList({
           </div>
           <div className="bg-green-50 rounded-lg p-3 text-center">
             <div className="text-2xl font-bold text-green-600">
-              {Math.round(totalMinutes / 60)}h {totalMinutes % 60}m
+              {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m
             </div>
             <div className="text-xs text-green-600/70">Total Time</div>
           </div>
@@ -94,22 +97,20 @@ export function WorkoutHistoryList({
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div className="flex gap-2 flex-wrap">
-          {(['all', 'strength', 'conditioning', 'core', 'recovery', 'custom'] as FilterType[]).map(
-            (type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setFilterType(type)}
-                className={`px-3 py-1.5 text-sm rounded-full transition-colors capitalize ${
-                  filterType === type
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {type}
-              </button>
-            )
-          )}
+          {FILTER_TYPES.map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setFilterType(type)}
+              className={`px-3 py-1.5 text-sm rounded-full transition-colors capitalize ${
+                filterType === type
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
         </div>
         <button
           type="button"

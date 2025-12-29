@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { WorkoutSetLog } from '@/types/firestore';
 
 interface SetTrackerProps {
@@ -42,7 +42,16 @@ export function SetTracker({
     onComplete(set);
   }, [setNumber, reps, weight, notes, onComplete]);
 
-  const handleUpdate = useCallback(() => {
+  // Track initial mount to avoid calling onUpdate on first render
+  const isInitialMount = useRef(true);
+
+  // Use effect to call onUpdate when values change (avoids stale state)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     if (onUpdate) {
       const set: WorkoutSetLog = {
         setNumber,
@@ -53,7 +62,7 @@ export function SetTracker({
       };
       onUpdate(set);
     }
-  }, [setNumber, reps, weight, completed, notes, onUpdate]);
+  }, [reps, weight, notes, setNumber, completed, onUpdate]);
 
   return (
     <div className={`flex items-center gap-3 p-3 rounded-lg border ${
@@ -72,10 +81,7 @@ export function SetTracker({
           min={0}
           max={100}
           value={reps}
-          onChange={(e) => {
-            setReps(parseInt(e.target.value) || 0);
-            handleUpdate();
-          }}
+          onChange={(e) => setReps(parseInt(e.target.value) || 0)}
           disabled={disabled || completed}
           className="w-16 px-2 py-1 text-center border rounded-md text-sm disabled:bg-gray-100"
           aria-label={`Reps for set ${setNumber}`}
@@ -92,10 +98,7 @@ export function SetTracker({
           max={1000}
           step={2.5}
           value={weight ?? ''}
-          onChange={(e) => {
-            setWeight(e.target.value ? parseFloat(e.target.value) : null);
-            handleUpdate();
-          }}
+          onChange={(e) => setWeight(e.target.value ? parseFloat(e.target.value) : null)}
           disabled={disabled || completed}
           placeholder="--"
           className="w-20 px-2 py-1 text-center border rounded-md text-sm disabled:bg-gray-100"
