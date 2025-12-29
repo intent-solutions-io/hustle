@@ -14,6 +14,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import type { LeagueCode } from './league';
+import type { PerformanceRating, GameEmotionTag } from './game';
 
 /**
  * Soccer Position Codes
@@ -204,6 +205,16 @@ export interface GameDocument {
   result: 'Win' | 'Loss' | 'Draw';
   finalScore: string;
   minutesPlayed: number;
+
+  // Game context (FR-29, FR-30, FR-31)
+  gameName?: string | null;           // Tournament/game name (e.g., "Fall Classic Final")
+  gameLocation?: string | null;       // Game location (e.g., "Riverside Sports Complex")
+  gameLeagueCode?: LeagueCode | null; // League selector for this game
+  gameLeagueOtherName?: string | null; // Custom league name when gameLeagueCode is 'other'
+
+  // Self-assessment (FR-37, FR-38)
+  performanceRating?: PerformanceRating | null; // "How did I play?" 1-5 stars
+  emotionTags?: GameEmotionTag[] | null;        // Game emotion tags
 
   // Universal stats
   goals: number;
@@ -439,6 +450,102 @@ export interface GeneratedWorkout {
 }
 
 // ============================================================================
+// WORKOUT LOGGING TYPES (Persistent workout history)
+// ============================================================================
+
+/**
+ * Individual Set Log (actual performance data)
+ */
+export interface WorkoutSetLog {
+  setNumber: number;
+  reps: number;
+  weight?: number | null; // in lbs or kg (based on user preference)
+  completed: boolean;
+  notes?: string | null;
+}
+
+/**
+ * Exercise Log (within a workout)
+ */
+export interface WorkoutExerciseLog {
+  exerciseId: string;
+  exerciseName: string;
+  targetSets: number;
+  targetReps: string; // e.g., "8-12" or "30s"
+  sets: WorkoutSetLog[];
+  notes?: string | null;
+}
+
+/**
+ * Workout Type
+ */
+export type WorkoutLogType = 'strength' | 'conditioning' | 'core' | 'recovery' | 'custom' | 'soccer_specific';
+
+/**
+ * Workout Log Document
+ * Subcollection: /users/{userId}/players/{playerId}/workoutLogs/{logId}
+ *
+ * Persisted workout completion with actual reps/sets/weight tracked.
+ */
+export interface WorkoutLogDocument {
+  playerId: string;
+  workoutId?: string | null; // Reference to GeneratedWorkout if from template
+  date: Timestamp;
+  type: WorkoutLogType;
+  title: string;
+  duration: number; // minutes
+  exercises: WorkoutExerciseLog[];
+  totalVolume?: number | null; // sum of (sets * reps * weight)
+  completedAt: Timestamp;
+  journalEntryId?: string | null; // Link to post-workout journal
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ============================================================================
+// JOURNAL TYPES (Pervasive journal system)
+// ============================================================================
+
+/**
+ * Journal Entry Context (where the entry was created from)
+ */
+export type JournalContext =
+  | 'workout_reflection'  // After completing a workout
+  | 'mental_checkin'      // From mental game page
+  | 'game_reflection'     // After logging a game
+  | 'daily_journal'       // Daily journaling
+  | 'quick_entry';        // Quick add from any page
+
+/**
+ * Journal Mood Tags
+ */
+export type JournalMoodTag = 'great' | 'good' | 'okay' | 'struggling' | 'rough';
+
+/**
+ * Journal Energy Tags
+ */
+export type JournalEnergyTag = 'energized' | 'normal' | 'tired' | 'exhausted';
+
+/**
+ * Journal Entry Document
+ * Subcollection: /users/{userId}/players/{playerId}/journal/{entryId}
+ *
+ * Pervasive journal entries accessible from multiple touchpoints.
+ */
+export interface JournalEntryDocument {
+  playerId: string;
+  date: Timestamp;
+  content: string;
+  context: JournalContext;
+  moodTag?: JournalMoodTag | null;
+  energyTag?: JournalEnergyTag | null;
+  linkedWorkoutId?: string | null; // Link to workout log
+  linkedGameId?: string | null;    // Link to game
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ============================================================================
 // CLIENT-SIDE TYPES
 // ============================================================================
 
@@ -520,4 +627,21 @@ export interface DreamGym extends Omit<DreamGymDocument, 'createdAt' | 'updatedA
 export interface Workout extends Omit<GeneratedWorkout, 'date' | 'completedAt'> {
   date: Date;
   completedAt: Date | null;
+}
+
+// Workout Log client-side types
+export interface WorkoutLog extends Omit<WorkoutLogDocument, 'date' | 'completedAt' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  completedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Journal Entry client-side types
+export interface JournalEntry extends Omit<JournalEntryDocument, 'date' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
