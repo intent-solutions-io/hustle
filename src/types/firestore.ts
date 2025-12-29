@@ -439,6 +439,97 @@ export interface GeneratedWorkout {
 }
 
 // ============================================================================
+// WORKOUT LOGGING TYPES
+// ============================================================================
+
+/**
+ * Individual Set Log (reps and weight for a single set)
+ */
+export interface WorkoutSetLog {
+  setNumber: number;
+  reps: number;
+  weight?: number | null;
+  completed: boolean;
+  notes?: string | null;
+}
+
+/**
+ * Exercise Log (all sets for one exercise in a workout)
+ */
+export interface WorkoutExerciseLog {
+  exerciseId: string;
+  exerciseName: string;
+  targetSets: number;
+  targetReps: string;
+  sets: WorkoutSetLog[];
+  notes?: string | null;
+}
+
+/**
+ * Workout Log Document
+ * Subcollection: /users/{userId}/players/{playerId}/workoutLogs/{logId}
+ *
+ * Persistent record of a completed workout session
+ */
+export interface WorkoutLogDocument {
+  playerId: string;
+  workoutId?: string | null; // Reference to generated workout template
+  date: Timestamp;
+  type: 'strength' | 'conditioning' | 'core' | 'recovery' | 'custom';
+  title: string;
+  duration: number; // minutes
+  exercises: WorkoutExerciseLog[];
+  totalVolume?: number | null; // sum of (sets * reps * weight) for tracking
+  completedAt: Timestamp;
+  journalEntryId?: string | null; // Link to post-workout journal entry
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ============================================================================
+// JOURNAL TYPES
+// ============================================================================
+
+/**
+ * Journal Entry Context (where the entry was created)
+ */
+export type JournalContext =
+  | 'workout_reflection'
+  | 'mental_checkin'
+  | 'game_reflection'
+  | 'daily_journal'
+  | 'quick_entry';
+
+/**
+ * Journal Mood Tags
+ */
+export type JournalMoodTag = 'great' | 'good' | 'okay' | 'struggling' | 'rough';
+
+/**
+ * Journal Energy Tags
+ */
+export type JournalEnergyTag = 'energized' | 'normal' | 'tired' | 'exhausted';
+
+/**
+ * Journal Entry Document
+ * Subcollection: /users/{userId}/players/{playerId}/journal/{entryId}
+ *
+ * Pervasive journal system for athlete reflection and tracking
+ */
+export interface JournalEntryDocument {
+  playerId: string;
+  date: Timestamp;
+  content: string;
+  context: JournalContext;
+  moodTag?: JournalMoodTag | null;
+  energyTag?: JournalEnergyTag | null;
+  linkedWorkoutId?: string | null;
+  linkedGameId?: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ============================================================================
 // CLIENT-SIDE TYPES
 // ============================================================================
 
@@ -520,4 +611,21 @@ export interface DreamGym extends Omit<DreamGymDocument, 'createdAt' | 'updatedA
 export interface Workout extends Omit<GeneratedWorkout, 'date' | 'completedAt'> {
   date: Date;
   completedAt: Date | null;
+}
+
+// Workout Log client-side types
+export interface WorkoutLog extends Omit<WorkoutLogDocument, 'date' | 'completedAt' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  completedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Journal Entry client-side types
+export interface JournalEntry extends Omit<JournalEntryDocument, 'date' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
