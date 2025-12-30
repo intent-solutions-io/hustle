@@ -218,7 +218,7 @@ jobs:
             --project ${{ env.PROJECT_ID }} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=production,NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>" \
+            --set-env-vars "NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>" \
             --set-secrets "FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest,FIREBASE_CLIENT_EMAIL=FIREBASE_CLIENT_EMAIL:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
 
       - name: Verify deployment
