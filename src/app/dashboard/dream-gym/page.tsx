@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, TrendingUp, History, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -249,7 +249,7 @@ export default function DreamGymPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Link href={`/dashboard/dream-gym/workout?playerId=${selectedPlayer?.id}`}>
           <Card className="border-zinc-200 cursor-pointer hover:border-zinc-400 transition-colors h-full">
             <CardHeader className="pb-2">
@@ -309,6 +309,38 @@ export default function DreamGymPage() {
             <CardContent>
               <p className="text-sm text-zinc-600">
                 Daily check-ins and mental performance tips.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href={`/dashboard/dream-gym/history?playerId=${selectedPlayer?.id}`}>
+          <Card className="border-zinc-200 cursor-pointer hover:border-zinc-400 transition-colors h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <History className="h-5 w-5" />
+                History
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-600">
+                View past workouts and track your consistency.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href={`/dashboard/dream-gym/journal?playerId=${selectedPlayer?.id}`}>
+          <Card className="border-zinc-200 cursor-pointer hover:border-zinc-400 transition-colors h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Journal
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-600">
+                Reflect on training and track mental progress.
               </p>
             </CardContent>
           </Card>
