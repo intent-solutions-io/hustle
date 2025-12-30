@@ -29,38 +29,56 @@ export default function ProgressPage() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
 
+  // Fetch data with cancellation to prevent race conditions
   useEffect(() => {
+    let isCancelled = false;
+
     async function fetchData() {
+      setLoading(true);
       try {
         // Fetch players
         const playersRes = await fetch('/api/players');
-        if (!playersRes.ok) throw new Error('Failed to fetch players');
+        if (isCancelled || !playersRes.ok) return;
         const { players: fetchedPlayers } = await playersRes.json();
         setPlayers(fetchedPlayers || []);
 
-        // If playerId specified, use that player
+        // Determine which player to load
+        let playerToLoad: Player | undefined;
         if (playerId && fetchedPlayers?.length > 0) {
-          const player = fetchedPlayers.find((p: Player) => p.id === playerId);
-          if (player) {
-            setSelectedPlayer(player);
-            await fetchWorkoutLogs(playerId);
-          }
+          playerToLoad = fetchedPlayers.find((p: Player) => p.id === playerId);
         } else if (fetchedPlayers?.length === 1) {
-          // Auto-select single player
-          setSelectedPlayer(fetchedPlayers[0]);
-          await fetchWorkoutLogs(fetchedPlayers[0].id);
+          playerToLoad = fetchedPlayers[0];
+        }
+
+        if (isCancelled) return;
+
+        if (playerToLoad) {
+          setSelectedPlayer(playerToLoad);
+          // Fetch workout logs for the selected player
+          const logsRes = await fetch(`/api/players/${playerToLoad.id}/dream-gym/workout-logs`);
+          if (isCancelled || !logsRes.ok) return;
+          const data = await logsRes.json();
+          setWorkoutLogs(data.workoutLogs || []);
+        } else {
+          setSelectedPlayer(null);
+          setWorkoutLogs([]);
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        if (!isCancelled) console.error('Error fetching data:', error);
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     }
 
     fetchData();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [playerId]);
 
-  async function fetchWorkoutLogs(pId: string) {
+  // Fetch workout logs for player selection (separate from initial load)
+  async function fetchWorkoutLogsForPlayer(pId: string) {
     try {
       const res = await fetch(`/api/players/${pId}/dream-gym/workout-logs`);
       if (res.ok) {
@@ -76,7 +94,7 @@ export default function ProgressPage() {
     setSelectedPlayer(player);
     setWorkoutLogs([]);
     router.push(`/dashboard/dream-gym/progress?playerId=${player.id}`);
-    fetchWorkoutLogs(player.id);
+    fetchWorkoutLogsForPlayer(player.id);
   }
 
   if (loading) {
