@@ -80,13 +80,13 @@ export default function Login() {
         throw new Error('Failed to get authentication token. Please try again.');
       }
 
-      // Step 3: Set session cookie via API route (15s timeout)
+      // Step 3: Set session cookie via API route (30s timeout for cold starts)
       console.log('[Login] Step 3: Setting session cookie via API...');
       const startSession = Date.now();
       let sessionRes;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         sessionRes = await fetch('/api/auth/set-session', {
           method: 'POST',
