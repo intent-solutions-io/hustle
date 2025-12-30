@@ -116,16 +116,28 @@ export async function GET() {
   }
 
   // Check 2: Required environment variables
+  // Firebase auth: either FIREBASE_SERVICE_ACCOUNT_JSON or (FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY)
+  const hasFirebaseAuth =
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
+    (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY);
+
   const requiredEnvVars = [
     'FIREBASE_PROJECT_ID',
-    'FIREBASE_CLIENT_EMAIL',
-    'FIREBASE_PRIVATE_KEY',
-    'STRIPE_SECRET_KEY',
     'RESEND_API_KEY',
     'EMAIL_FROM',
   ];
 
+  // Only check Stripe if billing is enabled
+  if (process.env.BILLING_ENABLED !== 'false') {
+    requiredEnvVars.push('STRIPE_SECRET_KEY');
+  }
+
   const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
+
+  // Add Firebase auth check
+  if (!hasFirebaseAuth) {
+    missingEnvVars.push('FIREBASE_SERVICE_ACCOUNT_JSON or (FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY)');
+  }
 
   if (missingEnvVars.length > 0) {
     result.checks.environment = {
