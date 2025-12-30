@@ -10,12 +10,30 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
+import { ensureUserProvisioned } from '@/lib/firebase/server-provisioning';
 
 export async function POST(request: NextRequest) {
+  console.log('[set-session] POST request received');
+  const startTime = Date.now();
+
   try {
-    const { idToken } = await request.json();
+    // Parse request body
+    let body;
+    try {
+      body = await request.json();
+      console.log('[set-session] Request body parsed, idToken present:', !!body?.idToken);
+    } catch (parseError) {
+      console.error('[set-session] Failed to parse request body:', parseError);
+      return NextResponse.json(
+        { success: false, error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const { idToken } = body;
 
     if (!idToken) {
+      console.error('[set-session] No idToken provided');
       return NextResponse.json(
         { success: false, error: 'ID token is required' },
         { status: 400 }
@@ -23,7 +41,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the ID token
-    const decodedToken = await adminAuth.verifyIdToken(idToken, true);
+    console.log('[set-session] Verifying ID token...');
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(idToken, true);
+      console.log('[set-session] Token verified for user:', decodedToken.uid);
+      console.log('[set-session] Email:', decodedToken.email, 'Verified:', decodedToken.email_verified);
+    } catch (verifyError: any) {
+      console.error('[set-session] Token verification failed:', verifyError?.message || verifyError);
+      console.error('[set-session] Error code:', verifyError?.code);
+      return NextResponse.json(
+        { success: false, error: 'Invalid or expired token. Please log in again.' },
+        { status: 401 }
+      );
+    }
+
+    // Ensure user has required Firestore documents (user profile + workspace)
+    console.log('[set-session] Ensuring user provisioned in Firestore...');
+    let provisionResult;
+    try {
+      provisionResult = await ensureUserProvisioned(decodedToken);
+      console.log('[set-session] User provisioned:', provisionResult.userId, 'Workspace:', provisionResult.workspaceId);
+    } catch (provisionError: any) {
+      console.error('[set-session] User provisioning failed:', provisionError?.message || provisionError);
+      // Continue anyway - we'll let the dashboard handle missing data
+      // This prevents login failures due to Firestore issues
+    }
 
     // Set session cookie (14 days expiry)
     const expiresIn = 60 * 60 * 24 * 14; // 14 days in seconds
@@ -41,22 +84,34 @@ export async function POST(request: NextRequest) {
 
     // Set cookie on response (single source of truth)
     // Using response.cookies ensures the Set-Cookie header is properly sent
-    // Note: secure=false in E2E tests (localhost HTTP), true in production (HTTPS)
+    // IMPORTANT: In production, always use secure=true for HTTPS sites
+    // Only allow secure=false for local development (localhost HTTP)
+    const isLocalDev = process.env.NODE_ENV !== 'production';
     const isE2ETest = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+    const useSecureCookie = !isLocalDev && !isE2ETest;
+
+    console.log('[set-session] Cookie settings - secure:', useSecureCookie, 'NODE_ENV:', process.env.NODE_ENV, 'E2E:', isE2ETest);
+
     response.cookies.set('__session', idToken, {
       maxAge: expiresIn,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' && !isE2ETest,
+      secure: useSecureCookie,
       sameSite: 'lax',
       path: '/',
     });
 
+    console.log('[set-session] Session cookie set successfully in', Date.now() - startTime, 'ms');
     return response;
   } catch (error: unknown) {
-    console.error('Set session error:', error);
+    const err = error as any;
+    console.error('[set-session] UNEXPECTED ERROR:');
+    console.error('[set-session] Error type:', typeof error);
+    console.error('[set-session] Error message:', err?.message);
+    console.error('[set-session] Error code:', err?.code);
+    console.error('[set-session] Full error:', error);
 
     return NextResponse.json(
-      { success: false, error: 'Failed to set session' },
+      { success: false, error: 'Failed to set session. Please try again.' },
       { status: 500 }
     );
   }

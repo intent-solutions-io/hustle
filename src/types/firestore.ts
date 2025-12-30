@@ -14,6 +14,7 @@
 
 import { Timestamp } from 'firebase/firestore';
 import type { LeagueCode } from './league';
+import type { PerformanceRating, GameEmotionTag } from './game';
 
 /**
  * Soccer Position Codes
@@ -204,6 +205,16 @@ export interface GameDocument {
   result: 'Win' | 'Loss' | 'Draw';
   finalScore: string;
   minutesPlayed: number;
+
+  // Game context (FR-29, FR-30, FR-31)
+  gameName?: string | null;           // Tournament/game name (e.g., "Fall Classic Final")
+  gameLocation?: string | null;       // Game location (e.g., "Riverside Sports Complex")
+  gameLeagueCode?: LeagueCode | null; // League selector for this game
+  gameLeagueOtherName?: string | null; // Custom league name when gameLeagueCode is 'other'
+
+  // Self-assessment (FR-37, FR-38)
+  performanceRating?: PerformanceRating | null; // "How did I play?" 1-5 stars
+  emotionTags?: GameEmotionTag[] | null;        // Game emotion tags
 
   // Universal stats
   goals: number;
@@ -439,66 +450,71 @@ export interface GeneratedWorkout {
 }
 
 // ============================================================================
-// WORKOUT LOGGING TYPES
+// WORKOUT LOGGING TYPES (Persistent workout history)
 // ============================================================================
 
 /**
- * Individual Set Log (reps and weight for a single set)
+ * Individual Set Log (actual performance data)
  */
 export interface WorkoutSetLog {
   setNumber: number;
   reps: number;
-  weight?: number | null;
+  weight?: number | null; // in lbs or kg (based on user preference)
   completed: boolean;
   notes?: string | null;
 }
 
 /**
- * Exercise Log (all sets for one exercise in a workout)
+ * Exercise Log (within a workout)
  */
 export interface WorkoutExerciseLog {
   exerciseId: string;
   exerciseName: string;
   targetSets: number;
-  targetReps: string;
+  targetReps: string; // e.g., "8-12" or "30s"
   sets: WorkoutSetLog[];
   notes?: string | null;
 }
 
 /**
+ * Workout Type
+ */
+export type WorkoutLogType = 'strength' | 'conditioning' | 'core' | 'recovery' | 'custom' | 'soccer_specific';
+
+/**
  * Workout Log Document
  * Subcollection: /users/{userId}/players/{playerId}/workoutLogs/{logId}
  *
- * Persistent record of a completed workout session
+ * Persisted workout completion with actual reps/sets/weight tracked.
  */
 export interface WorkoutLogDocument {
   playerId: string;
-  workoutId?: string | null; // Reference to generated workout template
+  workoutId?: string | null; // Reference to GeneratedWorkout if from template
   date: Timestamp;
-  type: 'strength' | 'conditioning' | 'core' | 'recovery' | 'custom';
+  type: WorkoutLogType;
   title: string;
   duration: number; // minutes
   exercises: WorkoutExerciseLog[];
-  totalVolume?: number | null; // sum of (sets * reps * weight) for tracking
+  totalVolume?: number | null; // sum of (sets * reps * weight)
   completedAt: Timestamp;
-  journalEntryId?: string | null; // Link to post-workout journal entry
+  journalEntryId?: string | null; // Link to post-workout journal
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 
 // ============================================================================
-// JOURNAL TYPES
+// JOURNAL TYPES (Pervasive journal system)
 // ============================================================================
 
 /**
- * Journal Entry Context (where the entry was created)
+ * Journal Entry Context (where the entry was created from)
  */
 export type JournalContext =
-  | 'workout_reflection'
-  | 'mental_checkin'
-  | 'game_reflection'
-  | 'daily_journal'
-  | 'quick_entry';
+  | 'workout_reflection'  // After completing a workout
+  | 'mental_checkin'      // From mental game page
+  | 'game_reflection'     // After logging a game
+  | 'daily_journal'       // Daily journaling
+  | 'quick_entry';        // Quick add from any page
 
 /**
  * Journal Mood Tags
@@ -514,7 +530,7 @@ export type JournalEnergyTag = 'energized' | 'normal' | 'tired' | 'exhausted';
  * Journal Entry Document
  * Subcollection: /users/{userId}/players/{playerId}/journal/{entryId}
  *
- * Pervasive journal system for athlete reflection and tracking
+ * Pervasive journal entries accessible from multiple touchpoints.
  */
 export interface JournalEntryDocument {
   playerId: string;
@@ -523,8 +539,8 @@ export interface JournalEntryDocument {
   context: JournalContext;
   moodTag?: JournalMoodTag | null;
   energyTag?: JournalEnergyTag | null;
-  linkedWorkoutId?: string | null;
-  linkedGameId?: string | null;
+  linkedWorkoutId?: string | null; // Link to workout log
+  linkedGameId?: string | null;    // Link to game
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

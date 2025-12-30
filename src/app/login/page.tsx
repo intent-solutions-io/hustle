@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,19 @@ import Link from 'next/link';
 import { ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { signIn as firebaseSignIn } from '@/lib/firebase/auth';
 import { useRouter } from 'next/navigation';
+
+// Helper to add timeout to any promise
+function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => {
+        console.error(`[Login] TIMEOUT: ${operation} after ${ms}ms`);
+        reject(new Error(`${operation} timed out. Please check your connection and try again.`));
+      }, ms)
+    ),
+  ]);
+}
 
 export default function Login() {
   const router = useRouter();
@@ -25,35 +38,119 @@ export default function Login() {
     setError('');
     setIsLoading(true);
 
+    console.log('[Login] Form submitted for:', formData.email);
+    console.log('[Login] Starting login flow...');
+
     try {
-      const user = await firebaseSignIn(formData.email, formData.password);
-
-      // Get Firebase ID token and set as cookie for server-side verification
-      const idToken = await user.getIdToken();
-
-      // Set cookie via API route
-      const sessionRes = await fetch('/api/auth/set-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-        credentials: 'include', // Ensure cookies are included
-      });
-
-      if (!sessionRes.ok) {
-        throw new Error('Failed to set session');
+      // Step 1: Firebase Auth sign in (30s timeout)
+      console.log('[Login] Step 1: Calling Firebase Auth signIn...');
+      const startAuth = Date.now();
+      let user;
+      try {
+        user = await withTimeout(
+          firebaseSignIn(formData.email, formData.password),
+          30000,
+          'Sign in'
+        );
+        console.log('[Login] Step 1 SUCCESS: Firebase Auth completed in', Date.now() - startAuth, 'ms');
+        console.log('[Login] User UID:', user.uid, 'Email verified:', user.emailVerified);
+      } catch (authError: any) {
+        console.error('[Login] Step 1 FAILED: Firebase Auth error');
+        console.error('[Login] Error code:', authError?.code);
+        console.error('[Login] Error message:', authError?.message);
+        console.error('[Login] Full error:', authError);
+        throw authError;
       }
 
-      // Success - redirect to dashboard with full page navigation
-      // Using window.location ensures the browser sends the cookie with the request
+      // Step 2: Get ID token (10s timeout)
+      console.log('[Login] Step 2: Getting ID token...');
+      const startToken = Date.now();
+      let idToken;
+      try {
+        idToken = await withTimeout(
+          user.getIdToken(),
+          10000,
+          'Get token'
+        );
+        console.log('[Login] Step 2 SUCCESS: Got ID token in', Date.now() - startToken, 'ms');
+        console.log('[Login] Token length:', idToken?.length || 0);
+      } catch (tokenError: any) {
+        console.error('[Login] Step 2 FAILED: getIdToken error');
+        console.error('[Login] Error:', tokenError?.message || tokenError);
+        throw new Error('Failed to get authentication token. Please try again.');
+      }
+
+      // Step 3: Set session cookie via API route (15s timeout)
+      console.log('[Login] Step 3: Setting session cookie via API...');
+      const startSession = Date.now();
+      let sessionRes;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        sessionRes = await fetch('/api/auth/set-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+          credentials: 'include',
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        console.log('[Login] Step 3: API response status:', sessionRes.status, 'in', Date.now() - startSession, 'ms');
+
+        if (!sessionRes.ok) {
+          const errorBody = await sessionRes.text();
+          console.error('[Login] Step 3 FAILED: Session API error');
+          console.error('[Login] Response body:', errorBody);
+          throw new Error('Failed to set session. Please try again.');
+        }
+
+        const sessionData = await sessionRes.json();
+        console.log('[Login] Step 3 SUCCESS: Session set for user:', sessionData?.user?.uid);
+      } catch (sessionError: any) {
+        console.error('[Login] Step 3 FAILED:', sessionError?.message || sessionError);
+        if (sessionError.name === 'AbortError') {
+          throw new Error('Session setup timed out. Please check your connection and try again.');
+        }
+        throw sessionError;
+      }
+
+      // Step 4: Redirect to dashboard
+      console.log('[Login] Step 4: Redirecting to dashboard...');
       window.location.href = '/dashboard';
     } catch (error: any) {
-      // Handle Firebase Auth errors
-      if (error.message) {
-        setError(error.message);
+      console.error('[Login] FINAL ERROR CAUGHT:');
+      console.error('[Login] Error type:', typeof error);
+      console.error('[Login] Error code:', error?.code);
+      console.error('[Login] Error message:', error?.message);
+      console.error('[Login] Error name:', error?.name);
+      console.error('[Login] Full error object:', error);
+
+      // Provide user-friendly error messages
+      const errorCode = error?.code || '';
+      const errorMessage = error?.message || '';
+
+      if (errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
+        setError('Incorrect email or password. Please try again.');
+      } else if (errorCode === 'auth/user-not-found') {
+        setError('No account found with this email. Please check your email or create an account.');
+      } else if (errorCode === 'auth/too-many-requests') {
+        setError('Too many login attempts. Please wait a few minutes and try again.');
+      } else if (errorCode === 'auth/network-request-failed') {
+        setError('Network error. Please check your internet connection and try again.');
+      } else if (errorCode === 'auth/invalid-api-key') {
+        setError('Configuration error. Please contact support.');
+        console.error('[Login] CRITICAL: Invalid Firebase API key!');
+      } else if (errorMessage.includes('verify your email')) {
+        setError(errorMessage);
+      } else if (errorMessage) {
+        setError(errorMessage);
       } else {
         setError('An error occurred. Please try again.');
       }
     } finally {
+      console.log('[Login] Setting isLoading to false');
       setIsLoading(false);
     }
   };
