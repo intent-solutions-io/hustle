@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   LineChart,
   Line,
@@ -9,21 +9,12 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import type { WorkoutLog } from '@/types/firestore';
 
 interface ExerciseProgressChartProps {
   workouts: WorkoutLog[];
   height?: number;
-}
-
-interface ExerciseDataPoint {
-  date: string;
-  fullDate: Date;
-  maxWeight: number;
-  totalReps: number;
-  avgWeight: number;
 }
 
 /**
@@ -61,8 +52,8 @@ export function ExerciseProgressChart({
     return Array.from(exerciseMap.values()).sort((a, b) => b.count - a.count);
   }, [workouts]);
 
-  // Auto-select first exercise if none selected
-  useMemo(() => {
+  // Auto-select first exercise if none selected (useEffect for side effects)
+  useEffect(() => {
     if (!selectedExercise && exercises.length > 0) {
       setSelectedExercise(exercises[0].id);
     }
@@ -72,7 +63,15 @@ export function ExerciseProgressChart({
   const chartData = useMemo(() => {
     if (!selectedExercise) return [];
 
-    const dataMap = new Map<string, ExerciseDataPoint>();
+    // Track cumulative data for proper averaging
+    const dataMap = new Map<string, {
+      date: string;
+      fullDate: Date;
+      maxWeight: number;
+      totalReps: number;
+      totalWeight: number;
+      weightedSets: number;
+    }>();
 
     workouts.forEach((workout) => {
       const exercise = workout.exercises.find((e) => e.exerciseId === selectedExercise);
@@ -98,27 +97,35 @@ export function ExerciseProgressChart({
         }
       });
 
-      const avgWeight = weightedSets > 0 ? Math.round(totalWeight / weightedSets) : 0;
-
       const existing = dataMap.get(dateKey);
       if (existing) {
+        // Aggregate cumulative values for proper averaging
         existing.maxWeight = Math.max(existing.maxWeight, maxWeight);
         existing.totalReps += totalReps;
-        existing.avgWeight = Math.round((existing.avgWeight + avgWeight) / 2);
+        existing.totalWeight += totalWeight;
+        existing.weightedSets += weightedSets;
       } else {
         dataMap.set(dateKey, {
           date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           fullDate: date,
           maxWeight,
           totalReps,
-          avgWeight,
+          totalWeight,
+          weightedSets,
         });
       }
     });
 
-    return Array.from(dataMap.values()).sort(
-      (a, b) => a.fullDate.getTime() - b.fullDate.getTime()
-    );
+    // Convert to final format with calculated avgWeight
+    return Array.from(dataMap.values())
+      .map((entry) => ({
+        date: entry.date,
+        fullDate: entry.fullDate,
+        maxWeight: entry.maxWeight,
+        totalReps: entry.totalReps,
+        avgWeight: entry.weightedSets > 0 ? Math.round(entry.totalWeight / entry.weightedSets) : 0,
+      }))
+      .sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
   }, [workouts, selectedExercise]);
 
   // Calculate progress (first vs last entry)

@@ -30,18 +30,41 @@ function initializeFirebaseAdmin(): App {
     return _app;
   }
 
+  // Priority 1: Full service account JSON (most reliable)
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (serviceAccountJson) {
+    try {
+      const serviceAccount = JSON.parse(serviceAccountJson);
+      _app = initializeApp({
+        credential: cert(serviceAccount),
+        projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id,
+      });
+      return _app;
+    } catch (e) {
+      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', e);
+    }
+  }
+
+  // Priority 2: Separate client email + private key
   const hasExplicitCredentials =
     process.env.FIREBASE_CLIENT_EMAIL &&
     process.env.FIREBASE_PRIVATE_KEY;
 
+  if (hasExplicitCredentials) {
+    _app = initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID!,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')!,
+      }),
+      projectId: process.env.FIREBASE_PROJECT_ID,
+    });
+    return _app;
+  }
+
+  // Priority 3: Application Default Credentials (ADC)
   _app = initializeApp({
-    credential: hasExplicitCredentials
-      ? cert({
-          projectId: process.env.FIREBASE_PROJECT_ID!,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')!,
-        })
-      : applicationDefault(),
+    credential: applicationDefault(),
     projectId: process.env.FIREBASE_PROJECT_ID,
   });
 
