@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { signIn as firebaseSignIn } from '@/lib/firebase/auth';
 import { useRouter } from 'next/navigation';
+import { getAuthErrorMessage, getActionLink } from '@/lib/auth-errors';
 
 // Helper to add timeout to any promise
 function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
@@ -28,6 +29,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorAction, setErrorAction] = useState<'verify-email' | 'reset-password' | 'contact-support' | 'retry' | undefined>();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -36,6 +38,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setErrorAction(undefined);
     setIsLoading(true);
 
     console.log('[Login] Form submitted for:', formData.email);
@@ -119,36 +122,13 @@ export default function Login() {
       // Step 4: Redirect to dashboard
       console.log('[Login] Step 4: Redirecting to dashboard...');
       window.location.href = '/dashboard';
-    } catch (error: any) {
-      console.error('[Login] FINAL ERROR CAUGHT:');
-      console.error('[Login] Error type:', typeof error);
-      console.error('[Login] Error code:', error?.code);
-      console.error('[Login] Error message:', error?.message);
-      console.error('[Login] Error name:', error?.name);
-      console.error('[Login] Full error object:', error);
+    } catch (error: unknown) {
+      console.error('[Login] FINAL ERROR CAUGHT:', error);
 
-      // Provide user-friendly error messages
-      const errorCode = error?.code || '';
-      const errorMessage = error?.message || '';
-
-      if (errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
-        setError('Incorrect email or password. Please try again.');
-      } else if (errorCode === 'auth/user-not-found') {
-        setError('No account found with this email. Please check your email or create an account.');
-      } else if (errorCode === 'auth/too-many-requests') {
-        setError('Too many login attempts. Please wait a few minutes and try again.');
-      } else if (errorCode === 'auth/network-request-failed') {
-        setError('Network error. Please check your internet connection and try again.');
-      } else if (errorCode === 'auth/invalid-api-key') {
-        setError('Configuration error. Please contact support.');
-        console.error('[Login] CRITICAL: Invalid Firebase API key!');
-      } else if (errorMessage.includes('verify your email')) {
-        setError(errorMessage);
-      } else if (errorMessage) {
-        setError(errorMessage);
-      } else {
-        setError('An error occurred. Please try again.');
-      }
+      // Use centralized error message handling
+      const authError = getAuthErrorMessage(error);
+      setError(authError.message);
+      setErrorAction(authError.action);
     } finally {
       console.log('[Login] Setting isLoading to false');
       setIsLoading(false);
@@ -197,10 +177,13 @@ export default function Login() {
                     <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
                     <p className="text-sm text-red-600">{error}</p>
                   </div>
-                  {error.includes('verify your email') && (
+                  {errorAction && getActionLink(errorAction) && (
                     <p className="text-sm text-red-600 ml-6">
-                      <Link href="/resend-verification" className="underline font-medium hover:text-red-700">
-                        Resend verification email
+                      <Link
+                        href={getActionLink(errorAction)!.href}
+                        className="underline font-medium hover:text-red-700"
+                      >
+                        {getActionLink(errorAction)!.text}
                       </Link>
                     </p>
                   )}
