@@ -102,10 +102,16 @@ export function getAdminDb(): Firestore {
 export const adminAuth = {
   verifyIdToken: (...args: Parameters<Auth['verifyIdToken']>) => getAdminAuth().verifyIdToken(...args),
   getUser: (...args: Parameters<Auth['getUser']>) => getAdminAuth().getUser(...args),
+  getUserByEmail: (...args: Parameters<Auth['getUserByEmail']>) => getAdminAuth().getUserByEmail(...args),
   createUser: (...args: Parameters<Auth['createUser']>) => getAdminAuth().createUser(...args),
   updateUser: (...args: Parameters<Auth['updateUser']>) => getAdminAuth().updateUser(...args),
   deleteUser: (...args: Parameters<Auth['deleteUser']>) => getAdminAuth().deleteUser(...args),
   setCustomUserClaims: (...args: Parameters<Auth['setCustomUserClaims']>) => getAdminAuth().setCustomUserClaims(...args),
+  generatePasswordResetLink: (...args: Parameters<Auth['generatePasswordResetLink']>) => getAdminAuth().generatePasswordResetLink(...args),
+  generateEmailVerificationLink: (...args: Parameters<Auth['generateEmailVerificationLink']>) => getAdminAuth().generateEmailVerificationLink(...args),
+  verifySessionCookie: (...args: Parameters<Auth['verifySessionCookie']>) => getAdminAuth().verifySessionCookie(...args),
+  revokeRefreshTokens: (...args: Parameters<Auth['revokeRefreshTokens']>) => getAdminAuth().revokeRefreshTokens(...args),
+  createSessionCookie: (...args: Parameters<Auth['createSessionCookie']>) => getAdminAuth().createSessionCookie(...args),
 };
 
 export const adminDb = {
