@@ -43,23 +43,20 @@ export function AIStrategyCard({ playerId, compact = false }: AIStrategyCardProp
     setError(null);
 
     try {
-      // Fetch recovery status
-      const recoveryRes = await fetch(
-        `/api/players/${playerId}/dream-gym/ai-strategy?type=recovery`
-      );
-      if (recoveryRes.ok) {
-        const data = await recoveryRes.json();
-        setRecovery(data.recovery);
+      const [recoveryRes, progressionRes] = await Promise.all([
+        fetch(`/api/players/${playerId}/dream-gym/ai-strategy?type=recovery`),
+        fetch(`/api/players/${playerId}/dream-gym/ai-strategy?type=progressions`),
+      ]);
+
+      if (!recoveryRes.ok || !progressionRes.ok) {
+        throw new Error('Failed to load one or more insights.');
       }
 
-      // Fetch progression suggestions
-      const progressionRes = await fetch(
-        `/api/players/${playerId}/dream-gym/ai-strategy?type=progressions`
-      );
-      if (progressionRes.ok) {
-        const data = await progressionRes.json();
-        setProgressions(data.progressions || []);
-      }
+      const recoveryData = await recoveryRes.json();
+      const progressionData = await progressionRes.json();
+
+      setRecovery(recoveryData.recovery);
+      setProgressions(progressionData.progressions || []);
     } catch (err) {
       console.error('Error fetching insights:', err);
       setError('Failed to load insights');

@@ -4,12 +4,123 @@ import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import { getDreamGymAdmin } from '@/lib/firebase/admin-services/dream-gym';
 import { getWorkoutLogsAdmin } from '@/lib/firebase/admin-services/workout-logs';
 import { getBiometricsTrendsAdmin } from '@/lib/firebase/admin-services/biometrics';
+import type { Player, DreamGym, WorkoutLog } from '@/types/firestore';
+import type { BiometricsTrends } from '@/lib/firebase/admin-services/biometrics';
 import {
   generateWorkoutStrategy,
   analyzeRecoveryStatus,
   suggestProgressions,
   type WorkoutStrategyInput,
 } from '@/lib/ai/workout-strategy';
+
+/**
+ * Shared helper to fetch common data for AI strategy endpoints
+ */
+async function fetchStrategyData(userId: string, playerId: string) {
+  // Verify player belongs to user
+  const player = await getPlayerAdmin(userId, playerId);
+  if (!player) {
+    return { error: 'Player not found', status: 404 };
+  }
+
+  // Get Dream Gym profile
+  const dreamGym = await getDreamGymAdmin(userId, playerId);
+
+  // Get recent workout logs (last 4 weeks)
+  const fourWeeksAgo = new Date();
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+
+  const { logs: workoutLogs } = await getWorkoutLogsAdmin(
+    userId,
+    playerId,
+    { startDate: fourWeeksAgo, limit: 50 }
+  );
+
+  // Get biometrics trends
+  let biometricsTrends: BiometricsTrends | null = null;
+  try {
+    biometricsTrends = await getBiometricsTrendsAdmin(
+      userId,
+      playerId,
+      { startDate: fourWeeksAgo, limit: 30 }
+    );
+  } catch {
+    // Biometrics may not exist
+  }
+
+  return { player, dreamGym, workoutLogs, biometricsTrends };
+}
+
+/**
+ * Calculate recent mood from check-ins (always includes energy for strategy input)
+ */
+function calculateRecentMoodFull(checkIns: { mood: number; energy: string; soreness: string }[]) {
+  const recentCheckIns = checkIns.slice(-7);
+  if (recentCheckIns.length === 0) return undefined;
+
+  const avgMood = recentCheckIns.reduce((sum, c) => sum + c.mood, 0) / recentCheckIns.length;
+
+  const sorenessCounts: Record<string, number> = { low: 0, medium: 0, high: 0 };
+  const energyCounts: Record<string, number> = { low: 0, ok: 0, high: 0 };
+
+  for (const c of recentCheckIns) {
+    if (c.soreness in sorenessCounts) sorenessCounts[c.soreness]++;
+    if (c.energy in energyCounts) energyCounts[c.energy]++;
+  }
+
+  const avgSoreness = Object.entries(sorenessCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0];
+  const avgEnergy = Object.entries(energyCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0];
+
+  return { avgMood, avgEnergy, avgSoreness };
+}
+
+/**
+ * Calculate recent mood from check-ins (minimal for recovery analysis)
+ */
+function calculateRecentMoodMinimal(checkIns: { mood: number; soreness: string }[]) {
+  const recentCheckIns = checkIns.slice(-7);
+  if (recentCheckIns.length === 0) return undefined;
+
+  const avgMood = recentCheckIns.reduce((sum, c) => sum + c.mood, 0) / recentCheckIns.length;
+  const sorenessCounts: Record<string, number> = { low: 0, medium: 0, high: 0 };
+
+  for (const c of recentCheckIns) {
+    if (c.soreness in sorenessCounts) sorenessCounts[c.soreness]++;
+  }
+  const avgSoreness = Object.entries(sorenessCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0];
+
+  return { avgMood, avgSoreness };
+}
+
+/**
+ * Calculate player age from birthday
+ */
+function calculateAge(birthday: Date | string | undefined): number | undefined {
+  if (!birthday) return undefined;
+
+  const today = new Date();
+  const birthDate = new Date(birthday);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+/**
+ * Extract available days from schedule
+ */
+function getAvailableDays(schedule: DreamGym['schedule']): string[] {
+  const availableDays: string[] = [];
+  const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+  for (const day of dayNames) {
+    if (schedule[day] && schedule[day] !== 'off') {
+      availableDays.push(day.charAt(0).toUpperCase() + day.slice(1));
+    }
+  }
+  return availableDays;
+}
 
 /**
  * POST /api/players/[id]/dream-gym/ai-strategy
@@ -31,17 +142,13 @@ export async function POST(
 
     const { id: playerId } = await params;
 
-    // Verify player belongs to user
-    const player = await getPlayerAdmin(session.user.id, playerId);
-    if (!player) {
-      return NextResponse.json(
-        { error: 'Player not found' },
-        { status: 404 }
-      );
+    const data = await fetchStrategyData(session.user.id, playerId);
+    if ('error' in data) {
+      return NextResponse.json({ error: data.error }, { status: data.status });
     }
 
-    // Get Dream Gym profile
-    const dreamGym = await getDreamGymAdmin(session.user.id, playerId);
+    const { player, dreamGym, workoutLogs, biometricsTrends } = data;
+
     if (!dreamGym?.profile) {
       return NextResponse.json(
         { error: 'Dream Gym profile not found. Complete onboarding first.' },
@@ -49,71 +156,9 @@ export async function POST(
       );
     }
 
-    // Get recent workout logs (last 4 weeks)
-    const fourWeeksAgo = new Date();
-    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-
-    const { logs: workoutLogs } = await getWorkoutLogsAdmin(
-      session.user.id,
-      playerId,
-      { startDate: fourWeeksAgo, limit: 50 }
-    );
-
-    // Get biometrics trends
-    let biometricsTrends = null;
-    try {
-      biometricsTrends = await getBiometricsTrendsAdmin(
-        session.user.id,
-        playerId,
-        { startDate: fourWeeksAgo, limit: 30 }
-      );
-    } catch {
-      // Biometrics may not exist
-    }
-
     // Get mental check-in data
     const checkIns = dreamGym?.mental?.checkIns || [];
-    const recentCheckIns = checkIns.slice(-7);
-
-    // Calculate average mood data
-    let recentMood = undefined;
-    if (recentCheckIns.length > 0) {
-      const avgMood = recentCheckIns.reduce((sum: number, c: { mood: number }) => sum + c.mood, 0) / recentCheckIns.length;
-      const energyCounts = { low: 0, ok: 0, high: 0 };
-      const sorenessCounts = { low: 0, medium: 0, high: 0 };
-
-      for (const c of recentCheckIns) {
-        if (c.energy in energyCounts) energyCounts[c.energy as keyof typeof energyCounts]++;
-        if (c.soreness in sorenessCounts) sorenessCounts[c.soreness as keyof typeof sorenessCounts]++;
-      }
-
-      const avgEnergy = Object.entries(energyCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0];
-      const avgSoreness = Object.entries(sorenessCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0];
-
-      recentMood = { avgMood, avgEnergy, avgSoreness };
-    }
-
-    // Calculate player age
-    let age: number | undefined;
-    if (player.birthday) {
-      const today = new Date();
-      const birthDate = new Date(player.birthday);
-      age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-    }
-
-    // Extract available days from schedule (days that aren't 'off')
-    const schedule = dreamGym.schedule;
-    const availableDays: string[] = [];
-    const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
-    for (const day of dayNames) {
-      if (schedule[day] && schedule[day] !== 'off') {
-        availableDays.push(day.charAt(0).toUpperCase() + day.slice(1));
-      }
-    }
+    const recentMood = calculateRecentMoodFull(checkIns);
 
     // Build strategy input
     const strategyInput: WorkoutStrategyInput = {
@@ -121,7 +166,7 @@ export async function POST(
       playerName: player.name,
       position: player.primaryPosition,
       goals: dreamGym.profile.goals || [],
-      age,
+      age: calculateAge(player.birthday),
       recentWorkouts: workoutLogs.map(log => ({
         date: new Date(log.completedAt),
         type: log.type,
@@ -136,7 +181,7 @@ export async function POST(
         avgSleepScore: biometricsTrends.avgSleepScore ?? undefined,
       } : undefined,
       recentMood,
-      availableDays,
+      availableDays: getAvailableDays(dreamGym.schedule),
       hasGymAccess: dreamGym.profile.hasGymAccess,
     };
 
@@ -157,8 +202,8 @@ export async function POST(
 }
 
 /**
- * GET /api/players/[id]/dream-gym/ai-strategy/recovery
- * Get recovery status analysis
+ * GET /api/players/[id]/dream-gym/ai-strategy
+ * Get recovery status analysis or progression suggestions
  */
 export async function GET(
   request: NextRequest,
@@ -188,41 +233,14 @@ export async function GET(
     }
 
     if (type === 'recovery') {
-      // Get recent data for recovery analysis
-      const fourWeeksAgo = new Date();
-      fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-
-      const { logs: workoutLogs } = await getWorkoutLogsAdmin(
-        session.user.id,
-        playerId,
-        { startDate: fourWeeksAgo, limit: 50 }
-      );
-
-      let biometricsTrends = null;
-      try {
-        biometricsTrends = await getBiometricsTrendsAdmin(
-          session.user.id,
-          playerId,
-          { startDate: fourWeeksAgo, limit: 30 }
-        );
-      } catch {
-        // Biometrics may not exist
+      const data = await fetchStrategyData(session.user.id, playerId);
+      if ('error' in data) {
+        return NextResponse.json({ error: data.error }, { status: data.status });
       }
 
-      const dreamGym = await getDreamGymAdmin(session.user.id, playerId);
+      const { dreamGym, workoutLogs, biometricsTrends } = data;
       const checkIns = dreamGym?.mental?.checkIns || [];
-      const recentCheckIns = checkIns.slice(-7);
-
-      let recentMood = undefined;
-      if (recentCheckIns.length > 0) {
-        const avgMood = recentCheckIns.reduce((sum: number, c: { mood: number }) => sum + c.mood, 0) / recentCheckIns.length;
-        const sorenessCounts = { low: 0, medium: 0, high: 0 };
-        for (const c of recentCheckIns) {
-          if (c.soreness in sorenessCounts) sorenessCounts[c.soreness as keyof typeof sorenessCounts]++;
-        }
-        const avgSoreness = Object.entries(sorenessCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0];
-        recentMood = { avgMood, avgSoreness };
-      }
+      const recentMood = calculateRecentMoodMinimal(checkIns);
 
       const recovery = analyzeRecoveryStatus({
         recentWorkouts: workoutLogs.map(log => ({
@@ -252,30 +270,20 @@ export async function GET(
         { limit: 50 }
       );
 
-      // Flatten exercise data
-      const exerciseHistory: {
-        exerciseName: string;
-        sets: number;
-        reps: number;
-        weight?: number;
-        date: Date;
-      }[] = [];
-
-      for (const log of workoutLogs) {
-        for (const exercise of log.exercises) {
-          for (const set of exercise.sets) {
-            if (set.completed) {
-              exerciseHistory.push({
-                exerciseName: exercise.exerciseName,
-                sets: exercise.targetSets,
-                reps: set.reps,
-                weight: set.weight ?? undefined,
-                date: new Date(log.completedAt),
-              });
-            }
-          }
-        }
-      }
+      // Flatten exercise data using flatMap
+      const exerciseHistory = workoutLogs.flatMap(log =>
+        log.exercises.flatMap(exercise =>
+          exercise.sets
+            .filter(set => set.completed)
+            .map(set => ({
+              exerciseName: exercise.exerciseName,
+              sets: exercise.targetSets,
+              reps: set.reps,
+              weight: set.weight ?? undefined,
+              date: new Date(log.completedAt),
+            }))
+        )
+      );
 
       const progressions = suggestProgressions(exerciseHistory);
 
