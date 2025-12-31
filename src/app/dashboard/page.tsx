@@ -279,22 +279,23 @@ export default async function DashboardPage() {
           )}
 
           {/* Dream Gym - Training & AI Strategy */}
-          {athletes.length > 0 && (
-            athletes.length === 1 ? (
+          {athletes.length > 0 && (() => {
+            const DreamGymButton = ({ showChevron = false }: { showChevron?: boolean }) => (
+              <Button variant='outline' className='w-full justify-start gap-3 h-12 border-purple-300 text-purple-700 hover:bg-purple-50 hover:text-purple-800'>
+                <Dumbbell className='h-5 w-5' />
+                <span className='font-medium'>Dream Gym</span>
+                {showChevron && <ChevronDown className='h-4 w-4 ml-auto' />}
+              </Button>
+            );
+
+            return athletes.length === 1 ? (
               <Link href={`/dashboard/dream-gym?playerId=${athletes[0].id}`}>
-                <Button variant='outline' className='w-full justify-start gap-3 h-12 border-purple-300 text-purple-700 hover:bg-purple-50 hover:text-purple-800'>
-                  <Dumbbell className='h-5 w-5' />
-                  <span className='font-medium'>Dream Gym</span>
-                </Button>
+                <DreamGymButton />
               </Link>
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant='outline' className='w-full justify-start gap-3 h-12 border-purple-300 text-purple-700 hover:bg-purple-50 hover:text-purple-800'>
-                    <Dumbbell className='h-5 w-5' />
-                    <span className='font-medium'>Dream Gym</span>
-                    <ChevronDown className='h-4 w-4 ml-auto' />
-                  </Button>
+                  <DreamGymButton showChevron />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align='start' className='w-[300px]'>
                   <DropdownMenuLabel>Select Athlete</DropdownMenuLabel>
@@ -311,8 +312,8 @@ export default async function DashboardPage() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-            )
-          )}
+            );
+          })()}
         </CardContent>
       </Card>
     </div>
