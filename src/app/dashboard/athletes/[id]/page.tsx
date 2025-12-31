@@ -2,6 +2,7 @@ import { getDashboardUser } from '@/lib/firebase/admin-auth';
 import { redirect, notFound } from 'next/navigation';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import { getAllGamesForPlayerAdmin } from '@/lib/firebase/admin-services/games';
+import { getDreamGymAdmin } from '@/lib/firebase/admin-services/dream-gym';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -12,10 +13,13 @@ import {
   Users,
   Clock,
   Shield,
-  Edit
+  Edit,
+  Dumbbell,
+  Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 import { DeleteAthleteButton } from '@/components/delete-athlete-button';
+import { AIStrategyCard } from '@/components/dream-gym/AIStrategyCard';
 import { calculateAge, getInitials } from '@/lib/player-utils';
 import {
   formatGameDate,
@@ -66,7 +70,11 @@ export default async function AthleteDetailPage({
   const verifiedGames = games.filter((game) => game.verified);
   const pendingGames = games.filter((game) => !game.verified);
 
-  // 4. CALCULATE AGGREGATED STATS using utility function (verified games only)
+  // 4. FETCH DREAM GYM: Check if athlete has Dream Gym profile
+  const dreamGym = await getDreamGymAdmin(user.uid, athlete.id);
+  const hasDreamGym = dreamGym?.profile?.onboardingComplete ?? false;
+
+  // 5. CALCULATE AGGREGATED STATS using utility function (verified games only)
   const stats: AthleteStats = calculateAthleteStats(verifiedGames as GameData[]);
 
   // 5. CALCULATE DISPLAY VALUES
@@ -200,6 +208,33 @@ export default async function AthleteDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* DREAM GYM / AI STRATEGY SECTION */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Dream Gym Link */}
+        <Link href={`/dashboard/dream-gym?playerId=${athlete.id}`}>
+          <Card className="border-zinc-200 cursor-pointer hover:border-zinc-400 transition-colors h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Dumbbell className="h-5 w-5" />
+                Dream Gym
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-600">
+                {hasDreamGym
+                  ? 'View personalized training program and track workouts.'
+                  : 'Set up a personalized training program for this athlete.'}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* AI Strategy Card - Only show if Dream Gym is set up */}
+        {hasDreamGym && (
+          <AIStrategyCard playerId={athlete.id} compact />
+        )}
+      </div>
 
       {/* GAMES HISTORY SECTION */}
       <Card className="bg-white border-zinc-200">
