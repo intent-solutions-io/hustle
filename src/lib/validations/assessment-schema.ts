@@ -166,37 +166,48 @@ export function validateAssessmentValue(
 
 /**
  * Calculate improvement between two assessments
+ * Returns null percentage when oldValue is 0 (percentage change undefined)
  */
 export function calculateImprovement(
   testType: typeof fitnessTestTypes[number],
   oldValue: number,
   newValue: number
-): { improved: boolean; percentage: number } {
+): { improved: boolean; percentage: number | null } {
   const metadata = fitnessTestMetadata[testType];
   const diff = newValue - oldValue;
+
+  if (oldValue === 0) {
+    return {
+      improved: metadata.direction === 'higher_better' ? diff > 0 : diff < 0,
+      percentage: null,
+    };
+  }
 
   if (metadata.direction === 'higher_better') {
     return {
       improved: diff > 0,
-      percentage: oldValue > 0 ? Math.round((diff / oldValue) * 100) : 0,
+      percentage: Math.round((diff / oldValue) * 100),
     };
   } else {
     // Lower is better (times)
     return {
       improved: diff < 0,
-      percentage: oldValue > 0 ? Math.round((-diff / oldValue) * 100) : 0,
+      percentage: Math.round((-diff / oldValue) * 100),
     };
   }
 }
 
 /**
  * Convert time string (mm:ss) to seconds
+ * Throws an error for invalid format to catch data entry errors
  */
 export function timeToSeconds(timeStr: string): number {
   const parts = timeStr.split(':');
-  if (parts.length !== 2) return 0;
-  const minutes = parseInt(parts[0], 10) || 0;
-  const seconds = parseInt(parts[1], 10) || 0;
+  if (parts.length !== 2 || isNaN(parseInt(parts[0], 10)) || isNaN(parseInt(parts[1], 10))) {
+    throw new Error(`Invalid time format: "${timeStr}". Expected "mm:ss".`);
+  }
+  const minutes = parseInt(parts[0], 10);
+  const seconds = parseInt(parts[1], 10);
   return minutes * 60 + seconds;
 }
 

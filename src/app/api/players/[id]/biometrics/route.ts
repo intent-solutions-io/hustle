@@ -46,7 +46,7 @@ export async function GET(
       source: url.searchParams.get('source') as BiometricsSource | undefined,
       startDate: url.searchParams.get('startDate') || undefined,
       endDate: url.searchParams.get('endDate') || undefined,
-      limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!) : undefined,
+      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
       cursor: url.searchParams.get('cursor') || undefined,
     };
 

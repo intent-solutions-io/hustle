@@ -281,12 +281,19 @@ export async function getBiometricsTrendsAdmin(
 
     const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
 
+    // Calculate each average once
+    const avgRhr = avg(rhrValues);
+    const avgHrv = avg(hrvValues);
+    const avgSleepScore = avg(sleepScoreValues);
+    const avgSleepHours = avg(sleepHoursValues);
+    const avgSteps = avg(stepsValues);
+
     return {
-      avgRestingHeartRate: avg(rhrValues) !== null ? Math.round(avg(rhrValues)!) : null,
-      avgHrv: avg(hrvValues) !== null ? Math.round(avg(hrvValues)!) : null,
-      avgSleepScore: avg(sleepScoreValues) !== null ? Math.round(avg(sleepScoreValues)!) : null,
-      avgSleepHours: avg(sleepHoursValues) !== null ? Math.round(avg(sleepHoursValues)! * 10) / 10 : null,
-      avgSteps: avg(stepsValues) !== null ? Math.round(avg(stepsValues)!) : null,
+      avgRestingHeartRate: avgRhr !== null ? Math.round(avgRhr) : null,
+      avgHrv: avgHrv !== null ? Math.round(avgHrv) : null,
+      avgSleepScore: avgSleepScore !== null ? Math.round(avgSleepScore) : null,
+      avgSleepHours: avgSleepHours !== null ? Math.round(avgSleepHours * 10) / 10 : null,
+      avgSteps: avgSteps !== null ? Math.round(avgSteps) : null,
       dataPoints: logs.length,
     };
   } catch (error: unknown) {

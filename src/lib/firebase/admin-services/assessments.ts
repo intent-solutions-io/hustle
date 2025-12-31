@@ -9,7 +9,7 @@ import { adminDb } from '../admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { FitnessAssessment, FitnessAssessmentDocument, FitnessTestType, FitnessTestUnit } from '@/types/firestore';
 import type { FitnessAssessmentCreateInput, FitnessAssessmentUpdateInput } from '@/lib/validations/assessment-schema';
-import { fitnessTestMetadata, calculateImprovement } from '@/lib/validations/assessment-schema';
+import { fitnessTestTypes, fitnessTestMetadata, calculateImprovement } from '@/lib/validations/assessment-schema';
 
 function toDate(value: unknown): Date {
   if (value instanceof Date) return value;
@@ -229,11 +229,8 @@ export async function getLatestAssessmentsByTypeAdmin(
   try {
     const assessmentsRef = getAssessmentsRef(userId, playerId);
 
-    // Get all test types
-    const testTypes: FitnessTestType[] = [
-      'beep_test', '40_yard_dash', 'pro_agility', 'vertical_jump',
-      'plank_hold', 'pushups_1min', 'situps_1min', 'mile_run'
-    ];
+    // Get all test types from imported constant
+    const testTypes: FitnessTestType[] = [...fitnessTestTypes];
 
     const result: Record<FitnessTestType, FitnessAssessment | null> = {} as Record<FitnessTestType, FitnessAssessment | null>;
 

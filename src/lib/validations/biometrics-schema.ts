@@ -79,40 +79,44 @@ export const biometricsLogQuerySchema = z.object({
  * - Higher HRV = better recovery
  * - Higher sleep score = better recovery
  * - Lower resting heart rate = better recovery
+ *
+ * Returns a normalized 0-100 score based on available metrics.
  */
 export function calculateRecoveryScore(biometrics: {
   restingHeartRate?: number | null;
   hrv?: number | null;
   sleepScore?: number | null;
 }): number | null {
-  const scores: number[] = [];
+  const scores: { value: number; max: number }[] = [];
 
   // HRV contribution (0-40 points)
   if (biometrics.hrv != null) {
     // Typical youth athlete HRV: 40-120ms
     const hrvScore = Math.min(40, Math.max(0, ((biometrics.hrv - 40) / 80) * 40));
-    scores.push(hrvScore);
+    scores.push({ value: hrvScore, max: 40 });
   }
 
   // Sleep score contribution (0-40 points)
   if (biometrics.sleepScore != null) {
     const sleepContribution = (biometrics.sleepScore / 100) * 40;
-    scores.push(sleepContribution);
+    scores.push({ value: sleepContribution, max: 40 });
   }
 
   // Resting heart rate contribution (0-20 points)
   if (biometrics.restingHeartRate != null) {
     // Lower is better - typical youth range 50-80 bpm
     const rhrScore = Math.max(0, 20 - ((biometrics.restingHeartRate - 50) / 30) * 20);
-    scores.push(Math.min(20, Math.max(0, rhrScore)));
+    scores.push({ value: Math.min(20, Math.max(0, rhrScore)), max: 20 });
   }
 
   if (scores.length === 0) return null;
 
-  // Average the available scores and scale to 0-100
-  const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-  const scaleFactor = 100 / (scores.length === 3 ? 100 : scores.length === 2 ? 80 : 40);
-  return Math.round(avgScore * scaleFactor);
+  const totalValue = scores.reduce((sum, score) => sum + score.value, 0);
+  const totalMax = scores.reduce((sum, score) => sum + score.max, 0);
+
+  if (totalMax === 0) return 0;
+
+  return Math.round((totalValue / totalMax) * 100);
 }
 
 /**
