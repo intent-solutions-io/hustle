@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Plus } from 'lucide-react';
 import { calculateAge, getInitials, getAvatarColor } from '@/lib/player-utils';
 import type { Player } from '@/types/firestore';
 import Link from 'next/link';
@@ -124,19 +125,7 @@ export function AddAthleteCard({
   const content = (
     <CardContent className="py-6 text-center">
       <div className="w-16 h-16 mx-auto mb-4 rounded-full border-2 border-dashed border-zinc-300 flex items-center justify-center">
-        <svg
-          className="w-8 h-8 text-zinc-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 4v16m8-8H4"
-          />
-        </svg>
+        <Plus className="w-8 h-8 text-zinc-400" />
       </div>
       <h3 className="font-semibold text-zinc-600">Add New Athlete</h3>
       <p className="text-sm text-zinc-400 mt-1">Click to add</p>
@@ -151,7 +140,7 @@ export function AddAthleteCard({
     ${className}
   `.trim();
 
-  if (href && !onClick) {
+  if (href) {
     return (
       <Link href={href}>
         <Card className={cardClassName}>
