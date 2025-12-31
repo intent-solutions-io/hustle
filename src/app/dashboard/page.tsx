@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, Calendar, Target, PlusCircle, User, ChevronDown, Shield, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Calendar, Target, PlusCircle, User, ChevronDown, Shield, AlertTriangle, Dumbbell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { getDashboardUser } from '@/lib/firebase/admin-auth';
@@ -277,6 +277,43 @@ export default async function DashboardPage() {
               </Button>
             </Link>
           )}
+
+          {/* Dream Gym - Training & AI Strategy */}
+          {athletes.length > 0 && (() => {
+            const DreamGymButton = ({ showChevron = false }: { showChevron?: boolean }) => (
+              <Button variant='outline' className='w-full justify-start gap-3 h-12 border-purple-300 text-purple-700 hover:bg-purple-50 hover:text-purple-800'>
+                <Dumbbell className='h-5 w-5' />
+                <span className='font-medium'>Dream Gym</span>
+                {showChevron && <ChevronDown className='h-4 w-4 ml-auto' />}
+              </Button>
+            );
+
+            return athletes.length === 1 ? (
+              <Link href={`/dashboard/dream-gym?playerId=${athletes[0].id}`}>
+                <DreamGymButton />
+              </Link>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <DreamGymButton showChevron />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='start' className='w-[300px]'>
+                  <DropdownMenuLabel>Select Athlete</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {athletes.map((athlete) => (
+                    <DropdownMenuItem key={athlete.id} asChild>
+                      <Link href={`/dashboard/dream-gym?playerId=${athlete.id}`} className='cursor-pointer'>
+                        <span>{athlete.name}</span>
+                        <span className='ml-auto text-xs text-zinc-500'>
+                          {athlete.primaryPosition}
+                        </span>
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>
