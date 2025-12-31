@@ -90,12 +90,19 @@ export async function GET(request: NextRequest) {
     }
   } catch (error: unknown) {
     console.error('[whoami] Unexpected error:', error);
-    const err = error as { message?: string };
+    const err = error as { code?: string; message?: string };
     return NextResponse.json(
       {
         authenticated: false,
-        error: 'Internal server error',
-        message: err?.message || 'Unknown error',
+        uid: null,
+        email: null,
+        emailVerified: null,
+        cookiePresent: false,
+        sessionValid: false,
+        error: {
+          code: err?.code || 'internal_error',
+          message: err?.message || 'Internal server error',
+        },
         debug: {
           timestamp: new Date().toISOString(),
           responseTime: Date.now() - startTime,

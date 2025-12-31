@@ -171,24 +171,27 @@ export default function Login() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Error Message */}
-              {error && (
-                <div className="p-3 rounded-lg bg-red-50 border border-red-200 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                    <p className="text-sm text-red-600">{error}</p>
+              {error && (() => {
+                const actionLink = errorAction ? getActionLink(errorAction) : null;
+                return (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                    {actionLink && (
+                      <p className="text-sm text-red-600 ml-6">
+                        <Link
+                          href={actionLink.href}
+                          className="underline font-medium hover:text-red-700"
+                        >
+                          {actionLink.text}
+                        </Link>
+                      </p>
+                    )}
                   </div>
-                  {errorAction && getActionLink(errorAction) && (
-                    <p className="text-sm text-red-600 ml-6">
-                      <Link
-                        href={getActionLink(errorAction)!.href}
-                        className="underline font-medium hover:text-red-700"
-                      >
-                        {getActionLink(errorAction)!.text}
-                      </Link>
-                    </p>
-                  )}
-                </div>
-              )}
+                );
+              })()}
 
               {/* Email */}
               <div className="space-y-2">
