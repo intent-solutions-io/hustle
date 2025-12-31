@@ -334,7 +334,7 @@ export default function DreamGymAssessmentsPage() {
                       id="notes"
                       placeholder="Any observations or conditions during the test..."
                       value={formData.notes}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                       rows={2}
                     />
                   </div>
