@@ -64,14 +64,14 @@ export default async function AthleteDetailPage({
     notFound();
   }
 
-  // 3. FETCH GAMES: Get all games for this athlete (Firestore Admin SDK)
-  const games: Game[] = await getAllGamesForPlayerAdmin(user.uid, athlete.id);
+  // 3. FETCH GAMES + DREAM GYM in parallel (Firestore Admin SDK)
+  const [games, dreamGym] = await Promise.all([
+    getAllGamesForPlayerAdmin(user.uid, athlete.id),
+    getDreamGymAdmin(user.uid, athlete.id),
+  ]);
 
   const verifiedGames = games.filter((game) => game.verified);
   const pendingGames = games.filter((game) => !game.verified);
-
-  // 4. FETCH DREAM GYM: Check if athlete has Dream Gym profile
-  const dreamGym = await getDreamGymAdmin(user.uid, athlete.id);
   const hasDreamGym = dreamGym?.profile?.onboardingComplete ?? false;
 
   // 5. CALCULATE AGGREGATED STATS using utility function (verified games only)
