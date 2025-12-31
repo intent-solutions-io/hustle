@@ -10,6 +10,18 @@ import { Timestamp } from 'firebase-admin/firestore';
 import type { BiometricsLog, BiometricsLogDocument, BiometricsSource } from '@/types/firestore';
 import type { BiometricsLogCreateInput, BiometricsLogUpdateInput } from '@/lib/validations/biometrics-schema';
 
+/**
+ * Biometrics trends summary type
+ */
+export interface BiometricsTrends {
+  avgRestingHeartRate: number | null;
+  avgHrv: number | null;
+  avgSleepScore: number | null;
+  avgSleepHours: number | null;
+  avgSteps: number | null;
+  dataPoints: number;
+}
+
 function toDate(value: unknown): Date {
   if (value instanceof Date) return value;
   if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
@@ -237,14 +249,7 @@ export async function getBiometricsTrendsAdmin(
     endDate?: Date;
     limit?: number;
   }
-): Promise<{
-  avgRestingHeartRate: number | null;
-  avgHrv: number | null;
-  avgSleepScore: number | null;
-  avgSleepHours: number | null;
-  avgSteps: number | null;
-  dataPoints: number;
-}> {
+): Promise<BiometricsTrends> {
   try {
     const biometricsRef = getBiometricsRef(userId, playerId);
     let query = biometricsRef.orderBy('date', 'desc');
