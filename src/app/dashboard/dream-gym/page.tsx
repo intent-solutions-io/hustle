@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, TrendingUp, History, BookOpen } from 'lucide-react';
+import { AthleteCard } from '@/components/athlete-card';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -129,19 +130,12 @@ export default function DreamGymPage() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {players.map((player) => (
-            <Card
+            <AthleteCard
               key={player.id}
-              className="border-zinc-200 cursor-pointer hover:border-zinc-400 transition-colors"
+              athlete={player}
+              variant="compact"
               onClick={() => handlePlayerSelect(player)}
-            >
-              <CardContent className="py-6 text-center">
-                <div className="w-16 h-16 mx-auto rounded-full bg-zinc-100 flex items-center justify-center mb-4">
-                  <Dumbbell className="h-8 w-8 text-zinc-600" />
-                </div>
-                <h3 className="font-semibold text-zinc-900">{player.name}</h3>
-                <p className="text-sm text-zinc-500">{player.primaryPosition}</p>
-              </CardContent>
-            </Card>
+            />
           ))}
         </div>
       </div>

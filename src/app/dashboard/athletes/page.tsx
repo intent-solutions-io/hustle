@@ -5,8 +5,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import { calculateAge, getInitials, getAvatarColor } from '@/lib/player-utils';
+import { AthleteCard, AddAthleteCard } from '@/components/athlete-card';
 import type { Player } from '@/types/firestore';
+
+// Note: calculateAge, getInitials, getAvatarColor are now used internally by AthleteCard
 
 /**
  * Athletes List Page
@@ -101,61 +103,17 @@ export default async function AthletesPage() {
       ) : (
         /* Athletes Grid */
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {players.map((player: Player) => {
-            const age: number = calculateAge(player.birthday);
-            const initials: string = getInitials(player.name);
-            const avatarColor: string = getAvatarColor(player.name);
-
-            return (
-              <Link key={player.id} href={`/dashboard/athletes/${player.id}`}>
-                <Card className="border-zinc-200 hover:shadow-lg transition-all cursor-pointer">
-                  <CardContent className="pt-6 pb-6 flex flex-col items-center text-center">
-                    {/* Avatar */}
-                    <div className={`w-20 h-20 rounded-full ${avatarColor} flex items-center justify-center text-xl font-semibold mb-4`}>
-                      {player.photoUrl ? (
-                        <img
-                          src={player.photoUrl}
-                          alt={`${player.name}'s avatar`}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        initials
-                      )}
-                    </div>
-
-                    {/* Name */}
-                    <h3 className="text-lg font-semibold text-zinc-900 mb-1 truncate w-full">
-                      {player.name}
-                    </h3>
-
-                    {/* Position & Age */}
-                    <p className="text-sm text-zinc-600 mb-2">
-                      {player.position} • Age {age}
-                    </p>
-
-                    {/* Team/Club */}
-                    <p className="text-xs text-zinc-500 truncate w-full">
-                      {player.teamClub}
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
+          {players.map((player: Player) => (
+            <AthleteCard
+              key={player.id}
+              athlete={player}
+              variant="full"
+              href={`/dashboard/athletes/${player.id}`}
+            />
+          ))}
 
           {/* Add New Athlete Card */}
-          <Link href="/dashboard/add-athlete">
-            <Card className="border-zinc-200 border-dashed border-2 hover:border-zinc-400 hover:bg-zinc-50 transition-all cursor-pointer">
-              <CardContent className="flex flex-col items-center justify-center min-h-[232px]">
-                <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center mb-3">
-                  <Plus className="w-6 h-6 text-zinc-600" />
-                </div>
-                <p className="text-sm font-medium text-zinc-600">
-                  Add New Athlete
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
+          <AddAthleteCard href="/dashboard/add-athlete" />
         </div>
       )}
     </div>
