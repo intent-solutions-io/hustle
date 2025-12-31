@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, Heart, Target, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, Heart, Target, TrendingUp, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -341,6 +341,22 @@ export default function DreamGymPage() {
             <CardContent>
               <p className="text-sm text-zinc-600">
                 Log and track fitness assessments over time.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href={`/dashboard/dream-gym/strategy?playerId=${selectedPlayer?.id}`}>
+          <Card className="border-zinc-200 cursor-pointer hover:border-purple-300 transition-colors h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-500" />
+                AI Strategy
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-600">
+                Get personalized workout plans powered by AI.
               </p>
             </CardContent>
           </Card>
