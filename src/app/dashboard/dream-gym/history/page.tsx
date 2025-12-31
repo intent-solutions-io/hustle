@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,12 +27,7 @@ export default function WorkoutHistoryPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  useEffect(() => {
-    if (!playerId) return;
-    fetchWorkoutLogs();
-  }, [playerId, typeFilter]);
-
-  async function fetchWorkoutLogs(cursor?: string) {
+  const fetchWorkoutLogs = useCallback(async (cursor?: string) => {
     if (!playerId) return;
 
     try {
@@ -61,7 +56,12 @@ export default function WorkoutHistoryPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }
+  }, [playerId, typeFilter]);
+
+  useEffect(() => {
+    if (!playerId) return;
+    fetchWorkoutLogs();
+  }, [playerId, fetchWorkoutLogs]);
 
   if (!playerId) {
     return (

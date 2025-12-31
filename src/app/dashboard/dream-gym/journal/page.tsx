@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,12 +29,7 @@ export default function JournalPage() {
   const [showEditor, setShowEditor] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!playerId) return;
-    fetchEntries();
-  }, [playerId, contextFilter]);
-
-  async function fetchEntries(cursor?: string) {
+  const fetchEntries = useCallback(async (cursor?: string) => {
     if (!playerId) return;
 
     try {
@@ -63,13 +58,18 @@ export default function JournalPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }
+  }, [playerId, contextFilter]);
 
-  async function handleSaveEntry(data: {
+  useEffect(() => {
+    if (!playerId) return;
+    fetchEntries();
+  }, [playerId, fetchEntries]);
+
+  const handleSaveEntry = useCallback(async (data: {
     content: string;
     moodTag: JournalMoodTag | null;
     energyTag: JournalEnergyTag | null;
-  }) {
+  }) => {
     if (!playerId) return;
 
     try {
@@ -95,9 +95,9 @@ export default function JournalPage() {
     } finally {
       setSaving(false);
     }
-  }
+  }, [playerId, fetchEntries]);
 
-  async function handleDeleteEntry(entryId: string) {
+  const handleDeleteEntry = useCallback(async (entryId: string) => {
     if (!playerId) return;
 
     try {
@@ -111,7 +111,7 @@ export default function JournalPage() {
     } catch (error) {
       console.error('Error deleting journal entry:', error);
     }
-  }
+  }, [playerId]);
 
   if (!playerId) {
     return (
