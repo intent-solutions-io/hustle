@@ -546,6 +546,119 @@ export interface JournalEntryDocument {
 }
 
 // ============================================================================
+// BIOMETRICS TYPES (Health & Recovery Tracking)
+// ============================================================================
+
+/**
+ * Biometrics Data Source
+ */
+export type BiometricsSource = 'manual' | 'apple_health' | 'garmin' | 'fitbit' | 'google_fit';
+
+/**
+ * Biometrics Log Document
+ * Subcollection: /users/{userId}/players/{playerId}/biometrics/{logId}
+ *
+ * Daily health metrics for recovery and readiness tracking.
+ */
+export interface BiometricsLogDocument {
+  playerId: string;
+  date: Timestamp;
+
+  // Heart rate metrics
+  restingHeartRate?: number | null;      // bpm (morning measurement)
+  maxHeartRate?: number | null;          // bpm during workout
+  avgHeartRate?: number | null;          // bpm during workout
+  hrv?: number | null;                   // Heart Rate Variability in ms
+
+  // Sleep metrics
+  sleepScore?: number | null;            // 0-100 sleep quality score
+  sleepHours?: number | null;            // Total sleep duration
+
+  // Activity metrics
+  steps?: number | null;                 // Daily step count
+  activeMinutes?: number | null;         // Minutes of activity
+
+  // Data source tracking
+  source: BiometricsSource;
+
+  // Timestamps
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Heart Rate Zone (for workout intensity tracking)
+ */
+export interface HeartRateZone {
+  zone: 1 | 2 | 3 | 4 | 5;  // Zone 1 = recovery, Zone 5 = max effort
+  minutes: number;          // Time spent in zone
+}
+
+/**
+ * Workout Heart Rate Data (embedded in WorkoutLogDocument)
+ */
+export interface WorkoutHeartRateData {
+  avg: number;              // Average heart rate during workout
+  max: number;              // Max heart rate during workout
+  zones?: HeartRateZone[];  // Time in each zone
+}
+
+// ============================================================================
+// FITNESS ASSESSMENT TYPES (Testing & Progress)
+// ============================================================================
+
+/**
+ * Fitness Test Types
+ * Standard youth soccer fitness assessments
+ */
+export type FitnessTestType =
+  | 'beep_test'       // Yo-Yo / Beep Test - aerobic endurance (level 1-21)
+  | '40_yard_dash'    // Sprint speed (seconds)
+  | 'pro_agility'     // 5-10-5 agility test (seconds)
+  | 'vertical_jump'   // Explosive power (inches)
+  | 'plank_hold'      // Core endurance (seconds)
+  | 'pushups_1min'    // Upper body endurance (count)
+  | 'situps_1min'     // Core endurance (count)
+  | 'mile_run';       // Cardio endurance (mm:ss)
+
+/**
+ * Fitness Test Unit
+ */
+export type FitnessTestUnit = 'level' | 'seconds' | 'inches' | 'count' | 'time';
+
+/**
+ * Fitness Assessment Document
+ * Subcollection: /users/{userId}/players/{playerId}/assessments/{assessmentId}
+ *
+ * Individual fitness test results with progress tracking.
+ */
+export interface FitnessAssessmentDocument {
+  playerId: string;
+  date: Timestamp;
+  testType: FitnessTestType;
+  value: number;               // Raw value (interpretation depends on testType)
+  unit: FitnessTestUnit;       // Unit of measurement
+  percentile?: number | null;  // Percentile vs age/gender norms (0-100)
+  notes?: string | null;       // Additional context
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Fitness Test Metadata
+ * Static information about each test type
+ */
+export interface FitnessTestMetadata {
+  testType: FitnessTestType;
+  name: string;               // Display name
+  description: string;        // What it measures
+  unit: FitnessTestUnit;      // Unit of measurement
+  direction: 'higher_better' | 'lower_better';  // For progress comparison
+  minValue: number;           // Minimum valid value
+  maxValue: number;           // Maximum valid value
+}
+
+// ============================================================================
 // CLIENT-SIDE TYPES
 // ============================================================================
 
@@ -640,6 +753,22 @@ export interface WorkoutLog extends Omit<WorkoutLogDocument, 'date' | 'completed
 
 // Journal Entry client-side types
 export interface JournalEntry extends Omit<JournalEntryDocument, 'date' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Biometrics client-side types
+export interface BiometricsLog extends Omit<BiometricsLogDocument, 'date' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Fitness Assessment client-side types
+export interface FitnessAssessment extends Omit<FitnessAssessmentDocument, 'date' | 'createdAt' | 'updatedAt'> {
   id: string;
   date: Date;
   createdAt: Date;
