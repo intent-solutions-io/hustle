@@ -26,16 +26,39 @@ const firebaseConfig = {
 };
 
 // Validate Firebase config at runtime (helps catch build-time env issues)
+// This MUST pass for auth to work
 if (typeof window !== 'undefined') {
   const missingKeys = Object.entries(firebaseConfig)
     .filter(([_, value]) => !value || value === 'undefined')
     .map(([key]) => key);
 
   if (missingKeys.length > 0) {
-    console.error('[Firebase] Missing config keys:', missingKeys);
+    console.error('[Firebase] CRITICAL: Missing config keys:', missingKeys);
     console.error('[Firebase] This usually means environment variables were not embedded at build time.');
+    console.error('[Firebase] Auth will NOT work without these values.');
+    console.error('[Firebase] Raw env values:', {
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? 'SET' : 'MISSING',
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ? 'SET' : 'MISSING',
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ? 'SET' : 'MISSING',
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ? 'SET' : 'MISSING',
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ? 'SET' : 'MISSING',
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ? 'SET' : 'MISSING',
+    });
   } else {
-    console.log('[Firebase] Config loaded for project:', firebaseConfig.projectId);
+    console.log('[Firebase] Config loaded successfully');
+    console.log('[Firebase] Project ID:', firebaseConfig.projectId);
+    console.log('[Firebase] Auth Domain:', firebaseConfig.authDomain);
+    console.log('[Firebase] Current host:', window.location.host);
+
+    // Warn if authDomain might be misconfigured
+    const currentHost = window.location.host;
+    if (currentHost !== 'localhost' &&
+        currentHost !== '127.0.0.1' &&
+        !currentHost.includes('firebaseapp.com') &&
+        !currentHost.includes('web.app')) {
+      console.log('[Firebase] NOTE: Running on custom domain:', currentHost);
+      console.log('[Firebase] Ensure this domain is added to Firebase Console > Authentication > Settings > Authorized domains');
+    }
   }
 }
 

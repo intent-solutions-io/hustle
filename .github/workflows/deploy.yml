@@ -58,9 +58,8 @@ jobs:
             --project ${{ env.PROJECT_ID }} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=staging" \
-            --set-env-vars "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }}" \
-            --set-secrets "FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest,FIREBASE_CLIENT_EMAIL=FIREBASE_CLIENT_EMAIL:latest"
+            --set-env-vars "NODE_ENV=staging,FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},BILLING_ENABLED=false" \
+            --set-secrets "FIREBASE_SERVICE_ACCOUNT_JSON=FIREBASE_SERVICE_ACCOUNT_JSON:latest"
 
       - name: Get staging URL
         id: staging-url
@@ -218,8 +217,9 @@ jobs:
             --project ${{ env.PROJECT_ID }} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=production,NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>" \
-            --set-secrets "FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest,FIREBASE_CLIENT_EMAIL=FIREBASE_CLIENT_EMAIL:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
+            --min-instances=1 \
+            --set-env-vars "NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>,BILLING_ENABLED=false" \
+            --set-secrets "FIREBASE_SERVICE_ACCOUNT_JSON=FIREBASE_SERVICE_ACCOUNT_JSON:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
 
       - name: Verify deployment
         run: |

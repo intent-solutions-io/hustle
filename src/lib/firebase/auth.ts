@@ -130,25 +130,53 @@ export async function signUp(data: {
  * E2E test mode: Set NEXT_PUBLIC_E2E_TEST_MODE=true to skip email verification.
  */
 export async function signIn(email: string, password: string): Promise<FirebaseUser> {
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  console.log('[signIn] Starting sign in for:', email);
+  console.log('[signIn] Firebase auth object exists:', !!auth);
+  console.log('[signIn] Firebase project:', auth?.app?.options?.projectId);
+  console.log('[signIn] Auth domain:', auth?.app?.options?.authDomain);
+
+  let userCredential;
+  try {
+    console.log('[signIn] Calling signInWithEmailAndPassword...');
+    userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log('[signIn] Firebase Auth succeeded, user:', userCredential.user.uid);
+  } catch (authError: any) {
+    console.error('[signIn] Firebase Auth FAILED');
+    console.error('[signIn] Error code:', authError?.code);
+    console.error('[signIn] Error message:', authError?.message);
+    throw authError;
+  }
+
   const user = userCredential.user;
+  console.log('[signIn] User email verified:', user.emailVerified);
 
   // Skip email verification in E2E test mode (localhost only)
   const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
   const isLocalhost = typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
+  console.log('[signIn] E2E mode:', isE2ETestMode, 'Localhost:', isLocalhost);
+
   // Enforce email verification (unless in E2E test mode on localhost)
   if (!user.emailVerified && !(isE2ETestMode && isLocalhost)) {
+    console.log('[signIn] Email not verified, signing out and throwing error');
     await firebaseSignOut(auth);
     throw new Error('Please verify your email before logging in. Check your inbox for the verification link.');
   }
 
   // Sync email verification status to Firestore (skip in E2E test mode)
   if (user.emailVerified) {
-    await markEmailVerified(user.uid);
+    console.log('[signIn] Syncing email verification to Firestore...');
+    try {
+      await markEmailVerified(user.uid);
+      console.log('[signIn] Email verification synced');
+    } catch (syncError: any) {
+      console.error('[signIn] Failed to sync email verification (non-fatal):', syncError?.message);
+      // Don't fail login due to this - it's just a sync
+    }
   }
 
+  console.log('[signIn] Sign in complete, returning user');
   return user;
 }
 

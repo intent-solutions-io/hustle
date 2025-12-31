@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, Heart, Target } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, Heart, Target, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -249,7 +249,7 @@ export default function DreamGymPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Link href={`/dashboard/dream-gym/workout?playerId=${selectedPlayer?.id}`}>
           <Card className="border-zinc-200 cursor-pointer hover:border-zinc-400 transition-colors h-full">
             <CardHeader className="pb-2">
@@ -261,6 +261,22 @@ export default function DreamGymPage() {
             <CardContent>
               <p className="text-sm text-zinc-600">
                 Get your personalized workout based on your schedule and goals.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href={`/dashboard/dream-gym/progress?playerId=${selectedPlayer?.id}`}>
+          <Card className="border-zinc-200 cursor-pointer hover:border-zinc-400 transition-colors h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-600">
+                Track workout history, volume trends, and exercise progress.
               </p>
             </CardContent>
           </Card>
