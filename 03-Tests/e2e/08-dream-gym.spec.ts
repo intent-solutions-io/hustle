@@ -28,14 +28,17 @@ async function setupUserWithAthlete(page: Page) {
   await page.fill('input[id="password"]', testPassword);
   await page.fill('input[id="confirmPassword"]', testPassword);
   await page.click('button[type="submit"]');
-  await page.waitForTimeout(2000);
+
+  // Wait for redirect to login page after registration
+  await page.waitForURL('**/login**', { timeout: 10000 });
 
   // Login
-  await page.goto('/login');
   await page.fill('input[id="email"], input[type="email"]', testEmail);
   await page.fill('input[id="password"], input[type="password"]', testPassword);
   await page.click('button[type="submit"]');
-  await page.waitForTimeout(2000);
+
+  // Wait for redirect to dashboard after login
+  await page.waitForURL('**/dashboard**', { timeout: 10000 });
 
   // Add athlete
   await page.goto('/dashboard/add-athlete');
@@ -50,7 +53,9 @@ async function setupUserWithAthlete(page: Page) {
   }
 
   await page.click('button[type="submit"]');
-  await page.waitForTimeout(2000);
+
+  // Wait for redirect back to dashboard or athletes page after adding athlete
+  await page.waitForURL('**/dashboard**', { timeout: 10000 });
 
   return { email: testEmail, password: testPassword, athleteName };
 }
@@ -73,13 +78,13 @@ test.describe('Dream Gym - Onboarding', () => {
   test('should access Dream Gym from dashboard', async ({ page }) => {
     await setupUserWithAthlete(page);
 
-    // Go to dashboard
+    // Go to dashboard and wait for it to load
     await page.goto('/dashboard');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
-    // Look for Dream Gym button
+    // Look for Dream Gym button - should be visible
     const dreamGymButton = page.locator('button, a').filter({ hasText: /Dream Gym/i }).first();
-    await expect(dreamGymButton).toBeVisible();
+    await expect(dreamGymButton).toBeVisible({ timeout: 5000 });
 
     console.log('✓ Dream Gym button visible on dashboard');
   });
@@ -87,47 +92,51 @@ test.describe('Dream Gym - Onboarding', () => {
   test('should navigate to Dream Gym and see onboarding prompt', async ({ page }) => {
     await setupUserWithAthlete(page);
 
-    // Navigate to athletes list and click first athlete
+    // Navigate to athletes list
     await page.goto('/dashboard/athletes');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
+    // Click first athlete card
     const athleteCard = page.locator('[data-testid="athlete-card"], .athlete-card, a[href*="/athletes/"]').first();
-    if (await athleteCard.isVisible({ timeout: 3000 })) {
-      await athleteCard.click();
-      await page.waitForTimeout(1000);
-    }
+    await expect(athleteCard).toBeVisible({ timeout: 5000 });
+    await athleteCard.click();
+
+    // Wait for navigation to athlete detail page
+    await page.waitForURL(/.+\/athletes\/.+/, { timeout: 5000 });
 
     // Look for Dream Gym link on athlete detail page
     const dreamGymLink = page.locator('a[href*="dream-gym"]').first();
-    if (await dreamGymLink.isVisible({ timeout: 3000 })) {
-      await dreamGymLink.click();
-      await page.waitForTimeout(1000);
+    await expect(dreamGymLink).toBeVisible({ timeout: 5000 });
+    await dreamGymLink.click();
 
-      // Should show onboarding or Dream Gym page
-      const pageText = await page.locator('body').textContent();
-      expect(pageText).toMatch(/Dream Gym|Onboarding|Get Started|Training|Set up/i);
+    // Wait for navigation to Dream Gym
+    await page.waitForURL(/.+dream-gym.+/, { timeout: 5000 });
 
-      console.log('✓ Dream Gym page loaded');
-    }
+    // Should show onboarding or Dream Gym page
+    const pageText = await page.locator('body').textContent();
+    expect(pageText).toMatch(/Dream Gym|Onboarding|Get Started|Training|Set up/i);
+
+    console.log('✓ Dream Gym page loaded');
   });
 
   test('should complete Dream Gym onboarding', async ({ page }) => {
-    const { athleteName } = await setupUserWithAthlete(page);
+    await setupUserWithAthlete(page);
 
     // Navigate to Dream Gym via dashboard
     await page.goto('/dashboard');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     const dreamGymButton = page.locator('button, a').filter({ hasText: /Dream Gym/i }).first();
-    if (await dreamGymButton.isVisible({ timeout: 3000 })) {
-      await dreamGymButton.click();
-      await page.waitForTimeout(1000);
-    }
+    await expect(dreamGymButton).toBeVisible({ timeout: 5000 });
+    await dreamGymButton.click();
 
-    // Check if we need onboarding
+    // Wait for navigation
+    await page.waitForURL(/.+dream-gym.+/, { timeout: 5000 });
+
+    // Check page content for onboarding elements
     const url = page.url();
     if (url.includes('onboarding') || url.includes('dream-gym')) {
-      // Look for goals selection
+      // Look for goals selection - use soft check since onboarding may vary
       const goalsSection = page.locator('text=/Goals|What.*want.*achieve/i').first();
       if (await goalsSection.isVisible({ timeout: 3000 })) {
         // Select a goal checkbox/button
@@ -150,7 +159,7 @@ test.describe('Dream Gym - Onboarding', () => {
       const continueButton = page.locator('button').filter({ hasText: /Continue|Next|Start|Complete/i }).first();
       if (await continueButton.isVisible({ timeout: 2000 })) {
         await continueButton.click();
-        await page.waitForTimeout(1000);
+        await page.waitForLoadState('networkidle');
       }
 
       console.log('✓ Dream Gym onboarding flow started');
@@ -162,9 +171,9 @@ test.describe('Dream Gym - Workout Flow', () => {
   test('should display workout page with exercises', async ({ page }) => {
     await setupUserWithAthlete(page);
 
-    // Try to navigate directly to workout page
+    // Navigate directly to workout page
     await page.goto('/dashboard/dream-gym/workout');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     // Check for workout elements or redirect to onboarding
     const pageContent = await page.locator('body').textContent();
@@ -178,9 +187,9 @@ test.describe('Dream Gym - Workout Flow', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym/workout');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
-    // Look for exercise cards or set trackers
+    // Look for exercise cards or set trackers (may not exist if onboarding not complete)
     const exerciseCard = page.locator('[data-testid="exercise-card"], .exercise-card, [class*="exercise"]').first();
 
     if (await exerciseCard.isVisible({ timeout: 3000 })) {
@@ -201,7 +210,7 @@ test.describe('Dream Gym - Mental Check-in', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym/mental');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     const pageContent = await page.locator('body').textContent();
     const hasMentalContent = pageContent?.match(/Mental|Mood|Energy|Check.?in|How.*feeling/i);
@@ -214,7 +223,7 @@ test.describe('Dream Gym - Mental Check-in', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym/mental');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     // Look for mood selection buttons/sliders
     const moodSelector = page.locator('button, input[type="range"], [data-testid="mood-selector"]').filter({ hasText: /Great|Good|Okay|1|2|3|4|5/i }).first();
@@ -238,7 +247,7 @@ test.describe('Dream Gym - AI Strategy', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym/strategy');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     const pageContent = await page.locator('body').textContent();
     const hasStrategyContent = pageContent?.match(/Strategy|AI|Workout Plan|Recommendations|Recovery|Onboarding/i);
@@ -250,20 +259,22 @@ test.describe('Dream Gym - AI Strategy', () => {
   test('should show AI insights on athlete detail page when Dream Gym set up', async ({ page }) => {
     await setupUserWithAthlete(page);
 
-    // Navigate to athletes list and click first athlete
+    // Navigate to athletes list
     await page.goto('/dashboard/athletes');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
+    // Click first athlete
     const athleteLink = page.locator('a[href*="/athletes/"]').first();
-    if (await athleteLink.isVisible({ timeout: 3000 })) {
-      await athleteLink.click();
-      await page.waitForTimeout(1000);
+    await expect(athleteLink).toBeVisible({ timeout: 5000 });
+    await athleteLink.click();
 
-      // Look for Dream Gym or AI Strategy card
-      const dreamGymCard = page.locator('text=/Dream Gym|AI Strategy/i').first();
-      if (await dreamGymCard.isVisible({ timeout: 3000 })) {
-        console.log('✓ Dream Gym/AI Strategy card visible on athlete detail');
-      }
+    // Wait for navigation
+    await page.waitForURL(/.+\/athletes\/.+/, { timeout: 5000 });
+
+    // Look for Dream Gym or AI Strategy card
+    const dreamGymCard = page.locator('text=/Dream Gym|AI Strategy/i').first();
+    if (await dreamGymCard.isVisible({ timeout: 3000 })) {
+      console.log('✓ Dream Gym/AI Strategy card visible on athlete detail');
     }
   });
 });
@@ -273,7 +284,7 @@ test.describe('Dream Gym - Progress & Analytics', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym/progress');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     const pageContent = await page.locator('body').textContent();
     const hasProgressContent = pageContent?.match(/Progress|Analytics|Charts|Stats|Volume|Workouts|No data|Onboarding/i);
@@ -286,7 +297,7 @@ test.describe('Dream Gym - Progress & Analytics', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym/assessments');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     const pageContent = await page.locator('body').textContent();
     const hasAssessmentContent = pageContent?.match(/Assessment|Fitness Test|Beep Test|Sprint|Performance|Onboarding/i);
@@ -299,7 +310,7 @@ test.describe('Dream Gym - Progress & Analytics', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym/biometrics');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     const pageContent = await page.locator('body').textContent();
     const hasBiometricsContent = pageContent?.match(/Biometrics|Heart Rate|Sleep|HRV|Steps|Health|Onboarding/i);
@@ -314,7 +325,7 @@ test.describe('Dream Gym - Schedule', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym/schedule');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     const pageContent = await page.locator('body').textContent();
     const hasScheduleContent = pageContent?.match(/Schedule|Monday|Tuesday|Wednesday|Days|Weekly|Onboarding/i);
@@ -327,7 +338,7 @@ test.describe('Dream Gym - Schedule', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym/schedule');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     // Look for day selection buttons/checkboxes
     const dayButton = page.locator('button, input[type="checkbox"], label').filter({ hasText: /Monday|Tuesday|Wednesday/i }).first();
@@ -344,7 +355,7 @@ test.describe('Dream Gym - Navigation', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     // Check for navigation links to different sections
     const sections = ['Workout', 'Schedule', 'Mental', 'Progress', 'Strategy'];
@@ -361,14 +372,14 @@ test.describe('Dream Gym - Navigation', () => {
     await setupUserWithAthlete(page);
 
     await page.goto('/dashboard/dream-gym');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     // Look for back/dashboard link
     const backLink = page.locator('a[href="/dashboard"], a:has-text("Back"), a:has-text("Dashboard")').first();
 
     if (await backLink.isVisible({ timeout: 3000 })) {
       await backLink.click();
-      await page.waitForTimeout(1000);
+      await page.waitForURL('**/dashboard', { timeout: 5000 });
 
       expect(page.url()).toContain('/dashboard');
       console.log('✓ Navigation back to dashboard works');
