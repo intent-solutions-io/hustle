@@ -31,13 +31,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, birthday, position, teamClub } = body;
+    const { name, birthday, primaryPosition, teamClub, gender, secondaryPositions, positionNote, leagueCode, leagueOtherName } = body;
 
-    // Validate required fields
-    if (!name || !birthday || !position || !teamClub) {
+    // Validate required fields (primaryPosition is the field name from the form schema)
+    if (!name || !birthday || !primaryPosition || !teamClub || !gender || !leagueCode) {
       logger.warn('Invalid player creation request - missing fields', {
         userId: session.user.id,
-        providedFields: { name: !!name, birthday: !!birthday, position: !!position, teamClub: !!teamClub },
+        providedFields: {
+          name: !!name,
+          birthday: !!birthday,
+          primaryPosition: !!primaryPosition,
+          teamClub: !!teamClub,
+          gender: !!gender,
+          leagueCode: !!leagueCode,
+        },
       });
 
       return NextResponse.json(
@@ -120,7 +127,12 @@ export async function POST(request: NextRequest) {
       workspaceId: workspace.id,  // Phase 5: Link to workspace
       name,
       birthday: new Date(birthday),
-      position,
+      gender,
+      primaryPosition,
+      secondaryPositions: secondaryPositions || [],
+      positionNote: positionNote || null,
+      leagueCode,
+      leagueOtherName: leagueOtherName || null,
       teamClub,
       photoUrl: null,
     });
@@ -134,7 +146,7 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       playerId: player.id,
       playerName: name,
-      position,
+      position: primaryPosition,
       duration,
       statusCode: 200,
     });
