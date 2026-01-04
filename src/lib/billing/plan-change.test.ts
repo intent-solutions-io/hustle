@@ -13,12 +13,32 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Workspace, WorkspaceStatus } from '@/types/firestore';
-import {
-  getAvailablePlans,
-  validatePlanChangeEligibility,
-  getProrationPreview,
-  buildCheckoutSession,
-} from '@/lib/billing/plan-change';
+
+// Use vi.hoisted to define mocks before they're hoisted
+const mockStripe = vi.hoisted(() => ({
+  subscriptions: {
+    retrieve: vi.fn(),
+  },
+  invoices: {
+    retrieveUpcoming: vi.fn(),
+  },
+  checkout: {
+    sessions: {
+      create: vi.fn(),
+    },
+  },
+}));
+
+// Mock Stripe SDK
+vi.mock('stripe', () => ({
+  default: vi.fn(() => mockStripe),
+}));
+
+// Mock the Stripe client module to bypass STRIPE_SECRET_KEY check
+vi.mock('@/lib/stripe/client', () => ({
+  getStripeClient: vi.fn(() => mockStripe),
+  stripe: mockStripe,
+}));
 
 // Mock plan-mapping module
 vi.mock('@/lib/stripe/plan-mapping', () => ({
@@ -72,26 +92,13 @@ vi.mock('@/lib/stripe/plan-mapping', () => ({
   },
 }));
 
-// Mock Stripe
-vi.mock('stripe', () => {
-  const mockStripe = {
-    subscriptions: {
-      retrieve: vi.fn(),
-    },
-    invoices: {
-      retrieveUpcoming: vi.fn(),
-    },
-    checkout: {
-      sessions: {
-        create: vi.fn(),
-      },
-    },
-  };
-
-  return {
-    default: vi.fn(() => mockStripe),
-  };
-});
+// Import functions after mocks are set up
+import {
+  getAvailablePlans,
+  validatePlanChangeEligibility,
+  getProrationPreview,
+  buildCheckoutSession,
+} from '@/lib/billing/plan-change';
 
 // Mock workspace factory
 function createMockWorkspace(status: WorkspaceStatus, plan: 'starter' | 'plus' | 'pro' = 'starter'): Workspace {
@@ -219,16 +226,14 @@ describe('validatePlanChangeEligibility', () => {
 
 describe('getProrationPreview', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('should return proration preview for upgrade', async () => {
     const workspace = createMockWorkspace('active', 'starter');
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe('test_key', { apiVersion: '2025-01-27.acacia' });
 
     // Mock subscription retrieve
-    vi.spyOn(stripe.subscriptions, 'retrieve').mockResolvedValue({
+    vi.mocked(mockStripe.subscriptions.retrieve).mockResolvedValue({
       id: 'sub_test123',
       customer: 'cus_test123',
       current_period_end: 1738368000, // Feb 1, 2025
@@ -245,7 +250,7 @@ describe('getProrationPreview', () => {
     } as any);
 
     // Mock upcoming invoice
-    vi.spyOn(stripe.invoices, 'retrieveUpcoming').mockResolvedValue({
+    vi.mocked(mockStripe.invoices.retrieveUpcoming).mockResolvedValue({
       amount_due: 1500, // $15.00 prorated
       currency: 'usd',
     } as any);
@@ -260,11 +265,9 @@ describe('getProrationPreview', () => {
 
   it('should return proration preview for downgrade', async () => {
     const workspace = createMockWorkspace('active', 'pro');
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe('test_key', { apiVersion: '2025-01-27.acacia' });
 
     // Mock subscription retrieve
-    vi.spyOn(stripe.subscriptions, 'retrieve').mockResolvedValue({
+    vi.mocked(mockStripe.subscriptions.retrieve).mockResolvedValue({
       id: 'sub_test123',
       customer: 'cus_test123',
       current_period_end: 1738368000,
@@ -281,7 +284,7 @@ describe('getProrationPreview', () => {
     } as any);
 
     // Mock upcoming invoice (negative for credit)
-    vi.spyOn(stripe.invoices, 'retrieveUpcoming').mockResolvedValue({
+    vi.mocked(mockStripe.invoices.retrieveUpcoming).mockResolvedValue({
       amount_due: -1000, // -$10.00 credit
       currency: 'usd',
     } as any);
@@ -303,11 +306,9 @@ describe('getProrationPreview', () => {
 
   it('should handle Stripe API errors gracefully', async () => {
     const workspace = createMockWorkspace('active', 'starter');
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe('test_key', { apiVersion: '2025-01-27.acacia' });
 
     // Mock Stripe error
-    vi.spyOn(stripe.subscriptions, 'retrieve').mockRejectedValue(
+    vi.mocked(mockStripe.subscriptions.retrieve).mockRejectedValue(
       new Error('Subscription not found')
     );
 
@@ -319,16 +320,14 @@ describe('getProrationPreview', () => {
 
 describe('buildCheckoutSession', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('should create checkout session with correct parameters', async () => {
     const workspace = createMockWorkspace('active', 'starter');
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe('test_key', { apiVersion: '2025-01-27.acacia' });
 
     // Mock checkout session creation
-    vi.spyOn(stripe.checkout.sessions, 'create').mockResolvedValue({
+    vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue({
       id: 'cs_test123',
       url: 'https://checkout.stripe.com/pay/cs_test123',
     } as any);
@@ -336,7 +335,7 @@ describe('buildCheckoutSession', () => {
     const url = await buildCheckoutSession(workspace, 'price_plus');
 
     expect(url).toBe('https://checkout.stripe.com/pay/cs_test123');
-    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(
+    expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
       expect.objectContaining({
         customer: 'cus_test123',
         mode: 'subscription',
@@ -348,17 +347,15 @@ describe('buildCheckoutSession', () => {
 
   it('should include workspace metadata', async () => {
     const workspace = createMockWorkspace('active', 'starter');
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe('test_key', { apiVersion: '2025-01-27.acacia' });
 
-    vi.spyOn(stripe.checkout.sessions, 'create').mockResolvedValue({
+    vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue({
       id: 'cs_test123',
       url: 'https://checkout.stripe.com/pay/cs_test123',
     } as any);
 
     await buildCheckoutSession(workspace, 'price_plus');
 
-    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(
+    expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: {
           workspaceId: 'workspace-123',
@@ -380,10 +377,8 @@ describe('buildCheckoutSession', () => {
 
   it('should handle Stripe API errors gracefully', async () => {
     const workspace = createMockWorkspace('active', 'starter');
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe('test_key', { apiVersion: '2025-01-27.acacia' });
 
-    vi.spyOn(stripe.checkout.sessions, 'create').mockRejectedValue(
+    vi.mocked(mockStripe.checkout.sessions.create).mockRejectedValue(
       new Error('Customer not found')
     );
 
@@ -394,6 +389,10 @@ describe('buildCheckoutSession', () => {
 });
 
 describe('Integration: Plan Change Flow', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
   it('should complete full plan change flow for eligible workspace', async () => {
     const workspace = createMockWorkspace('active', 'starter');
 
@@ -410,17 +409,14 @@ describe('Integration: Plan Change Flow', () => {
     expect(targetPlan).toBeDefined();
 
     // 4. Get proration preview (mocked)
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe('test_key', { apiVersion: '2025-01-27.acacia' });
-
-    vi.spyOn(stripe.subscriptions, 'retrieve').mockResolvedValue({
+    vi.mocked(mockStripe.subscriptions.retrieve).mockResolvedValue({
       id: 'sub_test123',
       customer: 'cus_test123',
       current_period_end: 1738368000,
       items: { data: [{ id: 'si_test123', price: { id: 'price_starter' } }] },
     } as any);
 
-    vi.spyOn(stripe.invoices, 'retrieveUpcoming').mockResolvedValue({
+    vi.mocked(mockStripe.invoices.retrieveUpcoming).mockResolvedValue({
       amount_due: 1500,
       currency: 'usd',
     } as any);
@@ -429,7 +425,7 @@ describe('Integration: Plan Change Flow', () => {
     expect(preview.amountDue).toBeGreaterThan(0); // Upgrade charges money
 
     // 5. Build checkout session (mocked)
-    vi.spyOn(stripe.checkout.sessions, 'create').mockResolvedValue({
+    vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue({
       id: 'cs_test123',
       url: 'https://checkout.stripe.com/pay/cs_test123',
     } as any);

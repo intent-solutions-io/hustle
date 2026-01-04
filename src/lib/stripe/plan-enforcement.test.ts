@@ -29,11 +29,25 @@ vi.mock('@/lib/firebase/admin', () => ({
   },
 }));
 
-// Mock FieldValue.serverTimestamp
+// Mock FieldValue.serverTimestamp and Timestamp
+class MockTimestamp {
+  constructor(public seconds: number, public nanoseconds: number) {}
+  toDate() {
+    return new Date(this.seconds * 1000);
+  }
+  static now() {
+    return new MockTimestamp(Math.floor(Date.now() / 1000), 0);
+  }
+  static fromDate(date: Date) {
+    return new MockTimestamp(Math.floor(date.getTime() / 1000), 0);
+  }
+}
+
 vi.mock('firebase-admin/firestore', () => ({
   FieldValue: {
     serverTimestamp: vi.fn(() => ({ _methodName: 'FieldValue.serverTimestamp' })),
   },
+  Timestamp: MockTimestamp,
 }));
 
 // Mock plan mapping functions
