@@ -235,7 +235,7 @@ async function createTestAccount(page: Page, baseURL: string): Promise<void> {
   try {
     await page.waitForURL(/\/login/, { timeout: 90000 });
     console.log('   ✓ Test account created\n');
-  } catch (e) {
+  } catch {
     // Check if there's an error on the page
     const errorText = await page.locator('[class*="bg-red"], [class*="text-red"]').textContent().catch(() => '');
     console.log('   Registration may have failed. Error:', errorText || 'none visible');
@@ -245,7 +245,8 @@ async function createTestAccount(page: Page, baseURL: string): Promise<void> {
     await page.screenshot({ path: './03-Tests/e2e/.auth/registration-issue.png' });
 
     // If we're still on register page but account might exist (email already in use)
-    if (errorText.toLowerCase().includes('already') || errorText.toLowerCase().includes('exists')) {
+    const errorLower = (errorText || '').toLowerCase();
+    if (errorLower.includes('already') || errorLower.includes('exists')) {
       console.log('   Account may already exist, proceeding to login...');
       return;
     }

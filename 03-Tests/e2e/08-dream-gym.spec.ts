@@ -5,7 +5,6 @@ import {
   navigateToDreamGym,
   hasText,
   logProgress,
-  clickWithRetry,
 } from './test-helpers';
 
 /**
