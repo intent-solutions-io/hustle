@@ -58,27 +58,31 @@ test.describe('Complete User Journey - Happy Path', () => {
 
     // STEP 2: Add Athlete
     await page.goto('/dashboard/add-athlete');
+    await page.waitForSelector('button[type="submit"]', { timeout: 30000 });
 
     const athleteName = `Test Athlete ${Date.now()}`;
-    await page.fill('input[name="name"], input[placeholder*="name"]', athleteName);
+
+    // Fill name (using id selector)
+    await page.fill('input[id="name"]', athleteName);
 
     // Fill birthday
-    const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-    await birthdayField.fill('2010-06-15');
+    await page.fill('input[id="birthday"]', '2010-06-15');
 
-    // Select position (Defender to test defensive stats)
-    const positionSelect = page.locator('select[name="position"]');
-    if (await positionSelect.isVisible({ timeout: 2000 })) {
-      await positionSelect.selectOption('Defender');
-    }
+    // Select gender (required field)
+    await page.click('input[name="gender"][value="male"]');
+
+    // Select primary position (CB = Center Back, a defender)
+    await page.selectOption('select[id="primaryPosition"]', 'CB');
+
+    // Select league (required field)
+    await page.selectOption('select[id="leagueCode"]', 'local_travel');
 
     // Fill team/club
-    const teamField = page.locator('input[name="teamClub"], input[name="team"]');
-    await teamField.fill('Elite FC');
+    await page.fill('input[id="teamClub"]', 'Elite FC');
 
     // Submit athlete form
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     console.log(`✓ Athlete added: ${athleteName}`);
 
@@ -205,16 +209,18 @@ test.describe('Complete User Journey - Field Player vs Goalkeeper', () => {
 
     // Add goalkeeper
     await page.goto('/dashboard/add-athlete');
+    await page.waitForSelector('button[type="submit"]', { timeout: 30000 });
+
     const goalkeeperName = `GK ${Date.now()}`;
-    await page.fill('input[name="name"]', goalkeeperName);
-    await page.fill('input[name="birthday"], input[type="date"]', '2009-03-20');
+    await page.fill('input[id="name"]', goalkeeperName);
+    await page.fill('input[id="birthday"]', '2009-03-20');
+    await page.click('input[name="gender"][value="male"]');
+    await page.selectOption('select[id="primaryPosition"]', 'GK');
+    await page.selectOption('select[id="leagueCode"]', 'local_travel');
+    await page.fill('input[id="teamClub"]', 'Goalkeeper FC');
 
-    const positionSelect = page.locator('select[name="position"]');
-    await positionSelect.selectOption('Goalkeeper');
-
-    await page.fill('input[name="teamClub"]', 'Goalkeeper FC');
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     // Navigate to log game
     await page.goto('/dashboard/athletes');
@@ -261,11 +267,15 @@ test.describe('Complete User Journey - Data Validation', () => {
 
     // Add athlete
     await page.goto('/dashboard/add-athlete');
-    await page.fill('input[name="name"]', `Validator ${Date.now()}`);
-    await page.fill('input[name="birthday"]', '2010-01-01');
-    await page.fill('input[name="teamClub"]', 'Validation FC');
+    await page.waitForSelector('button[type="submit"]', { timeout: 30000 });
+    await page.fill('input[id="name"]', `Validator ${Date.now()}`);
+    await page.fill('input[id="birthday"]', '2010-01-01');
+    await page.click('input[name="gender"][value="male"]');
+    await page.selectOption('select[id="primaryPosition"]', 'CM');
+    await page.selectOption('select[id="leagueCode"]', 'local_travel');
+    await page.fill('input[id="teamClub"]', 'Validation FC');
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     // Go to log game
     await page.goto('/dashboard/athletes');
@@ -302,11 +312,15 @@ test.describe('Complete User Journey - Data Validation', () => {
 
     // Add athlete
     await page.goto('/dashboard/add-athlete');
-    await page.fill('input[name="name"]', `Future Test ${Date.now()}`);
-    await page.fill('input[name="birthday"]', '2010-01-01');
-    await page.fill('input[name="teamClub"]', 'Future FC');
+    await page.waitForSelector('button[type="submit"]', { timeout: 30000 });
+    await page.fill('input[id="name"]', `Future Test ${Date.now()}`);
+    await page.fill('input[id="birthday"]', '2010-01-01');
+    await page.click('input[name="gender"][value="male"]');
+    await page.selectOption('select[id="primaryPosition"]', 'ST');
+    await page.selectOption('select[id="leagueCode"]', 'local_travel');
+    await page.fill('input[id="teamClub"]', 'Future FC');
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     // Navigate to log game
     await page.goto('/dashboard/athletes');
@@ -346,11 +360,15 @@ test.describe('Complete User Journey - Security', () => {
 
     // Add athlete
     await page.goto('/dashboard/add-athlete');
-    await page.fill('input[name="name"]', `Security Test ${Date.now()}`);
-    await page.fill('input[name="birthday"]', '2010-01-01');
-    await page.fill('input[name="teamClub"]', 'Security FC');
+    await page.waitForSelector('button[type="submit"]', { timeout: 30000 });
+    await page.fill('input[id="name"]', `Security Test ${Date.now()}`);
+    await page.fill('input[id="birthday"]', '2010-01-01');
+    await page.click('input[name="gender"][value="male"]');
+    await page.selectOption('select[id="primaryPosition"]', 'DM');
+    await page.selectOption('select[id="leagueCode"]', 'local_travel');
+    await page.fill('input[id="teamClub"]', 'Security FC');
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     // Navigate to log game
     await page.goto('/dashboard/athletes');
@@ -389,11 +407,15 @@ test.describe('Complete User Journey - Security', () => {
 
     // Add athlete
     await page.goto('/dashboard/add-athlete');
-    await page.fill('input[name="name"]', `Rate Test ${Date.now()}`);
-    await page.fill('input[name="birthday"]', '2010-01-01');
-    await page.fill('input[name="teamClub"]', 'Rate FC');
+    await page.waitForSelector('button[type="submit"]', { timeout: 30000 });
+    await page.fill('input[id="name"]', `Rate Test ${Date.now()}`);
+    await page.fill('input[id="birthday"]', '2010-01-01');
+    await page.click('input[name="gender"][value="male"]');
+    await page.selectOption('select[id="primaryPosition"]', 'RW');
+    await page.selectOption('select[id="leagueCode"]', 'local_travel');
+    await page.fill('input[id="teamClub"]', 'Rate FC');
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     // Navigate to log game
     await page.goto('/dashboard/athletes');
