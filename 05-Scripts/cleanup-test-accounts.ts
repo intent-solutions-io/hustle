@@ -8,17 +8,28 @@
  * - test*@example.com
  *
  * Usage: npx ts-node 05-Scripts/cleanup-test-accounts.ts
+ *
+ * Note: Firebase Admin initialization mirrors src/lib/firebase/admin.ts
+ * for consistency. Consider refactoring to a shared utility if this grows.
  */
 
 import * as admin from 'firebase-admin';
 import * as path from 'path';
 
 // Initialize Firebase Admin if not already done
+// Supports multiple credential sources for flexibility
 if (!admin.apps.length) {
-  // Try to use service account from env or default credentials
   const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-  if (serviceAccountPath) {
+  if (serviceAccountJson) {
+    // Parse JSON from environment variable (used in CI/CD)
+    const serviceAccount = JSON.parse(serviceAccountJson);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  } else if (serviceAccountPath) {
+    // Load from file path
     const serviceAccount = require(path.resolve(serviceAccountPath));
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -56,16 +67,16 @@ async function deleteUserFirestoreData(uid: string): Promise<void> {
     if (userDoc.exists) {
       const userData = userDoc.data();
 
-      // Delete players subcollection
+      // Delete players subcollection with parallel deletions for performance
       const playersSnapshot = await userRef.collection('players').get();
-      for (const playerDoc of playersSnapshot.docs) {
+      const playerDeletionPromises = playersSnapshot.docs.map(async (playerDoc) => {
         // Delete games subcollection under each player
         const gamesSnapshot = await playerDoc.ref.collection('games').get();
-        for (const gameDoc of gamesSnapshot.docs) {
-          await gameDoc.ref.delete();
-        }
+        const gameDeletionPromises = gamesSnapshot.docs.map((gameDoc) => gameDoc.ref.delete());
+        await Promise.all(gameDeletionPromises);
         await playerDoc.ref.delete();
-      }
+      });
+      await Promise.all(playerDeletionPromises);
 
       // Delete workspace if user owns one
       if (userData?.defaultWorkspaceId) {

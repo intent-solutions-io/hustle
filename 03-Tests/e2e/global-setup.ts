@@ -5,15 +5,15 @@
  * Uses a dedicated E2E test account to avoid Firebase rate limiting.
  */
 
-import { chromium, FullConfig } from '@playwright/test';
+import { chromium, FullConfig, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
 // Dedicated E2E test account credentials
-// This account should be pre-created in Firebase or will be created on first run
+// Load from environment variables with fallback defaults for local development
 export const E2E_TEST_USER = {
-  email: 'e2e-hustle-test@example.com',
-  password: 'E2ETestPassword123!',
+  email: process.env.E2E_TEST_EMAIL || 'e2e-hustle-test@example.com',
+  password: process.env.E2E_TEST_PASSWORD || 'E2ETestPassword123!',
   firstName: 'E2E',
   lastName: 'Tester',
   phone: '5551234567',
@@ -106,7 +106,7 @@ async function globalSetup(config: FullConfig) {
 /**
  * Attempt login and return true if successful
  */
-async function attemptLogin(page: any, baseURL: string): Promise<boolean> {
+async function attemptLogin(page: Page, baseURL: string): Promise<boolean> {
   await page.goto(`${baseURL}/login`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   // Wait for form to be ready
@@ -162,7 +162,7 @@ async function attemptLogin(page: any, baseURL: string): Promise<boolean> {
 /**
  * Robust input filling that handles React controlled inputs
  */
-async function fillInputRobust(page: any, selector: string, value: string): Promise<void> {
+async function fillInputRobust(page: Page, selector: string, value: string): Promise<void> {
   const input = page.locator(selector);
 
   // Wait for input to be visible
@@ -190,7 +190,7 @@ async function fillInputRobust(page: any, selector: string, value: string): Prom
 /**
  * Create a new test account via registration
  */
-async function createTestAccount(page: any, baseURL: string): Promise<void> {
+async function createTestAccount(page: Page, baseURL: string): Promise<void> {
   console.log('   Creating new test account...');
 
   await page.goto(`${baseURL}/register`, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -257,7 +257,7 @@ async function createTestAccount(page: any, baseURL: string): Promise<void> {
 /**
  * Ensure test athlete exists for Dream Gym tests
  */
-async function ensureTestAthlete(page: any, baseURL: string): Promise<void> {
+async function ensureTestAthlete(page: Page, baseURL: string): Promise<void> {
   console.log('   Checking for test athlete...');
 
   // Navigate to athletes page
