@@ -226,7 +226,7 @@ describe('validatePlanChangeEligibility', () => {
 
 describe('getProrationPreview', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('should return proration preview for upgrade', async () => {
@@ -320,7 +320,7 @@ describe('getProrationPreview', () => {
 
 describe('buildCheckoutSession', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('should create checkout session with correct parameters', async () => {
@@ -390,7 +390,7 @@ describe('buildCheckoutSession', () => {
 
 describe('Integration: Plan Change Flow', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('should complete full plan change flow for eligible workspace', async () => {
