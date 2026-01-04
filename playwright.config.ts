@@ -4,16 +4,24 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright Configuration for Hustle App
  *
  * Tests authentication, player management, game logging, and dashboard functionality
+ *
+ * Optimizations:
+ * - Extended timeouts for Firebase operations (cold starts, rate limiting)
+ * - Retries for flaky network conditions
+ * - Global setup for authenticated state reuse
  */
 export default defineConfig({
   testDir: './03-Tests/e2e',
 
-  // Maximum time one test can run (30 seconds)
-  timeout: 30 * 1000,
+  // Exclude setup files from test discovery
+  testIgnore: ['**/global-setup.ts', '**/test-helpers.ts'],
 
-  // Expect timeout for assertions
+  // Maximum time one test can run (2 minutes - Firebase operations can be slow)
+  timeout: 120 * 1000,
+
+  // Expect timeout for assertions (10s for slow renders)
   expect: {
-    timeout: 5000,
+    timeout: 10000,
     // Visual regression testing configuration
     toHaveScreenshot: {
       // Allow 0.2% pixel difference (handles anti-aliasing, font rendering)
@@ -28,17 +36,17 @@ export default defineConfig({
   // Snapshot file naming pattern
   snapshotPathTemplate: '{snapshotDir}/{testFileDir}/{testFileName}-{projectName}/{arg}{ext}',
 
-  // Run tests in files in parallel
-  fullyParallel: true,
+  // Run tests in files sequentially for stable Firebase operations
+  fullyParallel: false,
 
   // Fail the build on CI if you accidentally left test.only
   forbidOnly: !!process.env.CI,
 
-  // Retry on CI only
-  retries: process.env.CI ? 2 : 0,
+  // Retry failed tests (helps with flaky Firebase operations)
+  retries: process.env.CI ? 2 : 1,
 
-  // Opt out of parallel tests on CI (more stable)
-  workers: process.env.CI ? 1 : undefined,
+  // Use single worker for more stable Firebase operations
+  workers: 1,
 
   // Reporter to use
   reporter: [
@@ -46,6 +54,9 @@ export default defineConfig({
     ['list'], // Console output
     ['json', { outputFile: '03-Tests/test-results.json' }]
   ],
+
+  // Global setup - creates authenticated state before all tests
+  globalSetup: require.resolve('./03-Tests/e2e/global-setup.ts'),
 
   use: {
     // Base URL for testing
@@ -63,43 +74,53 @@ export default defineConfig({
     // Browser context options
     viewport: { width: 1280, height: 720 },
 
-    // Maximum time for navigation and actions
-    actionTimeout: 10 * 1000,
-    navigationTimeout: 30 * 1000,
+    // Extended timeouts for Firebase operations
+    actionTimeout: 30 * 1000,
+    navigationTimeout: 60 * 1000,
+
+    // Storage state for authenticated tests (created by global setup)
+    storageState: './03-Tests/e2e/.auth/user.json',
   },
 
   // Configure projects for major browsers
   projects: [
+    // Main test project - Chromium
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
 
+    // Firefox
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
 
+    // WebKit/Safari
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
     },
 
-    // Test against mobile viewports
+    // Mobile Chrome
     {
       name: 'Mobile Chrome',
       use: { ...devices['Pixel 5'] },
     },
+
+    // Mobile Safari
     {
       name: 'Mobile Safari',
       use: { ...devices['iPhone 12'] },
     },
 
-    // Test against branded browsers
+    // Microsoft Edge
     {
       name: 'Microsoft Edge',
       use: { ...devices['Desktop Edge'], channel: 'msedge' },
     },
+
+    // Google Chrome
     {
       name: 'Google Chrome',
       use: { ...devices['Desktop Chrome'], channel: 'chrome' },
@@ -111,6 +132,6 @@ export default defineConfig({
     command: 'NEXT_PUBLIC_E2E_TEST_MODE=true npm run dev -- -H 0.0.0.0 -p 4000',
     url: 'http://localhost:4000',
     reuseExistingServer: !process.env.CI, // Reuse in local dev, start fresh in CI
-    timeout: 120 * 1000,
+    timeout: 180 * 1000, // 3 minutes for dev server startup
   },
 });

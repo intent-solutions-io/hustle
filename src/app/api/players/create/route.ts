@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
-import { createPlayer } from '@/lib/firebase/services/players';
-import { incrementPlayerCount } from '@/lib/firebase/services/workspaces';
-import { getUser } from '@/lib/firebase/services/users';
-import { getWorkspaceById } from '@/lib/firebase/services/workspaces';
+import { createPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
+import {
+  getWorkspaceByIdAdmin,
+  incrementWorkspacePlayerCountAdmin,
+} from '@/lib/firebase/admin-services/workspaces';
 import { getPlanLimits } from '@/lib/stripe/plan-mapping';
 import { WorkspaceAccessError } from '@/lib/firebase/access-control';
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce';
@@ -31,13 +33,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, birthday, position, teamClub } = body;
+    const { name, birthday, primaryPosition, teamClub, gender, secondaryPositions, positionNote, leagueCode, leagueOtherName } = body;
 
-    // Validate required fields
-    if (!name || !birthday || !position || !teamClub) {
+    // Validate required fields (primaryPosition is the field name from the form schema)
+    if (!name || !birthday || !primaryPosition || !teamClub || !gender || !leagueCode) {
       logger.warn('Invalid player creation request - missing fields', {
         userId: session.user.id,
-        providedFields: { name: !!name, birthday: !!birthday, position: !!position, teamClub: !!teamClub },
+        providedFields: {
+          name: !!name,
+          birthday: !!birthday,
+          primaryPosition: !!primaryPosition,
+          teamClub: !!teamClub,
+          gender: !!gender,
+          leagueCode: !!leagueCode,
+        },
       });
 
       return NextResponse.json(
@@ -47,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Phase 5 Task 4: Get user's workspace and check plan limits
-    const user = await getUser(session.user.id);
+    const user = await getUserProfileAdmin(session.user.id);
     if (!user?.defaultWorkspaceId) {
       logger.error('User has no default workspace', {
         userId: session.user.id,
@@ -59,7 +68,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const workspace = await getWorkspaceById(user.defaultWorkspaceId);
+    const workspace = await getWorkspaceByIdAdmin(user.defaultWorkspaceId);
     if (!workspace) {
       logger.error('Workspace not found', {
         userId: session.user.id,
@@ -115,18 +124,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create player with workspace context (Firestore)
-    const player = await createPlayer(session.user.id, {
+    // Create player with workspace context (Admin SDK - bypasses security rules)
+    const player = await createPlayerAdmin(session.user.id, {
       workspaceId: workspace.id,  // Phase 5: Link to workspace
       name,
       birthday: new Date(birthday),
-      position,
+      gender,
+      primaryPosition,
+      secondaryPositions: secondaryPositions || [],
+      positionNote: positionNote || null,
+      leagueCode,
+      leagueOtherName: leagueOtherName || null,
       teamClub,
       photoUrl: null,
     });
 
-    // Phase 5 Task 4: Increment workspace player count
-    await incrementPlayerCount(workspace.id);
+    // Phase 5 Task 4: Increment workspace player count (Admin SDK)
+    await incrementWorkspacePlayerCountAdmin(workspace.id);
 
     const duration = Date.now() - startTime;
 
@@ -134,7 +148,7 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       playerId: player.id,
       playerName: name,
-      position,
+      position: primaryPosition,
       duration,
       statusCode: 200,
     });
