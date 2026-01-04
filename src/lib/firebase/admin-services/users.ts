@@ -14,6 +14,10 @@ import type { User, UserDocument } from '@/types/firestore';
 function toUser(uid: string, doc: UserDocument): User {
   return {
     id: uid,
+    // Workspace Ownership (Phase 5)
+    defaultWorkspaceId: doc.defaultWorkspaceId ?? null,
+    ownedWorkspaces: doc.ownedWorkspaces ?? [],
+    // Profile
     firstName: doc.firstName,
     lastName: doc.lastName,
     email: doc.email,
