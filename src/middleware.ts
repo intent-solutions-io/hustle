@@ -1,78 +1,185 @@
 /**
- * Global Access Enforcement Middleware
+ * Unified Middleware - Edge Protection & Session Validation
  *
- * Phase 7: Session Validation Gatekeeper
+ * Handles both:
+ * 1. Dashboard route protection (redirects to /login if no session)
+ * 2. API route protection (returns 401 if no session)
  *
- * Runs on authenticated API routes to validate Firebase session cookies.
- * Actual workspace subscription enforcement happens in API routes via
- * checkWorkspaceAccess() utility (see: src/lib/firebase/access-control.ts).
+ * IMPORTANT: This file MUST be in src/ when using src/app/ structure.
+ * Next.js ignores root middleware.ts when src/ directory exists.
  *
- * Why Not Full Enforcement Here?
- * - Next.js middleware runs on Edge runtime (no Node.js APIs)
- * - Firebase Admin SDK requires Node.js runtime
- * - Workspace status checks need Firestore access (Admin SDK)
- *
- * Solution:
- * - Middleware validates session exists
- * - API routes call requireWorkspaceWriteAccess() before mutations
+ * Logging Levels (controlled by MIDDLEWARE_DEBUG env var):
+ * - 'verbose': All requests logged with full details
+ * - 'errors': Only auth failures logged
+ * - undefined: Minimal logging (CI default)
  */
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Structured logging for observability
+interface MiddlewareLog {
+  timestamp: string;
+  level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+  path: string;
+  action: string;
+  details?: Record<string, unknown>;
+}
+
+function log(entry: Omit<MiddlewareLog, 'timestamp'>) {
+  const debugLevel = process.env.MIDDLEWARE_DEBUG;
+  const shouldLog =
+    debugLevel === 'verbose' ||
+    (debugLevel === 'errors' && (entry.level === 'WARN' || entry.level === 'ERROR')) ||
+    entry.level === 'ERROR'; // Always log errors
+
+  if (shouldLog) {
+    const timestamp = new Date().toISOString();
+    const prefix = `[MIDDLEWARE:${entry.level}]`;
+    console.log(`${prefix} [${timestamp}] ${entry.path} - ${entry.action}`, entry.details ? JSON.stringify(entry.details) : '');
+  }
+}
+
 /**
- * Middleware: Session validation
+ * Public routes that don't require authentication
+ */
+const PUBLIC_API_ROUTES = [
+  '/api/health',
+  '/api/healthcheck',
+  '/api/auth/register',
+  '/api/auth/login',
+  '/api/auth/callback',
+  '/api/auth/signout',
+  '/api/auth/set-session',
+  '/api/auth/forgot-password',
+  '/api/auth/resend-verification',
+  '/api/waitlist',
+  '/api/webhooks',
+  '/api/verify',
+];
+
+/**
+ * Check if path matches any public routes
+ */
+function isPublicApiRoute(pathname: string): boolean {
+  return PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route));
+}
+
+/**
+ * Get session cookie from request
+ */
+function getSessionCookie(request: NextRequest): string | null {
+  const sessionCookie =
+    request.cookies.get('__session')?.value ||
+    request.cookies.get('firebase-auth-token')?.value;
+  return sessionCookie || null;
+}
+
+/**
+ * Middleware handler
  */
 export async function middleware(request: NextRequest) {
-  const { pathname } = request;
+  const { pathname } = request.nextUrl;
+  const sessionCookie = getSessionCookie(request);
+  const hasSession = !!sessionCookie;
 
-  // Public routes - skip validation
-  const publicRoutes = [
-    '/api/health',
-    '/api/auth/register',
-    '/api/auth/login',
-    '/api/auth/callback',
-    '/api/auth/signout',
-  ];
+  // Log all requests in verbose mode
+  log({
+    level: 'DEBUG',
+    path: pathname,
+    action: 'REQUEST_START',
+    details: {
+      method: request.method,
+      hasSession,
+      cookies: Array.from(request.cookies.getAll()).map((c) => c.name),
+    },
+  });
 
-  if (publicRoutes.some((route) => pathname.startsWith(route))) {
+  // ============================================
+  // DASHBOARD ROUTES: Redirect to /login if no session
+  // ============================================
+  if (pathname.startsWith('/dashboard')) {
+    if (!hasSession) {
+      log({
+        level: 'INFO',
+        path: pathname,
+        action: 'REDIRECT_TO_LOGIN',
+        details: { reason: 'no_session_cookie' },
+      });
+
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('from', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    log({
+      level: 'DEBUG',
+      path: pathname,
+      action: 'DASHBOARD_ACCESS_ALLOWED',
+      details: { hasSession: true },
+    });
+
     return NextResponse.next();
   }
 
-  // Protected API routes - require session cookie
+  // ============================================
+  // API ROUTES: Return 401 if no session (except public routes)
+  // ============================================
   if (pathname.startsWith('/api/')) {
-    const sessionCookie =
-      request.cookies.get('__session')?.value ||
-      request.cookies.get('firebase-auth-token')?.value;
+    // Public API routes - skip validation
+    if (isPublicApiRoute(pathname)) {
+      log({
+        level: 'DEBUG',
+        path: pathname,
+        action: 'PUBLIC_API_ALLOWED',
+      });
+      return NextResponse.next();
+    }
 
-    if (!sessionCookie) {
-      console.warn(`[MIDDLEWARE] Unauthorized access attempt: ${pathname}`);
+    // Protected API routes - require session
+    if (!hasSession) {
+      log({
+        level: 'WARN',
+        path: pathname,
+        action: 'API_UNAUTHORIZED',
+        details: { reason: 'no_session_cookie' },
+      });
+
       return NextResponse.json(
         {
           error: 'UNAUTHORIZED',
           message: 'Authentication required. Please sign in.',
+          path: pathname,
         },
         { status: 401 }
       );
     }
 
-    // Session exists - allow request to proceed
-    // Workspace access enforcement happens in API route via checkWorkspaceAccess()
+    log({
+      level: 'DEBUG',
+      path: pathname,
+      action: 'API_ACCESS_ALLOWED',
+    });
+
     return NextResponse.next();
   }
 
-  // Non-API routes - allow through
+  // ============================================
+  // ALL OTHER ROUTES: Pass through
+  // ============================================
   return NextResponse.next();
 }
 
 /**
  * Middleware configuration
  *
- * Run on all API routes except public auth endpoints
+ * Match dashboard and API routes for protection
  */
 export const config = {
   matcher: [
-    // All API routes
+    // Dashboard routes - redirect to login
+    '/dashboard/:path*',
+    // API routes - return 401
     '/api/:path*',
   ],
 };

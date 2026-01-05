@@ -23,7 +23,9 @@
     "qa:e2e": "playwright test --project=chromium",
     "qa:e2e:smoke": "playwright test 03-Tests/e2e/05-login-healthcheck.spec.ts 03-Tests/e2e/04-complete-user-journey.spec.ts --project=chromium",
     "qa:e2e:update-snapshots": "playwright test --update-snapshots --project=chromium",
-    "qa:seed:staging": "tsx 05-Scripts/seed-staging.ts"
+    "qa:e2e:debug": "cross-env MIDDLEWARE_DEBUG=verbose NEXT_PUBLIC_E2E_TEST_MODE=true playwright test --project=chromium --headed",
+    "qa:seed:staging": "tsx 05-Scripts/seed-staging.ts",
+    "dev:debug": "cross-env MIDDLEWARE_DEBUG=verbose next dev --turbopack"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
