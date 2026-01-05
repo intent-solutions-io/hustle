@@ -32,7 +32,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    // Parse request body with error handling
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      logger.error('Failed to parse request body', parseError instanceof Error ? parseError : new Error(String(parseError)), {
+        userId: session.user.id,
+        contentType: request.headers.get('content-type'),
+        contentLength: request.headers.get('content-length'),
+      });
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
     const { name, birthday, primaryPosition, teamClub, gender, secondaryPositions, positionNote, leagueCode, leagueOtherName } = body;
 
     // Validate required fields (primaryPosition is the field name from the form schema)

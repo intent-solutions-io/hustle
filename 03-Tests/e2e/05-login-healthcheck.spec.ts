@@ -8,11 +8,13 @@ test.describe('Login and Health Check', () => {
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
 
-    // Visual regression: capture login page screenshot
-    await expect(page).toHaveScreenshot('login-page.png', {
-      fullPage: true,
-      mask: [page.locator('[data-testid="timestamp"]')], // Mask dynamic content if any
-    });
+    // Visual regression: capture login page screenshot (skip in CI - no baseline snapshots)
+    if (!process.env.CI) {
+      await expect(page).toHaveScreenshot('login-page.png', {
+        fullPage: true,
+        mask: [page.locator('[data-testid="timestamp"]')],
+      });
+    }
   });
 
   test('should show validation errors for empty form', async ({ page }) => {
