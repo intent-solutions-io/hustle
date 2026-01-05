@@ -6,7 +6,9 @@
  */
 
 import { adminDb } from '../admin';
-import type { Player, PlayerDocument } from '@/types/firestore';
+import type { Player, PlayerDocument, SoccerPositionCode, PlayerGender } from '@/types/firestore';
+import type { LeagueCode } from '@/types/league';
+import { Timestamp } from 'firebase-admin/firestore';
 
 /**
  * Convert Firestore PlayerDocument to Player type
@@ -75,5 +77,74 @@ export async function getPlayersCountAdmin(userId: string): Promise<number> {
   } catch (error: any) {
     console.error('Error counting players (Admin):', error);
     throw new Error(`Failed to count players: ${error.message}`);
+  }
+}
+
+/**
+ * Create a new player (Admin SDK)
+ * @param userId - User UID
+ * @param data - Player data
+ * @returns Created player with ID
+ */
+export async function createPlayerAdmin(
+  userId: string,
+  data: {
+    workspaceId: string;
+    name: string;
+    birthday: Date;
+    gender: PlayerGender;
+    primaryPosition: SoccerPositionCode;
+    secondaryPositions?: SoccerPositionCode[];
+    positionNote?: string | null;
+    leagueCode: LeagueCode;
+    leagueOtherName?: string | null;
+    teamClub: string;
+    photoUrl?: string | null;
+  }
+): Promise<Player> {
+  try {
+    const now = new Date();
+    const playerDoc: Omit<PlayerDocument, 'createdAt' | 'updatedAt' | 'birthday'> & {
+      birthday: Timestamp;
+      createdAt: Date;
+      updatedAt: Date;
+    } = {
+      workspaceId: data.workspaceId,
+      name: data.name,
+      birthday: Timestamp.fromDate(data.birthday),
+      gender: data.gender,
+      primaryPosition: data.primaryPosition,
+      secondaryPositions: data.secondaryPositions,
+      positionNote: data.positionNote,
+      leagueCode: data.leagueCode,
+      leagueOtherName: data.leagueOtherName,
+      teamClub: data.teamClub,
+      photoUrl: data.photoUrl || null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const playersRef = adminDb.collection(`users/${userId}/players`);
+    const docRef = await playersRef.add(playerDoc);
+
+    return {
+      id: docRef.id,
+      workspaceId: data.workspaceId,
+      name: data.name,
+      birthday: data.birthday,
+      gender: data.gender,
+      primaryPosition: data.primaryPosition,
+      secondaryPositions: data.secondaryPositions,
+      positionNote: data.positionNote,
+      leagueCode: data.leagueCode,
+      leagueOtherName: data.leagueOtherName,
+      teamClub: data.teamClub,
+      photoUrl: data.photoUrl || null,
+      createdAt: now,
+      updatedAt: now,
+    };
+  } catch (error: any) {
+    console.error('Error creating player (Admin):', error);
+    throw new Error(`Failed to create player: ${error.message}`);
   }
 }
