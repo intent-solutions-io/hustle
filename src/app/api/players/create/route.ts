@@ -33,14 +33,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body with error handling
+    // Read as text first for better debugging
     let body;
+    let rawBody = '';
     try {
-      body = await request.json();
+      rawBody = await request.text();
+      body = JSON.parse(rawBody);
     } catch (parseError) {
       logger.error('Failed to parse request body', parseError instanceof Error ? parseError : new Error(String(parseError)), {
         userId: session.user.id,
         contentType: request.headers.get('content-type'),
         contentLength: request.headers.get('content-length'),
+        rawBodyLength: rawBody.length,
+        rawBodyPreview: rawBody.slice(0, 500),
       });
       return NextResponse.json(
         { error: 'Invalid request body' },
