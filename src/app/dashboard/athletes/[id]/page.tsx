@@ -179,7 +179,7 @@ export default async function AthleteDetailPage({
             </div>
 
             {/* Assists OR Clean Sheets (position-dependent) */}
-            {athlete.position === 'Goalkeeper' ? (
+            {(athlete.primaryPosition === 'GK' || athlete.position === 'Goalkeeper') ? (
               <div className="flex flex-col items-center text-center p-4 bg-zinc-50 rounded-lg">
                 <Shield className="h-5 w-5 text-zinc-500 mb-2" />
                 <div className="text-3xl font-bold text-zinc-900 mb-1">

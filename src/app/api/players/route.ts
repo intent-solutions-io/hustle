@@ -30,7 +30,8 @@ export async function GET() {
           id: player.id,
           name: player.name,
           birthday: player.birthday,
-          position: player.position,
+          // Use primaryPosition (SoccerPositionCode like "GK", "CB") for position detection
+          position: player.primaryPosition ?? player.position,
           teamClub: player.teamClub,
           photoUrl: player.photoUrl,
           pendingGames: unverifiedGames.length,
