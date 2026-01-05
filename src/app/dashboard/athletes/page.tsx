@@ -8,6 +8,9 @@ import Link from 'next/link';
 import { calculateAge, getInitials, getAvatarColor } from '@/lib/player-utils';
 import type { Player } from '@/types/firestore';
 
+// Force dynamic rendering to ensure fresh data on each request
+export const dynamic = 'force-dynamic';
+
 /**
  * Athletes List Page
  *
