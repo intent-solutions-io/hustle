@@ -17,7 +17,27 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // Get authenticated user from NextAuth session
+    // CRITICAL: Read body FIRST, before any async operations that call cookies()/headers()
+    // In Next.js 15 + Turbopack, calling cookies() can interfere with the request stream
+    let body;
+    let rawBody = '';
+    try {
+      rawBody = await request.text();
+      body = JSON.parse(rawBody);
+    } catch (parseError) {
+      logger.error('Failed to parse request body', parseError instanceof Error ? parseError : new Error(String(parseError)), {
+        contentType: request.headers.get('content-type'),
+        contentLength: request.headers.get('content-length'),
+        rawBodyLength: rawBody.length,
+        rawBodyPreview: rawBody.slice(0, 500),
+      });
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    // Get authenticated user from Firebase session (calls cookies() internally)
     const session = await auth();
 
     if (!session?.user?.id) {
@@ -29,27 +49,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
-      );
-    }
-
-    // Parse request body with error handling
-    // Read as text first for better debugging
-    let body;
-    let rawBody = '';
-    try {
-      rawBody = await request.text();
-      body = JSON.parse(rawBody);
-    } catch (parseError) {
-      logger.error('Failed to parse request body', parseError instanceof Error ? parseError : new Error(String(parseError)), {
-        userId: session.user.id,
-        contentType: request.headers.get('content-type'),
-        contentLength: request.headers.get('content-length'),
-        rawBodyLength: rawBody.length,
-        rawBodyPreview: rawBody.slice(0, 500),
-      });
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
       );
     }
     const { name, birthday, primaryPosition, teamClub, gender, secondaryPositions, positionNote, leagueCode, leagueOtherName } = body;
