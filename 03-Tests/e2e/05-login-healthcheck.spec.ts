@@ -35,11 +35,20 @@ test.describe('Login and Health Check', () => {
     const body = await response.json();
     expect(body).toHaveProperty('status', 'ok');
   });
+});
+
+/**
+ * Tests that require unauthenticated state
+ * These tests clear the storage state to test without session cookies
+ */
+test.describe('Unauthenticated Route Protection', () => {
+  // Clear storage state - no cookies, no authenticated session
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should redirect to login when accessing protected route', async ({ page }) => {
     await page.goto('/dashboard');
 
-    // Should redirect to login page
+    // Should redirect to login page (middleware checks for __session cookie)
     await expect(page).toHaveURL(/\/login/);
   });
 });
