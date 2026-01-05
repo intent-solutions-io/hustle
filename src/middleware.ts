@@ -174,14 +174,12 @@ export async function middleware(request: NextRequest) {
  * Middleware configuration
  *
  * Match dashboard and API routes for protection.
- * NOTE: We exclude /api/:path* from middleware to avoid body consumption issues
- * in Next.js 15 + Turbopack. API routes handle their own auth via auth() function.
  */
 export const config = {
   matcher: [
     // Dashboard routes - redirect to login
     '/dashboard/:path*',
-    // API routes are now handled directly in route handlers to avoid body stream issues
-    // '/api/:path*',
+    // API routes - return 401 if no session cookie
+    '/api/:path*',
   ],
 };

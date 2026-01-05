@@ -127,11 +127,15 @@ export default defineConfig({
     },
   ],
 
-  // Run your local dev server before starting the tests
+  // Run production server for E2E tests (avoids Turbopack body consumption bugs)
   webServer: {
-    command: 'NEXT_PUBLIC_E2E_TEST_MODE=true npm run dev -- -H 0.0.0.0 -p 4000',
+    // In CI: Build first, then start production server
+    // Locally: Use dev server for faster iteration
+    command: process.env.CI
+      ? 'NEXT_PUBLIC_E2E_TEST_MODE=true npm run build && NEXT_PUBLIC_E2E_TEST_MODE=true npm run start -- -H 0.0.0.0 -p 4000'
+      : 'NEXT_PUBLIC_E2E_TEST_MODE=true npm run dev -- -H 0.0.0.0 -p 4000',
     url: 'http://localhost:4000',
     reuseExistingServer: !process.env.CI, // Reuse in local dev, start fresh in CI
-    timeout: 180 * 1000, // 3 minutes for dev server startup
+    timeout: 300 * 1000, // 5 minutes for build + start in CI
   },
 });
