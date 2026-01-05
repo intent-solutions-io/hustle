@@ -52,6 +52,9 @@ export const dynamic = 'force-dynamic';
 export default async function AthleteDetailPage({
   params,
 }: AthleteDetailPageProps) {
+  // Await params before accessing properties (Next.js 15 requirement)
+  const { id } = await params;
+
   // 1. AUTH CHECK: Verify user is authenticated (Firebase Admin)
   const user = await getDashboardUser();
   if (!user || !user.emailVerified) {
@@ -60,7 +63,7 @@ export default async function AthleteDetailPage({
 
   // 2. FETCH ATHLETE: Get athlete data with ownership verification (Firestore Admin SDK)
   // CRITICAL: Firestore security rules enforce ownership, but we verify UID match
-  const athlete: Player | null = await getPlayerAdmin(user.uid, params.id);
+  const athlete: Player | null = await getPlayerAdmin(user.uid, id);
 
   // 404 if athlete not found or not owned by this parent
   if (!athlete) {

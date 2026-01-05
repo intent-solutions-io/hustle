@@ -142,14 +142,14 @@ export interface GameDisplayData extends GameData {
  */
 export interface AthleteDetailPageProps {
   /**
-   * Dynamic route parameters
+   * Dynamic route parameters (Promise in Next.js 15)
    */
-  params: {
+  params: Promise<{
     /**
      * Player ID from URL route parameter
      */
     id: string;
-  };
+  }>;
 }
 
 /**
