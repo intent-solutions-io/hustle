@@ -73,8 +73,9 @@ test.describe('User Registration Flow', () => {
   })
 
   test('should show error for duplicate email', async ({ page }) => {
-    // Use same email twice
-    const testEmail = 'duplicate-test@example.com'
+    // Use unique timestamp to avoid conflicts with previous test runs
+    const timestamp = Date.now()
+    const testEmail = `duplicate-${timestamp}@example.com`
 
     // First registration
     await page.fill('input#firstName', 'First')
@@ -85,8 +86,8 @@ test.describe('User Registration Flow', () => {
     await page.fill('input#password', 'Password123!')
     await page.click('button[type="submit"]')
 
-    // Wait for first registration to complete
-    await expect(page).toHaveURL(/\/login/, { timeout: 10000 })
+    // Wait for first registration to complete - in E2E mode may go to dashboard due to auto-verify bypass
+    await expect(page).toHaveURL(/\/(login|dashboard)/, { timeout: 10000 })
 
     // Try to register again with same email
     await page.goto('/register')
