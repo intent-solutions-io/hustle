@@ -12,6 +12,10 @@ jobs:
     name: E2E Tests (Synthetic QA)
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      pull-requests: write
+
     env:
       # Playwright configuration
       PLAYWRIGHT_BASE_URL: http://localhost:4000
