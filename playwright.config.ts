@@ -129,10 +129,11 @@ export default defineConfig({
 
   // Run production server for E2E tests (avoids Turbopack body consumption bugs)
   webServer: {
-    // In CI: Build first, then start standalone server (required for output: 'standalone')
+    // In CI: Build first, copy static files, then start standalone server
+    // Standalone mode requires copying .next/static and public to the standalone dir
     // Locally: Use dev server for faster iteration
     command: process.env.CI
-      ? 'NEXT_PUBLIC_E2E_TEST_MODE=true npm run build && PORT=4000 HOSTNAME=0.0.0.0 node .next/standalone/server.js'
+      ? 'NEXT_PUBLIC_E2E_TEST_MODE=true npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public 2>/dev/null || true && PORT=4000 HOSTNAME=0.0.0.0 node .next/standalone/server.js'
       : 'NEXT_PUBLIC_E2E_TEST_MODE=true npm run dev -- -H 0.0.0.0 -p 4000',
     url: 'http://localhost:4000',
     reuseExistingServer: !process.env.CI, // Reuse in local dev, start fresh in CI
