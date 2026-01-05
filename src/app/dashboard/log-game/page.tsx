@@ -13,6 +13,8 @@ interface Player {
   position: string;
 }
 
+const DEFENDER_POSITIONS = ['CB', 'RB', 'LB', 'RWB', 'LWB'];
+
 export default function LogGamePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,8 +45,8 @@ export default function LogGamePage() {
   });
 
   const selectedPlayer = players.find((p) => p.id === formData.playerId);
-  const isGoalkeeper = selectedPlayer?.position === 'Goalkeeper';
-  const isDefender = selectedPlayer?.position === 'Defender';
+  const isGoalkeeper = selectedPlayer?.position === 'GK';
+  const isDefender = DEFENDER_POSITIONS.includes(selectedPlayer?.position || '');
 
   // Fetch players
   useEffect(() => {

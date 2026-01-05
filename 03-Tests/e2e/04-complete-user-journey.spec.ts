@@ -207,13 +207,14 @@ test.describe('Complete User Journey - Happy Path', () => {
     await page.goto('/dashboard');
     await page.waitForTimeout(1000);
 
-    // Dashboard should now show 1 game instead of 0
-    const statsCard = page.locator('div, card').filter({ hasText: /Total Games|Games/i });
+    // Dashboard should now show 1 verified game instead of 0
+    // The dashboard uses "Verified Games" as the card title
+    const statsCard = page.locator('div, card').filter({ hasText: /Verified Games|Games/i });
     const statsText = await statsCard.first().textContent();
 
-    // Check for "1" in stats (Total Games should be 1)
-    expect(statsText).toMatch(/1\s+game|1\s+total/i);
-    console.log('✓ Dashboard stats updated (1 game recorded)');
+    // Check for "1" in stats - dashboard shows "1 verified game" when there's 1 game
+    expect(statsText).toMatch(/1\s+verified\s+game|1\s+game/i);
+    console.log('✓ Dashboard stats updated (1 verified game recorded)');
 
     console.log('✅ COMPLETE USER JOURNEY PASSED');
   });
