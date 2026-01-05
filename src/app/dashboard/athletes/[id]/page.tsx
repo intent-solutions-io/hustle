@@ -31,6 +31,9 @@ import {
 import type { AthleteDetailPageProps, GameData, AthleteStats } from '@/types/game';
 import type { Player, Game } from '@/types/firestore';
 
+// Force dynamic rendering to ensure fresh data on each request
+export const dynamic = 'force-dynamic';
+
 /**
  * Athlete Detail Page
  *
