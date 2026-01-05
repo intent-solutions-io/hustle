@@ -37,6 +37,9 @@ jobs:
       NEXT_PUBLIC_FIREBASE_APP_ID: "1:335713777643:web:209e728afd5aee07c80bae"
 
       # Firebase Admin (private - from secrets)
+      # Priority 1: Full service account JSON (most reliable for CI)
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+      # Priority 2: Individual credentials (fallback)
       FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
       FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
       FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
