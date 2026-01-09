@@ -18,7 +18,7 @@ import type { Workspace } from '@/types/firestore';
  * Helper to create a mock workspace
  */
 function createMockWorkspace(
-  plan: 'free' | 'starter' | 'pro' | 'elite',
+  plan: 'free' | 'starter' | 'plus' | 'pro',
   playerCount: number,
   gamesThisMonth: number
 ): Workspace {
@@ -275,13 +275,14 @@ describe('getLimitWarningMessage', () => {
 
 describe('State Thresholds (Integration)', () => {
   it('should correctly categorize all plans at key percentages', () => {
-    const testCases = [
-      { plan: 'free' as const, players: 1, games: 6, expectedPlayer: 'ok', expectedGames: 'ok' }, // 50%, 60%
-      { plan: 'free' as const, players: 2, games: 8, expectedPlayer: 'critical', expectedGames: 'warning' }, // 100%, 80%
-      { plan: 'starter' as const, players: 3, games: 35, expectedPlayer: 'ok', expectedGames: 'warning' }, // 60%, 70%
-      { plan: 'plus' as const, players: 11, games: 140, expectedPlayer: 'warning', expectedGames: 'warning' }, // 73%, 70%
-      { plan: 'plus' as const, players: 15, games: 200, expectedPlayer: 'critical', expectedGames: 'critical' }, // 100%, 100%
-      { plan: 'pro' as const, players: 100, games: 1000, expectedPlayer: 'ok', expectedGames: 'ok' }, // ~1%, ~10% (effectively unlimited)
+    type TestPlan = 'free' | 'starter' | 'plus' | 'pro';
+    const testCases: Array<{ plan: TestPlan, players: number, games: number, expectedPlayer: string, expectedGames: string }> = [
+      { plan: 'free', players: 1, games: 6, expectedPlayer: 'ok', expectedGames: 'ok' }, // 50%, 60%
+      { plan: 'free', players: 2, games: 8, expectedPlayer: 'critical', expectedGames: 'warning' }, // 100%, 80%
+      { plan: 'starter', players: 3, games: 35, expectedPlayer: 'ok', expectedGames: 'warning' }, // 60%, 70%
+      { plan: 'plus', players: 11, games: 140, expectedPlayer: 'warning', expectedGames: 'warning' }, // 73%, 70%
+      { plan: 'plus', players: 15, games: 200, expectedPlayer: 'critical', expectedGames: 'critical' }, // 100%, 100%
+      { plan: 'pro', players: 100, games: 1000, expectedPlayer: 'ok', expectedGames: 'ok' }, // ~1%, ~10% (effectively unlimited)
     ];
 
     testCases.forEach(({ plan, players, games, expectedPlayer, expectedGames }) => {

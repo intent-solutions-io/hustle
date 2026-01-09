@@ -14,9 +14,24 @@ import { Timestamp } from 'firebase-admin/firestore';
  * Convert Firestore PlayerDocument to Player type
  */
 function toPlayer(id: string, doc: PlayerDocument): Player {
+  const convertTimestamp = (ts: unknown): Date => {
+    if (ts instanceof Date) return ts;
+    if (ts && typeof (ts as { toDate?: () => Date }).toDate === 'function') {
+      return (ts as { toDate: () => Date }).toDate();
+    }
+    return new Date();
+  };
+
   return {
     id,
     ...doc,
+    birthday: convertTimestamp(doc.birthday),
+    createdAt: convertTimestamp(doc.createdAt),
+    updatedAt: convertTimestamp(doc.updatedAt),
+    // Convert null to undefined for optional string fields
+    leagueOtherName: doc.leagueOtherName ?? undefined,
+    positionNote: doc.positionNote ?? undefined,
+    photoUrl: doc.photoUrl ?? undefined,
   };
 }
 
@@ -115,9 +130,9 @@ export async function createPlayerAdmin(
       gender: data.gender,
       primaryPosition: data.primaryPosition,
       secondaryPositions: data.secondaryPositions,
-      positionNote: data.positionNote,
+      positionNote: data.positionNote ?? undefined,
       leagueCode: data.leagueCode,
-      leagueOtherName: data.leagueOtherName,
+      leagueOtherName: data.leagueOtherName ?? undefined,
       teamClub: data.teamClub,
       photoUrl: data.photoUrl || null,
       createdAt: now,
@@ -135,11 +150,11 @@ export async function createPlayerAdmin(
       gender: data.gender,
       primaryPosition: data.primaryPosition,
       secondaryPositions: data.secondaryPositions,
-      positionNote: data.positionNote,
+      positionNote: data.positionNote ?? undefined,
       leagueCode: data.leagueCode,
-      leagueOtherName: data.leagueOtherName,
+      leagueOtherName: data.leagueOtherName ?? undefined,
       teamClub: data.teamClub,
-      photoUrl: data.photoUrl || null,
+      photoUrl: data.photoUrl ?? undefined,
       createdAt: now,
       updatedAt: now,
     };

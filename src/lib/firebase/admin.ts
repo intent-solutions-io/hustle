@@ -14,10 +14,12 @@
 import { initializeApp, getApps, cert, applicationDefault, type App } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { getStorage, type Storage } from 'firebase-admin/storage';
 
 let _app: App | null = null;
 let _adminAuth: Auth | null = null;
 let _adminDb: Firestore | null = null;
+let _adminStorage: Storage | null = null;
 
 /**
  * Initialize Firebase Admin lazily (only when first used at runtime)
@@ -91,6 +93,24 @@ export function getAdminDb(): Firestore {
     _adminDb = getFirestore();
   }
   return _adminDb;
+}
+
+/**
+ * Get Firebase Admin Storage (lazy initialization)
+ */
+function getAdminStorage(): Storage {
+  if (!_adminStorage) {
+    initializeFirebaseAdmin();
+    _adminStorage = getStorage();
+  }
+  return _adminStorage;
+}
+
+/**
+ * Get Firebase Admin Storage Bucket (lazy initialization)
+ */
+export function getAdminStorageBucket() {
+  return getAdminStorage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
 }
 
 /**

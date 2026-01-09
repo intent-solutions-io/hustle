@@ -56,7 +56,7 @@ function safeTimestampToDate(
  * Add Firebase UIDs of admin users who can access this endpoint.
  * In production, use Firebase custom claims or a database table.
  */
-const ADMIN_UIDS = [
+const ADMIN_UIDS: string[] = [
   // Add your admin UIDs here
   // Example: 'firebase-uid-of-admin-user'
 ];
@@ -374,11 +374,12 @@ async function replayCheckoutSessionCompleted(
     stripeEventId: eventId,
   });
 
-  // Update billing information
+  // Update billing information - access current_period_end via type assertion
+  const periodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
   await updateWorkspaceBilling(workspaceId, {
     stripeCustomerId: customerId,
     stripeSubscriptionId: subscriptionId,
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+    currentPeriodEnd: new Date(periodEnd * 1000),
   });
 }
 
@@ -411,9 +412,10 @@ async function replaySubscriptionUpdated(
     stripeEventId: eventId,
   });
 
-  // Update billing information
+  // Update billing information - access current_period_end via type assertion
+  const periodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
   await updateWorkspaceBilling(workspace.id, {
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+    currentPeriodEnd: new Date(periodEnd * 1000),
   });
 }
 
@@ -445,9 +447,10 @@ async function replaySubscriptionDeleted(
     stripeEventId: eventId,
   });
 
-  // Keep currentPeriodEnd for access grace period
+  // Keep currentPeriodEnd for access grace period - access current_period_end via type assertion
+  const periodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
   await updateWorkspaceBilling(workspace.id, {
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+    currentPeriodEnd: new Date(periodEnd * 1000),
   });
 }
 
@@ -456,7 +459,8 @@ async function replayPaymentFailed(
   customerId: string,
   eventId: string
 ) {
-  const subscriptionId = invoice.subscription as string;
+  // Access subscription via type assertion
+  const subscriptionId = (invoice as unknown as { subscription: string | null }).subscription;
 
   if (!subscriptionId) {
     // One-time payment (not subscription), ignore
@@ -495,7 +499,8 @@ async function replayPaymentSucceeded(
   customerId: string,
   eventId: string
 ) {
-  const subscriptionId = invoice.subscription as string;
+  // Access subscription via type assertion
+  const subscriptionId = (invoice as unknown as { subscription: string | null }).subscription;
 
   if (!subscriptionId) {
     // One-time payment (not subscription), ignore
@@ -528,8 +533,9 @@ async function replayPaymentSucceeded(
     stripeEventId: eventId,
   });
 
-  // Update renewal date
+  // Update renewal date - access current_period_end via type assertion
+  const renewalPeriodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
   await updateWorkspaceBilling(workspace.id, {
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+    currentPeriodEnd: new Date(renewalPeriodEnd * 1000),
   });
 }

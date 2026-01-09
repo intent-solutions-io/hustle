@@ -48,6 +48,24 @@ export interface GameData {
 export type GameResult = 'Win' | 'Loss' | 'Draw';
 
 /**
+ * Performance Rating (1-5 stars)
+ */
+export type PerformanceRating = 1 | 2 | 3 | 4 | 5;
+
+/**
+ * Game Emotion Tags
+ */
+export type GameEmotionTag =
+  | 'confident'
+  | 'frustrated'
+  | 'tired'
+  | 'focused'
+  | 'nervous'
+  | 'excited'
+  | 'proud'
+  | 'disappointed';
+
+/**
  * Aggregated athlete statistics calculated from games
  *
  * Contains cumulative statistics across all games for an athlete.

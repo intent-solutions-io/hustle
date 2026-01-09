@@ -134,7 +134,11 @@ export async function listRecentInvoices(
       // Extract plan name from line items
       let planName: string | null = null;
       if (invoice.lines.data.length > 0) {
-        const firstLine = invoice.lines.data[0];
+        const firstLine = invoice.lines.data[0] as unknown as {
+          price?: { nickname?: string | null };
+          metadata?: { plan?: string };
+          description?: string | null;
+        };
         planName =
           firstLine.price?.nickname ||
           firstLine.metadata?.plan ||
@@ -144,7 +148,7 @@ export async function listRecentInvoices(
 
       return {
         id: invoice.id,
-        hostedInvoiceUrl: invoice.hosted_invoice_url,
+        hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
         status: invoice.status || 'draft',
         amountPaid: invoice.amount_paid,
         amountDue: invoice.amount_due,

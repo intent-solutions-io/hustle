@@ -28,7 +28,7 @@ import { redirect } from 'next/navigation';
  * Add Firebase UIDs of admin users who can access this page.
  * In production, use Firebase custom claims or a database table.
  */
-const ADMIN_UIDS = [
+const ADMIN_UIDS: string[] = [
   // Add your admin UIDs here
   // Example: 'firebase-uid-of-admin-user'
 ];

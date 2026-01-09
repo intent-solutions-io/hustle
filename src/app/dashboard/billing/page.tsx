@@ -71,7 +71,7 @@ export default async function BillingPage() {
   const limits = evaluatePlanLimits(workspace);
 
   // 4. Fetch invoice history (server-side)
-  let invoices = [];
+  let invoices: Awaited<ReturnType<typeof listRecentInvoices>> = [];
   try {
     invoices = await listRecentInvoices(workspace.id, 5);
   } catch (error) {
