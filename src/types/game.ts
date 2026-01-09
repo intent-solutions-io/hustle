@@ -25,16 +25,16 @@ export interface GameData {
   minutesPlayed: number;
   goals: number;
   assists: number;
-  tackles: number | null;
-  interceptions: number | null;
-  clearances: number | null;
-  blocks: number | null;
-  aerialDuelsWon: number | null;
-  saves: number | null;
-  goalsAgainst: number | null;
-  cleanSheet: boolean | null;
+  tackles?: number | null;
+  interceptions?: number | null;
+  clearances?: number | null;
+  blocks?: number | null;
+  aerialDuelsWon?: number | null;
+  saves?: number | null;
+  goalsAgainst?: number | null;
+  cleanSheet?: boolean | null;
   verified: boolean;
-  verifiedAt: Date | null;
+  verifiedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

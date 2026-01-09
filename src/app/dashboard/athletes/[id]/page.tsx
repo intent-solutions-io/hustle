@@ -316,7 +316,7 @@ export default async function AthleteDetailPage({
                         <td className="text-sm text-zinc-700 px-4 py-3">{game.finalScore}</td>
                         <td className="text-sm text-zinc-700 px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <span>{formatGameStats(game, athlete.position)}</span>
+                            <span>{formatGameStats(game, athlete.position ?? athlete.primaryPosition)}</span>
                             {!game.verified && (
                               <span className="text-xs font-medium text-amber-600">
                                 Awaiting verification
@@ -358,7 +358,7 @@ export default async function AthleteDetailPage({
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-zinc-700 font-medium">{game.finalScore}</span>
                         <span className="text-zinc-600">
-                          {formatGameStats(game, athlete.position)}
+                          {formatGameStats(game, athlete.position ?? athlete.primaryPosition)}
                         </span>
                       </div>
                       {!game.verified && (

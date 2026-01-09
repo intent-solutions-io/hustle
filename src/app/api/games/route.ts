@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     // Phase 5 Task 4: Get user's workspace and check plan limits
     const user = await getUser(session.user.id);
     if (!user?.defaultWorkspaceId) {
-      logger.error('User has no default workspace', {
+      logger.error('User has no default workspace', undefined, {
         userId: session.user.id,
       });
 
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     const workspace = await getWorkspaceById(user.defaultWorkspaceId);
     if (!workspace) {
-      logger.error('Workspace not found', {
+      logger.error('Workspace not found', undefined, {
         userId: session.user.id,
         workspaceId: user.defaultWorkspaceId,
       });
@@ -217,14 +217,14 @@ export async function POST(request: NextRequest) {
       minutesPlayed: validatedData.minutesPlayed,
       goals: validatedData.goals,
       assists: validatedData.assists,
-      tackles: validatedData.tackles ?? null,
-      interceptions: validatedData.interceptions ?? null,
-      clearances: validatedData.clearances ?? null,
-      blocks: validatedData.blocks ?? null,
-      aerialDuelsWon: validatedData.aerialDuelsWon ?? null,
-      saves: validatedData.saves ?? null,
-      goalsAgainst: validatedData.goalsAgainst ?? null,
-      cleanSheet: validatedData.cleanSheet ?? null,
+      tackles: validatedData.tackles,
+      interceptions: validatedData.interceptions,
+      clearances: validatedData.clearances,
+      blocks: validatedData.blocks,
+      aerialDuelsWon: validatedData.aerialDuelsWon,
+      saves: validatedData.saves,
+      goalsAgainst: validatedData.goalsAgainst,
+      cleanSheet: validatedData.cleanSheet,
     });
 
     // Phase 5 Task 4: Increment workspace game count

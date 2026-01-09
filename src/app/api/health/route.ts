@@ -146,9 +146,7 @@ export async function GET() {
     };
     result.status = 'unhealthy';
 
-    logger.error('Missing required environment variables', {
-      missing: missingEnvVars,
-    });
+    logger.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
   }
 
   // Calculate total latency

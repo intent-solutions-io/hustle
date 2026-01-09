@@ -76,9 +76,7 @@ export async function POST(request: NextRequest) {
     // Phase 5 Task 4: Get user's workspace and check plan limits
     const user = await getUserProfileAdmin(session.user.id);
     if (!user?.defaultWorkspaceId) {
-      logger.error('User has no default workspace', {
-        userId: session.user.id,
-      });
+      logger.error(`User has no default workspace: ${session.user.id}`);
 
       return NextResponse.json(
         { error: 'No workspace found. Please contact support.' },
@@ -88,10 +86,7 @@ export async function POST(request: NextRequest) {
 
     const workspace = await getWorkspaceByIdAdmin(user.defaultWorkspaceId);
     if (!workspace) {
-      logger.error('Workspace not found', {
-        userId: session.user.id,
-        workspaceId: user.defaultWorkspaceId,
-      });
+      logger.error(`Workspace not found: userId=${session.user.id}, workspaceId=${user.defaultWorkspaceId}`);
 
       return NextResponse.json(
         { error: 'Workspace not found. Please contact support.' },
