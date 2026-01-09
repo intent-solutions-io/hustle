@@ -20,7 +20,7 @@ const mockStripe = vi.hoisted(() => ({
     retrieve: vi.fn(),
   },
   invoices: {
-    retrieveUpcoming: vi.fn(),
+    createPreview: vi.fn(),
   },
   checkout: {
     sessions: {
@@ -253,7 +253,7 @@ describe('getProrationPreview', () => {
     } as any);
 
     // Mock upcoming invoice
-    vi.mocked(mockStripe.invoices.retrieveUpcoming).mockResolvedValue({
+    vi.mocked(mockStripe.invoices.createPreview).mockResolvedValue({
       amount_due: 1500, // $15.00 prorated
       currency: 'usd',
     } as any);
@@ -287,7 +287,7 @@ describe('getProrationPreview', () => {
     } as any);
 
     // Mock upcoming invoice (negative for credit)
-    vi.mocked(mockStripe.invoices.retrieveUpcoming).mockResolvedValue({
+    vi.mocked(mockStripe.invoices.createPreview).mockResolvedValue({
       amount_due: -1000, // -$10.00 credit
       currency: 'usd',
     } as any);
@@ -419,7 +419,7 @@ describe('Integration: Plan Change Flow', () => {
       items: { data: [{ id: 'si_test123', price: { id: 'price_starter' } }] },
     } as any);
 
-    vi.mocked(mockStripe.invoices.retrieveUpcoming).mockResolvedValue({
+    vi.mocked(mockStripe.invoices.createPreview).mockResolvedValue({
       amount_due: 1500,
       currency: 'usd',
     } as any);
