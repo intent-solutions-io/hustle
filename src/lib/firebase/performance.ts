@@ -23,7 +23,7 @@
  */
 
 import { performance as firebasePerformance } from './config';
-import type { PerformanceTrace } from 'firebase/performance';
+import { trace as createTrace, type PerformanceTrace } from 'firebase/performance';
 
 /**
  * Start a custom trace
@@ -43,9 +43,9 @@ export function startTrace(traceName: string): PerformanceTrace | null {
   }
 
   try {
-    const trace = firebasePerformance.trace(traceName);
-    trace.start();
-    return trace;
+    const traceInstance = createTrace(firebasePerformance, traceName);
+    traceInstance.start();
+    return traceInstance;
   } catch (error) {
     console.warn(`Failed to start trace "${traceName}":`, error);
     return null;

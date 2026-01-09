@@ -116,12 +116,12 @@ export const playerSchema = z
 
     // Gender
     gender: z.enum(['male', 'female'], {
-      errorMap: () => ({ message: 'Please select a gender' }),
+      message: 'Please select a gender',
     }),
 
     // Structured Positions
     primaryPosition: z.enum(soccerPositionCodes, {
-      errorMap: () => ({ message: 'Please select a primary position' }),
+      message: 'Please select a primary position',
     }),
 
     secondaryPositions: z
@@ -136,7 +136,7 @@ export const playerSchema = z
 
     // League Information
     leagueCode: z.enum(leagueCodes, {
-      errorMap: () => ({ message: 'Please select a league' }),
+      message: 'Please select a league',
     }),
 
     leagueOtherName: z

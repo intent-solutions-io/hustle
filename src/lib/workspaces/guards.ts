@@ -129,11 +129,13 @@ async function getWorkspaceStatus(workspaceId: string): Promise<WorkspaceStatusC
 
   const data = workspaceSnap.data() as WorkspaceDocument;
 
+  // Access trialEndsAt via type assertion (may or may not exist in document)
+  const trialEndsAt = (data as unknown as { trialEndsAt?: { toDate: () => Date } }).trialEndsAt;
   return {
     id: workspaceSnap.id,
     status: data.status,
     plan: data.plan,
-    trialEndsAt: data.trialEndsAt?.toDate() || null,
+    trialEndsAt: trialEndsAt?.toDate() || null,
     currentPeriodEnd: data.billing?.currentPeriodEnd?.toDate() || null,
   };
 }

@@ -117,16 +117,18 @@ export async function getProrationPreview(
     const subscriptionItemId = subscription.items.data[0].id;
 
     // Preview upcoming invoice with plan change
-    const upcomingInvoice = await getStripeClient().invoices.retrieveUpcoming({
+    const upcomingInvoice = await getStripeClient().invoices.createPreview({
       customer: subscription.customer as string,
       subscription: subscriptionId,
-      subscription_items: [
-        {
-          id: subscriptionItemId,
-          price: targetPriceId,
-        },
-      ],
-      subscription_proration_behavior: 'always_invoice', // Always show proration
+      subscription_details: {
+        items: [
+          {
+            id: subscriptionItemId,
+            price: targetPriceId,
+          },
+        ],
+        proration_behavior: 'always_invoice', // Always show proration
+      },
     });
 
     // Determine if upgrade or downgrade
@@ -137,9 +139,12 @@ export async function getProrationPreview(
     const targetPrice = getPlanPrice(targetPlan);
     const isUpgrade = targetPrice > currentPrice;
 
+    // Access current_period_end from subscription data
+    const currentPeriodEndTimestamp = (subscription as unknown as { current_period_end: number }).current_period_end;
+
     return {
       amountDue: upcomingInvoice.amount_due,
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      currentPeriodEnd: new Date(currentPeriodEndTimestamp * 1000),
       proratedAmount: upcomingInvoice.amount_due, // Simplified: amount_due includes proration
       immediateCharge: isUpgrade,
       currencyCode: upcomingInvoice.currency.toUpperCase(),

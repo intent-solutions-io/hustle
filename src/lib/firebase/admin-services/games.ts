@@ -15,12 +15,26 @@ import type { Game, GameDocument } from '@/types/firestore';
  * Convert Firestore GameDocument to Game type
  */
 function toGame(id: string, doc: GameDocument): Game {
+  const convertTimestamp = (ts: unknown): Date => {
+    if (ts instanceof Date) return ts;
+    if (ts && typeof (ts as { toDate?: () => Date }).toDate === 'function') {
+      return (ts as { toDate: () => Date }).toDate();
+    }
+    return new Date();
+  };
+
+  const convertNullableTimestamp = (ts: unknown): Date | null => {
+    if (ts === null || ts === undefined) return null;
+    return convertTimestamp(ts);
+  };
+
   return {
     id,
     ...doc,
-    date: doc.date instanceof Date ? doc.date : (doc.date as any).toDate(),
-    createdAt: doc.createdAt instanceof Date ? doc.createdAt : (doc.createdAt as any).toDate(),
-    updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt : (doc.updatedAt as any).toDate(),
+    date: convertTimestamp(doc.date),
+    verifiedAt: convertNullableTimestamp(doc.verifiedAt),
+    createdAt: convertTimestamp(doc.createdAt),
+    updatedAt: convertTimestamp(doc.updatedAt),
   };
 }
 

@@ -171,9 +171,10 @@ export async function auditWorkspaceBilling(
     return report;
   }
 
-  // 5. Extract Stripe state
+  // 5. Extract Stripe state - access current_period_end via type assertion
   report.stripeStatus = subscription.status;
-  report.stripeCurrentPeriodEnd = new Date(subscription.current_period_end * 1000);
+  const periodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
+  report.stripeCurrentPeriodEnd = new Date(periodEnd * 1000);
 
   // Get price ID from subscription (first line item)
   const priceId = subscription.items.data[0]?.price?.id || null;

@@ -147,10 +147,11 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
       return;
     }
 
-    // Get payment method details (last4)
+    // Get payment method details (last4) - access payment_intent via type assertion
     let paymentMethodLast4: string | undefined;
-    if (invoice.payment_intent && typeof invoice.payment_intent === 'object') {
-      const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+    const invoicePaymentIntent = (invoice as unknown as { payment_intent?: Stripe.PaymentIntent | string | null }).payment_intent;
+    if (invoicePaymentIntent && typeof invoicePaymentIntent === 'object') {
+      const paymentIntent = invoicePaymentIntent as Stripe.PaymentIntent;
       if (paymentIntent.payment_method && typeof paymentIntent.payment_method === 'object') {
         const paymentMethod = paymentIntent.payment_method as Stripe.PaymentMethod;
         if (paymentMethod.card) {

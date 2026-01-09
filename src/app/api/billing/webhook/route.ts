@@ -17,7 +17,6 @@ import Stripe from 'stripe';
 import { getStripeClient } from '@/lib/stripe/client';
 import {
   getWorkspaceByStripeCustomerId,
-  updateWorkspace,
   updateWorkspaceBilling,
   updateWorkspaceStatus,
 } from '@/lib/firebase/services/workspaces';
@@ -140,11 +139,12 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     stripeEventId: eventId,
   });
 
-  // Update billing information
+  // Update billing information - access current_period_end via type assertion
+  const periodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
   await updateWorkspaceBilling(workspaceId, {
     stripeCustomerId: customerId,
     stripeSubscriptionId: subscriptionId,
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+    currentPeriodEnd: new Date(periodEnd * 1000),
   });
 }
 
@@ -180,9 +180,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, even
     stripeEventId: eventId,
   });
 
-  // Update billing information
+  // Update billing information - access current_period_end via type assertion
+  const periodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
   await updateWorkspaceBilling(workspace.id, {
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+    currentPeriodEnd: new Date(periodEnd * 1000),
   });
 }
 
@@ -216,9 +217,10 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, even
     stripeEventId: eventId,
   });
 
-  // Keep currentPeriodEnd for access grace period
+  // Keep currentPeriodEnd for access grace period - access current_period_end via type assertion
+  const periodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
   await updateWorkspaceBilling(workspace.id, {
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+    currentPeriodEnd: new Date(periodEnd * 1000),
   });
 }
 
@@ -228,7 +230,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, even
  */
 async function handlePaymentFailed(invoice: Stripe.Invoice, eventId: string) {
   const customerId = invoice.customer as string;
-  const subscriptionId = invoice.subscription as string;
+  // Access subscription via type assertion
+  const subscriptionId = (invoice as unknown as { subscription: string | null }).subscription;
 
   if (!subscriptionId) {
     // One-time payment (not subscription), ignore
@@ -270,7 +273,8 @@ async function handlePaymentFailed(invoice: Stripe.Invoice, eventId: string) {
  */
 async function handlePaymentSucceeded(invoice: Stripe.Invoice, eventId: string) {
   const customerId = invoice.customer as string;
-  const subscriptionId = invoice.subscription as string;
+  // Access subscription via type assertion
+  const subscriptionId = (invoice as unknown as { subscription: string | null }).subscription;
 
   if (!subscriptionId) {
     // One-time payment (not subscription), ignore
@@ -303,8 +307,9 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice, eventId: string) 
     stripeEventId: eventId,
   });
 
-  // Update renewal date
+  // Update renewal date - access current_period_end via type assertion
+  const renewalPeriodEnd = (subscription as unknown as { current_period_end: number }).current_period_end;
   await updateWorkspaceBilling(workspace.id, {
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+    currentPeriodEnd: new Date(renewalPeriodEnd * 1000),
   });
 }
