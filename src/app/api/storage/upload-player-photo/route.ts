@@ -83,6 +83,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Get workspace and check status
+    if (!player.workspaceId) {
+      return NextResponse.json({ error: 'Player has no workspace assigned' }, { status: 400 });
+    }
     const workspace = await getWorkspace(player.workspaceId);
     if (!workspace) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });

@@ -271,7 +271,7 @@ export async function getAssessmentProgressAdmin(
   }
 ): Promise<{
   assessments: FitnessAssessment[];
-  improvement: { improved: boolean; percentage: number } | null;
+  improvement: { improved: boolean; percentage: number | null } | null;
   metadata: (typeof fitnessTestMetadata)[FitnessTestType];
 }> {
   try {

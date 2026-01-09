@@ -112,7 +112,7 @@ export async function createGame(
     finalScore: string;
     minutesPlayed: number;
     goals?: number;
-    assists?: number;
+    assists?: number | null;
     tackles?: number | null;
     interceptions?: number | null;
     clearances?: number | null;

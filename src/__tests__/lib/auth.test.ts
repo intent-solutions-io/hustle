@@ -37,7 +37,7 @@ describe('Authentication', () => {
     });
 
     it('should handle missing session', () => {
-      const mockSession = null;
+      const mockSession = null as { user?: { id?: string } } | null;
       expect(mockSession?.user?.id).toBeUndefined();
     });
   });

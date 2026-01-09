@@ -105,8 +105,10 @@ function createMockWorkspace(status: WorkspaceStatus, plan: 'starter' | 'plus' |
   return {
     id: 'workspace-123',
     name: 'Test Workspace',
+    ownerUserId: 'user-123',
     plan,
     status,
+    members: [],
     billing: {
       stripeCustomerId: 'cus_test123',
       stripeSubscriptionId: 'sub_test123',
@@ -128,6 +130,7 @@ function createMockWorkspace(status: WorkspaceStatus, plan: 'starter' | 'plus' |
     },
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date(),
+    deletedAt: null,
   } as Workspace;
 }
 

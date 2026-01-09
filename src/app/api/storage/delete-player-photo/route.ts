@@ -77,7 +77,9 @@ export async function DELETE(request: NextRequest) {
     });
 
     // 8. Update workspace storage usage (negative delta)
-    await updateWorkspaceStorageUsage(player.workspaceId, -sizeFreed);
+    if (player.workspaceId) {
+      await updateWorkspaceStorageUsage(player.workspaceId, -sizeFreed);
+    }
 
     logger.info('Player photo deleted successfully', {
       userId,

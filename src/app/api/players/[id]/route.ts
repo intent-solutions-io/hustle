@@ -121,7 +121,7 @@ export async function PUT(
     // Update player (Firestore)
     await updatePlayer(session.user.id, id, {
       name,
-      position,
+      primaryPosition: position,
       teamClub,
     });
 
