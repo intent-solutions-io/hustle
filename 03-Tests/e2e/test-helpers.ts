@@ -171,9 +171,8 @@ export async function navigateToDreamGym(page: Page): Promise<string | null> {
   const dreamGymLink = page.locator('a[href*="dream-gym"]').first();
 
   if (await dreamGymLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-    // Scroll into view first to handle sidebar elements that may be outside viewport
-    await dreamGymLink.scrollIntoViewIfNeeded();
-    await dreamGymLink.click();
+    // Use JavaScript click to bypass viewport checks for sidebar elements in headless mode
+    await dreamGymLink.evaluate(el => (el as HTMLElement).click());
     await waitForUrlPattern(page, /dream-gym/);
   } else {
     // Navigate directly

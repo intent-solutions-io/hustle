@@ -47,8 +47,8 @@ async function fillAthleteForm(page: Page, name: string) {
   // Select primary position
   await page.selectOption('select#primaryPosition', 'CB');
 
-  // Select league
-  await page.selectOption('select#leagueCode', 'comp_travel');
+  // Select league (value is 'local_travel' which displays as 'Competitive Travel')
+  await page.selectOption('select#leagueCode', 'local_travel');
 
   // Fill team/club
   await page.fill('input#teamClub', 'Elite FC');
@@ -218,9 +218,9 @@ test.describe('Player Management - Security', () => {
     await page.click('button[type="submit"]');
     await page.waitForTimeout(3000);
 
-    // Logout using force click for headless mode
+    // Logout using JavaScript click to bypass viewport checks in headless mode
     const logoutButton = page.locator('button:has-text("Logout")').first();
-    await logoutButton.click({ force: true });
+    await logoutButton.evaluate(el => (el as HTMLElement).click());
     await page.waitForTimeout(2000);
 
     // Login as second user
