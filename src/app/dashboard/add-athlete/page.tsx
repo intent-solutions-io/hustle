@@ -13,6 +13,7 @@ export default function AddAthlete() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     birthday: '',
@@ -51,6 +52,7 @@ export default function AddAthlete() {
     e.preventDefault();
     setLoading(true);
     setErrors({});
+    setGeneralError(null);
 
     try {
       // Validate form data with Zod
@@ -99,7 +101,8 @@ export default function AddAthlete() {
         setErrors(fieldErrors);
       } else {
         console.error('Error creating athlete:', error);
-        alert('Failed to create athlete. Please try again.');
+        // Show visible error in DOM instead of alert for better testability
+        setGeneralError('Failed to create athlete. Please try again.');
       }
       setLoading(false);
     }
@@ -125,6 +128,14 @@ export default function AddAthlete() {
       {/* Form */}
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-zinc-200 p-6 space-y-6">
+          {/* General Error Banner */}
+          {generalError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg" role="alert">
+              <p className="font-medium">Error</p>
+              <p className="text-sm">{generalError}</p>
+            </div>
+          )}
+
           {/* Photo Upload */}
           <div>
             <label className="block text-sm font-medium text-zinc-900 mb-2">

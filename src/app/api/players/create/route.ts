@@ -10,6 +10,8 @@ import {
 import { getPlanLimits } from '@/lib/stripe/plan-mapping';
 import { WorkspaceAccessError } from '@/lib/firebase/access-control';
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce';
+import { ensureUserProvisioned } from '@/lib/firebase/server-provisioning';
+import { adminAuth } from '@/lib/firebase/admin';
 
 const logger = createLogger('api/players/create');
 
@@ -74,12 +76,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Phase 5 Task 4: Get user's workspace and check plan limits
-    const user = await getUserProfileAdmin(session.user.id);
+    let user = await getUserProfileAdmin(session.user.id);
+
+    // If user has no workspace, try to provision one (fallback for provisioning failures during login)
     if (!user?.defaultWorkspaceId) {
-      logger.error(`User has no default workspace: ${session.user.id}`);
+      logger.warn(`User has no workspace, attempting fallback provisioning: ${session.user.id}`);
+      try {
+        // Get the decoded token claims from the current session
+        const { cookies } = await import('next/headers');
+        const cookieStore = await cookies();
+        const sessionCookie = cookieStore.get('__session')?.value || '';
+        const decodedToken = await adminAuth.verifyIdToken(sessionCookie);
+        const provisionResult = await ensureUserProvisioned(decodedToken);
+        logger.info(`Fallback provisioning succeeded: userId=${provisionResult.userId}, workspaceId=${provisionResult.workspaceId}`);
+
+        // Re-fetch user profile with new workspace
+        user = await getUserProfileAdmin(session.user.id);
+      } catch (provisionError: any) {
+        logger.error(`Fallback provisioning failed: ${provisionError?.message || provisionError}`);
+      }
+    }
+
+    if (!user?.defaultWorkspaceId) {
+      logger.error(`User has no default workspace after provisioning: ${session.user.id}`);
 
       return NextResponse.json(
-        { error: 'No workspace found. Please contact support.' },
+        { error: 'No workspace found. Please try logging out and back in, or contact support.' },
         { status: 500 }
       );
     }
