@@ -110,8 +110,9 @@ export default function AddAthlete() {
         setErrors(fieldErrors);
       } else {
         console.error('Error creating athlete:', error);
-        // Show visible error in DOM instead of alert for better testability
-        setGeneralError('Failed to create athlete. Please try again.');
+        // Show the actual error message for better debugging
+        const errorMessage = error instanceof Error ? error.message : 'Failed to create athlete. Please try again.';
+        setGeneralError(errorMessage);
       }
       setLoading(false);
     }
