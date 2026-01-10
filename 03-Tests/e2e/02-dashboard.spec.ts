@@ -77,8 +77,8 @@ test.describe('Dashboard - Basic Functionality', () => {
   test('should have navigation sidebar', async ({ page }) => {
     await login(page);
 
-    // Check for sidebar or navigation menu
-    const nav = page.locator('nav, aside, [role="navigation"]').first();
+    // Check for sidebar using data-sidebar attribute (custom component)
+    const nav = page.locator('[data-sidebar="sidebar"], nav, aside, [role="navigation"]').first();
     await expect(nav).toBeVisible();
   });
 
