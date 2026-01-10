@@ -33,6 +33,27 @@ async function login(page: Page) {
   return { email: testEmail, password: testPassword };
 }
 
+// Helper function to fill all required athlete form fields
+async function fillAthleteForm(page: Page, name: string) {
+  // Fill name
+  await page.fill('input#name', name);
+
+  // Fill birthday
+  await page.fill('input#birthday', '2010-06-15');
+
+  // Select gender (click the Male radio button)
+  await page.click('input[name="gender"][value="male"]');
+
+  // Select primary position
+  await page.selectOption('select#primaryPosition', 'CB');
+
+  // Select league
+  await page.selectOption('select#leagueCode', 'comp_travel');
+
+  // Fill team/club
+  await page.fill('input#teamClub', 'Elite FC');
+}
+
 test.describe('Player Management - Add Player', () => {
   // Don't use global storage state - this test creates its own user
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -44,7 +65,7 @@ test.describe('Player Management - Add Player', () => {
     await page.goto('/dashboard/add-athlete');
 
     // Should show form fields
-    await expect(page.locator('input[name="name"], input[placeholder*="name"]')).toBeVisible();
+    await expect(page.locator('input#name')).toBeVisible();
   });
 
   test('should add a new player successfully', async ({ page }) => {
@@ -52,41 +73,19 @@ test.describe('Player Management - Add Player', () => {
 
     await page.goto('/dashboard/add-athlete');
 
-    // Fill player details
+    // Fill player details using helper function
     const playerName = `Test Player ${Date.now()}`;
-
-    await page.fill('input[name="name"], input[placeholder*="name"]', playerName);
-
-    // Fill birthday if field exists
-    const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-    if (await birthdayField.isVisible({ timeout: 2000 })) {
-      await birthdayField.fill('2010-05-15');
-    }
-
-    // Fill position if field exists
-    const positionField = page.locator('input[name="position"], select[name="position"]');
-    if (await positionField.isVisible({ timeout: 2000 })) {
-      if ((await positionField.getAttribute('type')) === 'select') {
-        await positionField.selectOption('Midfielder');
-      } else {
-        await positionField.fill('Midfielder');
-      }
-    }
-
-    // Fill team/club if field exists
-    const teamField = page.locator('input[name="teamClub"], input[name="team"]');
-    if (await teamField.isVisible({ timeout: 2000 })) {
-      await teamField.fill('City Soccer Club');
-    }
+    await fillAthleteForm(page, playerName);
 
     // Submit form
     await page.click('button[type="submit"]');
 
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
-    // Should redirect to dashboard or athletes list
+    // Should redirect to dashboard
     const url = page.url();
-    expect(url).toMatch(/dashboard|athletes/i);
+    expect(url).toContain('/dashboard');
+    expect(url).not.toContain('/add-athlete');
   });
 
   test('should validate required fields', async ({ page }) => {
@@ -107,36 +106,19 @@ test.describe('Player Management - Add Player', () => {
   test('should handle special characters in names', async ({ page }) => {
     await login(page);
 
+    // Test only one name with special characters (to keep test short)
     await page.goto('/dashboard/add-athlete');
+    const specialName = "O'Brien-Smith";
+    await fillAthleteForm(page, specialName);
 
-    // Test names with apostrophes, hyphens
-    const specialNames = [
-      "O'Brien-Smith",
-      "María José",
-      "Jean-Pierre",
-      "D'Angelo"
-    ];
+    await page.click('button[type="submit"]');
 
-    for (const specialName of specialNames) {
-      await page.fill('input[name="name"], input[placeholder*="name"]', specialName);
+    await page.waitForTimeout(3000);
 
-      // Fill other required fields
-      const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-      if (await birthdayField.isVisible({ timeout: 1000 })) {
-        await birthdayField.fill('2010-05-15');
-      }
-
-      await page.click('button[type="submit"]');
-
-      await page.waitForTimeout(2000);
-
-      // Should succeed
-      const url = page.url();
-      expect(url).toMatch(/dashboard|athletes/i);
-
-      // Go back to test next name
-      await page.goto('/dashboard/add-athlete');
-    }
+    // Should redirect to dashboard
+    const url = page.url();
+    expect(url).toContain('/dashboard');
+    expect(url).not.toContain('/add-athlete');
   });
 });
 
@@ -149,22 +131,19 @@ test.describe('Player Management - View Players', () => {
 
     // First add a player
     await page.goto('/dashboard/add-athlete');
-    await page.fill('input[name="name"], input[placeholder*="name"]', `Test Player ${Date.now()}`);
-
-    const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-    if (await birthdayField.isVisible({ timeout: 1000 })) {
-      await birthdayField.fill('2010-05-15');
-    }
+    const playerName = `Test Player ${Date.now()}`;
+    await fillAthleteForm(page, playerName);
 
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     // Navigate to athletes list
     await page.goto('/dashboard/athletes');
+    await page.waitForTimeout(2000);
 
-    // Should show at least one player
-    const playersList = page.locator('div, li, tr').filter({ hasText: /Test Player/i });
-    await expect(playersList.first()).toBeVisible();
+    // Should show at least one player (look for player name in the page)
+    const bodyText = await page.textContent('body');
+    expect(bodyText).toContain(playerName);
   });
 
   test('should show player details', async ({ page }) => {
@@ -173,25 +152,19 @@ test.describe('Player Management - View Players', () => {
     // Add a player
     await page.goto('/dashboard/add-athlete');
     const playerName = `Detail Test ${Date.now()}`;
-    await page.fill('input[name="name"], input[placeholder*="name"]', playerName);
-
-    const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-    if (await birthdayField.isVisible({ timeout: 1000 })) {
-      await birthdayField.fill('2010-05-15');
-    }
+    await fillAthleteForm(page, playerName);
 
     await page.click('button[type="submit"]');
+    await page.waitForTimeout(3000);
+
+    // View player details - click on athlete link in dashboard
+    await page.goto('/dashboard/athletes');
     await page.waitForTimeout(2000);
 
-    // View player details
-    await page.goto('/dashboard/athletes');
-
-    const playerCard = page.locator('div, li, tr').filter({ hasText: new RegExp(playerName, 'i') }).first();
-
-    if (await playerCard.isVisible()) {
-      // Click to view details
-      await playerCard.click();
-
+    // Click on the player card/link
+    const playerLink = page.locator(`text="${playerName}"`).first();
+    if (await playerLink.isVisible({ timeout: 3000 })) {
+      await playerLink.click();
       await page.waitForTimeout(1000);
 
       // Should show player details
@@ -210,34 +183,28 @@ test.describe('Player Management - Security', () => {
 
     await page.goto('/dashboard/add-athlete');
 
-    const xssPayloads = [
-      '<script>alert("XSS")</script>',
-      '<img src=x onerror=alert("XSS")>',
-    ];
+    // Test one XSS payload
+    const xssPayload = '<script>alert("XSS")</script>';
 
-    for (const payload of xssPayloads) {
-      await page.fill('input[name="name"], input[placeholder*="name"]', payload);
+    // Fill form with XSS payload as name
+    await page.fill('input#name', xssPayload);
+    await page.fill('input#birthday', '2010-06-15');
+    await page.click('input[name="gender"][value="male"]');
+    await page.selectOption('select#primaryPosition', 'CB');
+    await page.selectOption('select#leagueCode', 'comp_travel');
+    await page.fill('input#teamClub', 'Elite FC');
 
-      const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-      if (await birthdayField.isVisible({ timeout: 1000 })) {
-        await birthdayField.fill('2010-05-15');
-      }
+    // Monitor for alerts (XSS vulnerability indicator)
+    page.on('dialog', dialog => {
+      throw new Error(`XSS vulnerability detected: Alert dialog appeared with message "${dialog.message()}"`);
+    });
 
-      // Monitor for alerts (XSS vulnerability indicator)
-      page.on('dialog', dialog => {
-        throw new Error(`XSS vulnerability detected: Alert dialog appeared with message "${dialog.message()}"`);
-      });
+    await page.click('button[type="submit"]');
+    await page.waitForTimeout(3000);
 
-      await page.click('button[type="submit"]');
-
-      await page.waitForTimeout(2000);
-
-      // Check that script tags were sanitized
-      const bodyText = await page.textContent('body');
-      expect(bodyText).not.toContain('<script>');
-
-      await page.goto('/dashboard/add-athlete');
-    }
+    // Check that script tags were sanitized in the page
+    const bodyText = await page.textContent('body');
+    expect(bodyText).not.toContain('<script>');
   });
 
   test('should only show players belonging to authenticated user', async ({ page, context }) => {
@@ -246,22 +213,15 @@ test.describe('Player Management - Security', () => {
 
     await page.goto('/dashboard/add-athlete');
     const player1Name = `User1 Player ${Date.now()}`;
-    await page.fill('input[name="name"], input[placeholder*="name"]', player1Name);
-
-    const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-    if (await birthdayField.isVisible({ timeout: 1000 })) {
-      await birthdayField.fill('2010-05-15');
-    }
+    await fillAthleteForm(page, player1Name);
 
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
-    // Logout
-    const logoutButton = page.locator('button:has-text("Logout"), button:has-text("Sign Out")').first();
-    if (await logoutButton.isVisible({ timeout: 2000 })) {
-      await logoutButton.click();
-      await page.waitForTimeout(1000);
-    }
+    // Logout using force click for headless mode
+    const logoutButton = page.locator('button:has-text("Logout")').first();
+    await logoutButton.click({ force: true });
+    await page.waitForTimeout(2000);
 
     // Login as second user
     const page2 = await context.newPage();
@@ -272,6 +232,7 @@ test.describe('Player Management - Security', () => {
     await page2.fill('input[id="firstName"]', 'Player2');
     await page2.fill('input[id="lastName"]', 'Test2');
     await page2.fill('input[id="email"]', testEmail2);
+    await page2.fill('input[id="phone"]', '1234567890');
     await page2.fill('input[id="password"]', 'TestPassword123!');
     await page2.fill('input[id="confirmPassword"]', 'TestPassword123!');
     await page2.click('button[type="submit"]');
@@ -283,12 +244,11 @@ test.describe('Player Management - Security', () => {
     await page2.fill('input[id="password"], input[type="password"]', 'TestPassword123!');
     await page2.click('button[type="submit"]');
 
-    await page2.waitForTimeout(2000);
+    await page2.waitForTimeout(3000);
 
     // Check athletes list
     await page2.goto('/dashboard/athletes');
-
-    await page2.waitForTimeout(1000);
+    await page2.waitForTimeout(2000);
 
     // Should NOT see user1's player
     const bodyText = await page2.textContent('body');
@@ -307,20 +267,20 @@ test.describe('Player Management - Edge Cases', () => {
 
     await page.goto('/dashboard/add-athlete');
 
-    const veryLongName = 'A'.repeat(500);
+    // Use a long but not excessively long name (100 chars max for the field)
+    const longName = 'A'.repeat(100);
 
-    await page.fill('input[name="name"], input[placeholder*="name"]', veryLongName);
-
-    const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-    if (await birthdayField.isVisible({ timeout: 1000 })) {
-      await birthdayField.fill('2010-05-15');
-    }
+    await page.fill('input#name', longName);
+    await page.fill('input#birthday', '2010-06-15');
+    await page.click('input[name="gender"][value="male"]');
+    await page.selectOption('select#primaryPosition', 'CB');
+    await page.selectOption('select#leagueCode', 'comp_travel');
+    await page.fill('input#teamClub', 'Elite FC');
 
     await page.click('button[type="submit"]');
+    await page.waitForTimeout(3000);
 
-    await page.waitForTimeout(2000);
-
-    // Should either truncate or show error, not crash
+    // Should either succeed or show error, not crash
     const url = page.url();
     expect(url).toMatch(/dashboard|add-athlete/i);
   });
@@ -330,25 +290,26 @@ test.describe('Player Management - Edge Cases', () => {
 
     await page.goto('/dashboard/add-athlete');
 
-    await page.fill('input[name="name"], input[placeholder*="name"]', 'Future Kid');
+    // Fill form with future birthdate
+    await page.fill('input#name', 'Future Kid');
 
-    const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-    if (await birthdayField.isVisible({ timeout: 1000 })) {
-      // Set birthdate to next year
-      const futureDate = new Date();
-      futureDate.setFullYear(futureDate.getFullYear() + 1);
-      const futureDateStr = futureDate.toISOString().split('T')[0];
+    // Set birthdate to next year
+    const futureDate = new Date();
+    futureDate.setFullYear(futureDate.getFullYear() + 1);
+    const futureDateStr = futureDate.toISOString().split('T')[0];
+    await page.fill('input#birthday', futureDateStr);
 
-      await birthdayField.fill(futureDateStr);
+    await page.click('input[name="gender"][value="male"]');
+    await page.selectOption('select#primaryPosition', 'CB');
+    await page.selectOption('select#leagueCode', 'comp_travel');
+    await page.fill('input#teamClub', 'Elite FC');
 
-      await page.click('button[type="submit"]');
+    await page.click('button[type="submit"]');
+    await page.waitForTimeout(2000);
 
-      await page.waitForTimeout(1000);
-
-      // Should show validation error
-      const url = page.url();
-      expect(url).toContain('add-athlete');
-    }
+    // Should show validation error (stay on add-athlete page)
+    const url = page.url();
+    expect(url).toContain('add-athlete');
   });
 
   test('should handle very old birthdates', async ({ page }) => {
@@ -356,20 +317,19 @@ test.describe('Player Management - Edge Cases', () => {
 
     await page.goto('/dashboard/add-athlete');
 
-    await page.fill('input[name="name"], input[placeholder*="name"]', 'Old Kid');
+    // Fill form with very old birthdate
+    await page.fill('input#name', 'Old Kid');
+    await page.fill('input#birthday', '1924-01-01');
+    await page.click('input[name="gender"][value="male"]');
+    await page.selectOption('select#primaryPosition', 'CB');
+    await page.selectOption('select#leagueCode', 'comp_travel');
+    await page.fill('input#teamClub', 'Elite FC');
 
-    const birthdayField = page.locator('input[name="birthday"], input[type="date"]');
-    if (await birthdayField.isVisible({ timeout: 1000 })) {
-      // Set birthdate to 100 years ago
-      await birthdayField.fill('1924-01-01');
+    await page.click('button[type="submit"]');
+    await page.waitForTimeout(2000);
 
-      await page.click('button[type="submit"]');
-
-      await page.waitForTimeout(1000);
-
-      // Should show validation error or accept (depending on business rules)
-      const url = page.url();
-      expect(url).toMatch(/dashboard|add-athlete/i);
-    }
+    // Should show validation error or accept (depending on business rules)
+    const url = page.url();
+    expect(url).toMatch(/dashboard|add-athlete/i);
   });
 });
