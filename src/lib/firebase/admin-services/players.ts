@@ -129,6 +129,7 @@ export async function createPlayerAdmin(
       birthday: Timestamp.fromDate(data.birthday),
       gender: data.gender,
       primaryPosition: data.primaryPosition,
+      position: data.primaryPosition, // Legacy field for backward compatibility
       secondaryPositions: data.secondaryPositions,
       positionNote: data.positionNote ?? undefined,
       leagueCode: data.leagueCode,
