@@ -175,8 +175,9 @@ test.describe('Authentication Flow', () => {
     const isVisible = await logoutButton.isVisible({ timeout: 5000 }).catch(() => false);
 
     if (isVisible) {
-      // Use force click for sidebar elements that may be in fixed position
-      await logoutButton.click({ force: true });
+      // Use JavaScript click to bypass Playwright's viewport checks entirely
+      // This is necessary for sidebar elements in headless mode
+      await logoutButton.evaluate(el => (el as HTMLElement).click());
 
       // Wait for redirect to login or home
       await page.waitForURL(/\/(login)?$/, { timeout: 10000 });

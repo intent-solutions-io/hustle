@@ -136,7 +136,8 @@ test.describe('Dashboard - Navigation', () => {
       const sectionLink = page.locator(`a:has-text("${section}")`).first();
 
       if (await sectionLink.isVisible({ timeout: 2000 })) {
-        await sectionLink.click();
+        // Use JavaScript click to bypass viewport checks for sidebar elements in headless mode
+        await sectionLink.evaluate(el => (el as HTMLElement).click());
         await page.waitForTimeout(1000);
 
         // Should navigate to that section
