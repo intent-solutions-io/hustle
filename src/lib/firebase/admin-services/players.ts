@@ -119,25 +119,23 @@ export async function createPlayerAdmin(
 ): Promise<Player> {
   try {
     const now = new Date();
-    const playerDoc: Omit<PlayerDocument, 'createdAt' | 'updatedAt' | 'birthday'> & {
-      birthday: Timestamp;
-      createdAt: Date;
-      updatedAt: Date;
-    } = {
+    // Build player document, excluding undefined fields to satisfy Firestore
+    const playerDoc = {
       workspaceId: data.workspaceId,
       name: data.name,
       birthday: Timestamp.fromDate(data.birthday),
       gender: data.gender,
       primaryPosition: data.primaryPosition,
       position: data.primaryPosition, // Legacy field for backward compatibility
-      secondaryPositions: data.secondaryPositions,
-      positionNote: data.positionNote ?? undefined,
+      secondaryPositions: data.secondaryPositions ?? [],
       leagueCode: data.leagueCode,
-      leagueOtherName: data.leagueOtherName ?? undefined,
       teamClub: data.teamClub,
-      photoUrl: data.photoUrl || null,
+      photoUrl: data.photoUrl ?? null,
       createdAt: now,
       updatedAt: now,
+      // Only include optional string fields if they have a value
+      ...(data.positionNote ? { positionNote: data.positionNote } : {}),
+      ...(data.leagueOtherName ? { leagueOtherName: data.leagueOtherName } : {}),
     };
 
     const playersRef = adminDb.collection(`users/${userId}/players`);
