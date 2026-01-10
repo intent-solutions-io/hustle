@@ -67,12 +67,18 @@ export default function AddAthlete() {
 
       if (!playerResponse.ok) {
         // Try to get error details from API response
-        let errorMessage = 'Failed to create player';
+        let errorMessage = `Failed to create player (${playerResponse.status})`;
         try {
-          const errorData = await playerResponse.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {
-          // If response isn't JSON, use status text
+          const responseText = await playerResponse.text();
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch {
+            // Response is not JSON - could be HTML error page
+            errorMessage = `Failed to create player: ${playerResponse.status} - ${responseText.slice(0, 100)}`;
+          }
+        } catch (e) {
+          // Failed to read response body
           errorMessage = `Failed to create player: ${playerResponse.status} ${playerResponse.statusText}`;
         }
         throw new Error(errorMessage);
