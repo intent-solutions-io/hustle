@@ -54,6 +54,12 @@ test.describe('Complete User Journey - Happy Path', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should complete full MVP journey: Register → Add Athlete → Log Game → View Stats', async ({ page }) => {
+    // Handle any unexpected dialogs (alerts) by accepting them and logging the message
+    page.on('dialog', async (dialog) => {
+      console.log(`[Dialog] ${dialog.type()}: ${dialog.message()}`);
+      await dialog.accept();
+    });
+
     // STEP 1: Register and Login
     const user = await registerAndLogin(page);
     console.log(`✓ User registered and logged in: ${user.email}`);
@@ -87,21 +93,38 @@ test.describe('Complete User Journey - Happy Path', () => {
     await page.fill('input[id="teamClub"]', 'Elite FC');
 
     // Submit athlete form and wait for success
+    console.log('Submitting athlete form...');
     await page.click('button[type="submit"]');
 
-    // Wait for redirect to dashboard/athletes or success indication
-    await Promise.race([
-      page.waitForURL(/\/dashboard/, { timeout: 30000 }),
-      page.waitForSelector('[data-testid="success-message"], .success, [class*="text-green"]', { timeout: 30000 }),
-    ]).catch(() => {
-      console.log('No immediate success signal, checking for errors...');
-    });
+    // Wait for either redirect to dashboard OR error banner to appear
+    const result = await Promise.race([
+      page.waitForURL(/\/dashboard/, { timeout: 30000 }).then(() => 'redirect'),
+      page.waitForSelector('[role="alert"], [class*="bg-red-50"]', { timeout: 30000 }).then(() => 'error'),
+    ]).catch(() => 'timeout');
 
-    // Verify we're not stuck with an error
-    const errorVisible = await page.locator('[class*="text-red"], [class*="bg-red"]').isVisible().catch(() => false);
-    if (errorVisible) {
-      const errorText = await page.locator('[class*="text-red"], [class*="bg-red"]').first().textContent();
+    console.log(`Form submission result: ${result}`);
+
+    // Check for error banner (role="alert" is used in the new error display)
+    const errorBanner = page.locator('[role="alert"]');
+    if (await errorBanner.isVisible({ timeout: 2000 }).catch(() => false)) {
+      const errorText = await errorBanner.textContent();
+      console.error(`Error banner visible: ${errorText}`);
       throw new Error(`Athlete creation failed: ${errorText}`);
+    }
+
+    // Also check for any other error indicators
+    const errorVisible = await page.locator('[class*="text-red-700"], [class*="bg-red"]').isVisible().catch(() => false);
+    if (errorVisible) {
+      const errorText = await page.locator('[class*="text-red-700"], [class*="bg-red"]').first().textContent();
+      console.error(`Error visible: ${errorText}`);
+      throw new Error(`Athlete creation failed: ${errorText}`);
+    }
+
+    if (result === 'timeout') {
+      // Take screenshot for debugging
+      console.log('Timeout waiting for form result, taking screenshot...');
+      await page.screenshot({ path: 'test-results/athlete-form-timeout.png' });
+      throw new Error('Athlete form submission timed out - no redirect or error');
     }
 
     console.log(`✓ Athlete added: ${athleteName}`);
