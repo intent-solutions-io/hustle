@@ -50,6 +50,9 @@ async function registerAndLogin(page: Page) {
 }
 
 test.describe('Complete User Journey - Happy Path', () => {
+  // Don't use global storage state - this test creates its own user
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('should complete full MVP journey: Register → Add Athlete → Log Game → View Stats', async ({ page }) => {
     // STEP 1: Register and Login
     const user = await registerAndLogin(page);
@@ -104,10 +107,21 @@ test.describe('Complete User Journey - Happy Path', () => {
     console.log(`✓ Athlete added: ${athleteName}`);
 
     // STEP 3: View Athletes List
+    // Brief wait to ensure Firestore write is fully committed before SSR read
+    await page.waitForTimeout(1000);
+
     await page.goto('/dashboard/athletes');
 
     // Wait for the page to load and show athletes grid (not empty state)
     await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
+
+    // If we see "No athletes yet", refresh the page once (Firestore eventual consistency)
+    const emptyState = page.locator('text="No athletes yet"');
+    if (await emptyState.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log('   Empty state detected, refreshing page...');
+      await page.reload();
+      await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
+    }
 
     // Find the athlete link by looking for anchor tags with athlete URLs containing the name
     // The athletes page renders: <Link href="/dashboard/athletes/{id}"><Card>...<h3>{name}</h3>...</Card></Link>

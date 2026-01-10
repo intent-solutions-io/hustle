@@ -34,6 +34,8 @@ async function login(page: Page) {
 }
 
 test.describe('Player Management - Add Player', () => {
+  // Don't use global storage state - this test creates its own user
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should show add athlete form', async ({ page }) => {
     await login(page);
@@ -139,6 +141,8 @@ test.describe('Player Management - Add Player', () => {
 });
 
 test.describe('Player Management - View Players', () => {
+  // Don't use global storage state - this test creates its own user
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should display list of players', async ({ page }) => {
     await login(page);
@@ -198,6 +202,8 @@ test.describe('Player Management - View Players', () => {
 });
 
 test.describe('Player Management - Security', () => {
+  // Don't use global storage state - this test creates its own user
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should not allow XSS in player names', async ({ page }) => {
     await login(page);
@@ -293,6 +299,8 @@ test.describe('Player Management - Security', () => {
 });
 
 test.describe('Player Management - Edge Cases', () => {
+  // Don't use global storage state - this test creates its own user
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should handle very long player names', async ({ page }) => {
     await login(page);
