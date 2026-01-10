@@ -1,9 +1,12 @@
 /**
  * Firebase Server Session Helpers
  *
- * Centralizes reading + verification of the Firebase session cookie.
+ * Centralizes reading + verification of the Firebase ID token from cookies.
  * Used by both API route auth (`src/lib/auth.ts`) and dashboard auth
  * (`src/lib/firebase/admin-auth.ts`) to keep behavior consistent.
+ *
+ * Note: We store raw Firebase ID tokens in cookies (not session cookies created
+ * via createSessionCookie), so we use verifyIdToken() for verification.
  */
 
 import { cookies } from 'next/headers';
@@ -22,16 +25,17 @@ export async function getServerSessionCookie(): Promise<string | null> {
 export async function getServerSessionClaims(options?: {
   checkRevoked?: boolean;
 }): Promise<DecodedIdToken | null> {
-  const sessionCookie = await getServerSessionCookie();
-  if (!sessionCookie) return null;
+  const idToken = await getServerSessionCookie();
+  if (!idToken) return null;
 
   try {
-    return await adminAuth.verifySessionCookie(
-      sessionCookie,
+    // Use verifyIdToken since we store raw ID tokens, not Firebase session cookies
+    return await adminAuth.verifyIdToken(
+      idToken,
       options?.checkRevoked ?? true
     );
   } catch (error: any) {
-    console.warn('[server-session] Invalid session cookie:', error?.message || error);
+    console.warn('[server-session] Invalid ID token:', error?.message || error);
     return null;
   }
 }

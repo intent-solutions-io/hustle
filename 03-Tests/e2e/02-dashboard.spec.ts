@@ -36,6 +36,8 @@ async function login(page: Page) {
 }
 
 test.describe('Dashboard - Basic Functionality', () => {
+  // Don't use global storage state - this test creates its own user
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should display dashboard after login', async ({ page }) => {
     await login(page);
@@ -104,6 +106,8 @@ test.describe('Dashboard - Basic Functionality', () => {
 });
 
 test.describe('Dashboard - Navigation', () => {
+  // Don't use global storage state - this test creates its own user
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should navigate to Add Athlete page', async ({ page }) => {
     await login(page);
@@ -147,6 +151,8 @@ test.describe('Dashboard - Navigation', () => {
 });
 
 test.describe('Dashboard - Responsive Design', () => {
+  // Don't use global storage state - this test creates its own user
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should work on mobile (iPhone 12)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -206,6 +212,8 @@ test.describe('Dashboard - Responsive Design', () => {
 });
 
 test.describe('Dashboard - Performance', () => {
+  // Don't use global storage state - this test creates its own user
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should load dashboard in under 3 seconds', async ({ page }) => {
     await login(page);
