@@ -133,7 +133,7 @@ export default async function AthletesPage() {
 
                     {/* Position & Age */}
                     <p className="text-sm text-zinc-600 mb-2">
-                      {player.position} • Age {age}
+                      {player.primaryPosition ?? player.position} • Age {age}
                     </p>
 
                     {/* Team/Club */}
