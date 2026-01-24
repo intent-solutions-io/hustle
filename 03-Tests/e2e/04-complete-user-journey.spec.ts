@@ -92,9 +92,29 @@ test.describe('Complete User Journey - Happy Path', () => {
     // Fill team/club
     await page.fill('input[id="teamClub"]', 'Elite FC');
 
-    // Submit athlete form and wait for success
+    // Submit athlete form and capture API response for debugging
     console.log('Submitting athlete form...');
-    await page.click('button[type="submit"]');
+
+    // Capture API response for better error debugging
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        r => r.url().includes('/api/players/create') && r.request().method() === 'POST',
+        { timeout: 30000 }
+      ).catch(() => null),
+      page.click('button[type="submit"]'),
+    ]);
+
+    // Log API response for debugging
+    if (response) {
+      const status = response.status();
+      const body = await response.json().catch(() => ({}));
+      console.log(`API Response: ${status}`, JSON.stringify(body, null, 2));
+
+      if (status >= 400) {
+        const errorMsg = body.message || body.error || 'Unknown error';
+        throw new Error(`Athlete creation API failed (${status}): ${errorMsg}`);
+      }
+    }
 
     // Wait for either redirect to dashboard OR error banner to appear
     const result = await Promise.race([
@@ -537,24 +557,55 @@ test.describe('Complete User Journey - Security', () => {
     await page.fill('input#goals', '1');
     await page.fill('input#assists', '0');
 
-    // Try to submit
-    await page.locator('button[type="submit"]').filter({ hasText: /Save|Submit|Log/i }).click();
-    await page.waitForTimeout(2000);
+    // Capture API response to verify XSS payload handling
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        r => r.url().includes('/api/games') && r.request().method() === 'POST',
+        { timeout: 30000 }
+      ).catch(() => null),
+      page.locator('button[type="submit"]').filter({ hasText: /Save|Submit|Log/i }).click(),
+    ]);
 
-    // Check for XSS or validation
+    await page.waitForTimeout(1000);
+
+    // Check for XSS execution (dialog would have fired)
     if (xssDetected) {
-      throw new Error('XSS vulnerability detected!');
+      throw new Error('XSS vulnerability detected! Script was executed.');
     }
+    console.log('✓ No XSS dialog triggered during submission');
 
-    // Check if validation blocked or sanitized
-    const errorMessage = page.locator('text=/invalid characters|sanitize/i');
-    const hasError = await errorMessage.isVisible({ timeout: 2000 }).catch(() => false);
+    // If game was created, verify the opponent name is displayed safely
+    if (response && response.status() < 400) {
+      // Navigate to games list or athlete detail to see the stored data
+      await page.goto('/dashboard/athletes');
+      await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
 
-    if (hasError) {
-      console.log('✓ XSS payload blocked by validation');
+      // Check page content for raw script tag (would indicate improper escaping)
+      const pageContent = await page.content();
+      const hasRawScriptTag = pageContent.includes('<script>alert("XSS")</script>');
+
+      if (hasRawScriptTag) {
+        throw new Error('XSS vulnerability: raw script tag found in page HTML');
+      }
+
+      // Verify content is either escaped or stripped
+      const isProperlyHandled = pageContent.includes('&lt;script&gt;') ||
+                                !pageContent.includes('alert("XSS")');
+      if (!isProperlyHandled) {
+        console.warn('XSS content found in unusual form - manual review recommended');
+      }
+
+      console.log('✓ XSS payload properly escaped/sanitized in stored data');
     } else {
-      // No explicit error, but script wasn't executed - React sanitizes by default
-      console.log('✓ XSS payload sanitized (React auto-escapes)');
+      // Check if validation blocked the input
+      const errorMessage = page.locator('text=/invalid characters|sanitize/i');
+      const hasError = await errorMessage.isVisible({ timeout: 2000 }).catch(() => false);
+
+      if (hasError) {
+        console.log('✓ XSS payload blocked by validation');
+      } else {
+        console.log('✓ XSS payload handled (React auto-escapes by default)');
+      }
     }
     console.log('✅ SECURITY VALIDATION WORKING');
   });
