@@ -11,22 +11,12 @@
  *   SMOKE_TEST_URL=https://staging.hustle.app npm run smoke-test
  */
 
-import crypto from 'crypto';
-
 // Configuration
 const BASE_URL = process.env.SMOKE_TEST_URL || 'http://localhost:3000';
-const TEST_EMAIL_PREFIX = process.env.SMOKE_TEST_EMAIL_PREFIX || 'smoke-test';
-const TEST_EMAIL_DOMAIN = process.env.SMOKE_TEST_EMAIL_DOMAIN || 'example.com';
 
-// Generate unique test email (time-based to avoid conflicts)
-const timestamp = Date.now();
-const randomSuffix = crypto.randomBytes(4).toString('hex');
-const TEST_EMAIL = `${TEST_EMAIL_PREFIX}+${timestamp}-${randomSuffix}@${TEST_EMAIL_DOMAIN}`;
-const TEST_PASSWORD = `SmokeTest123!${randomSuffix}`;
-
-// Test state
-let authCookie: string | null = null;
-let playerId: string | null = null;
+// Note: Auth-related tests are skipped because app uses Firebase Auth client-side.
+// Registration, login, player creation, game creation, and plan limits
+// are all covered by Playwright E2E tests which can handle browser-based auth.
 
 // Colors for console output
 const colors = {
@@ -78,10 +68,6 @@ async function makeRequest(
     ...options.headers,
   };
 
-  if (authCookie) {
-    headers['Cookie'] = authCookie;
-  }
-
   const requestOptions: RequestInit = {
     method,
     headers,
@@ -92,12 +78,6 @@ async function makeRequest(
   }
 
   const response = await fetch(url, requestOptions);
-
-  // Store auth cookie if present
-  const setCookie = response.headers.get('set-cookie');
-  if (setCookie && setCookie.includes('next-auth.session-token')) {
-    authCookie = setCookie;
-  }
 
   // Check expected status
   if (options.expectStatus && response.status !== options.expectStatus) {
