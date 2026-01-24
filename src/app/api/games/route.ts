@@ -4,10 +4,10 @@ import { createLogger } from '@/lib/logger'
 import { gameSchema } from '@/lib/validations/game-schema'
 import { sendEmail } from '@/lib/email'
 import { emailTemplates } from '@/lib/email-templates'
-import { getPlayer, getPlayers } from '@/lib/firebase/services/players'
-import { getGames, createGame, getUnverifiedGames } from '@/lib/firebase/services/games'
-import { getUser } from '@/lib/firebase/services/users'
-import { getWorkspaceById, incrementGamesThisMonth } from '@/lib/firebase/services/workspaces'
+import { getPlayerAdmin, getPlayersAdmin } from '@/lib/firebase/admin-services/players'
+import { getAllGamesForPlayerAdmin, createGameAdmin, getUnverifiedGamesAdmin } from '@/lib/firebase/admin-services/games'
+import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users'
+import { getWorkspaceByIdAdmin, incrementWorkspaceGamesThisMonthAdmin } from '@/lib/firebase/admin-services/workspaces'
 import { getPlanLimits } from '@/lib/stripe/plan-mapping'
 import { WorkspaceAccessError } from '@/lib/firebase/access-control'
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce'
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'UNAUTHORIZED', message: 'You must be logged in to access games.' },
         { status: 401 }
       );
     }
@@ -36,21 +36,23 @@ export async function GET(request: NextRequest) {
 
     if (!playerId) {
       return NextResponse.json({
-        error: 'playerId is required'
+        error: 'MISSING_PLAYER_ID',
+        message: 'Player ID is required to fetch games.'
       }, { status: 400 })
     }
 
-    // Verify player exists and belongs to authenticated user (Firestore)
-    const player = await getPlayer(session.user.id, playerId);
+    // Verify player exists and belongs to authenticated user (Admin SDK)
+    const player = await getPlayerAdmin(session.user.id, playerId);
 
     if (!player) {
       return NextResponse.json({
-        error: 'Player not found'
+        error: 'PLAYER_NOT_FOUND',
+        message: 'Player not found.'
       }, { status: 404 })
     }
 
-    // Get all games for this player from Firestore
-    const games = await getGames(session.user.id, playerId);
+    // Get all games for this player from Firestore (Admin SDK)
+    const games = await getAllGamesForPlayerAdmin(session.user.id, playerId);
 
     // Format response to match Prisma structure (include player info)
     const gamesWithPlayer = games.map((game) => ({
@@ -65,7 +67,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching games:', error)
     return NextResponse.json({
-      error: 'Failed to fetch games'
+      error: 'GAMES_FETCH_FAILED',
+      message: 'Failed to fetch games. Please try again.'
     }, { status: 500 })
   }
 }
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'UNAUTHORIZED', message: 'You must be logged in to create games.' },
         { status: 401 }
       );
     }
@@ -91,7 +94,7 @@ export async function POST(request: NextRequest) {
       if (now < userLimit.resetTime) {
         if (userLimit.count >= RATE_LIMIT_MAX) {
           return NextResponse.json(
-            { error: 'Rate limit exceeded. Please try again later.' },
+            { error: 'RATE_LIMIT_EXCEEDED', message: 'Rate limit exceeded. Please try again later.' },
             { status: 429 }
           );
         }
@@ -103,20 +106,20 @@ export async function POST(request: NextRequest) {
       rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
     }
 
-    // Phase 5 Task 4: Get user's workspace and check plan limits
-    const user = await getUser(session.user.id);
+    // Phase 5 Task 4: Get user's workspace and check plan limits (Admin SDK)
+    const user = await getUserProfileAdmin(session.user.id);
     if (!user?.defaultWorkspaceId) {
       logger.error('User has no default workspace', undefined, {
         userId: session.user.id,
       });
 
       return NextResponse.json(
-        { error: 'No workspace found. Please contact support.' },
+        { error: 'WORKSPACE_NOT_FOUND', message: 'No workspace found. Please contact support.' },
         { status: 500 }
       );
     }
 
-    const workspace = await getWorkspaceById(user.defaultWorkspaceId);
+    const workspace = await getWorkspaceByIdAdmin(user.defaultWorkspaceId);
     if (!workspace) {
       logger.error('Workspace not found', undefined, {
         userId: session.user.id,
@@ -124,7 +127,7 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json(
-        { error: 'Workspace not found. Please contact support.' },
+        { error: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found. Please contact support.' },
         { status: 500 }
       );
     }
@@ -146,7 +149,8 @@ export async function POST(request: NextRequest) {
     if (!validationResult.success) {
       return NextResponse.json(
         {
-          error: 'Validation failed',
+          error: 'VALIDATION_FAILED',
+          message: 'Please check the form fields and try again.',
           details: validationResult.error.flatten().fieldErrors
         },
         { status: 400 }
@@ -155,12 +159,13 @@ export async function POST(request: NextRequest) {
 
     const validatedData = validationResult.data;
 
-    // Verify player exists AND belongs to authenticated user (Firestore)
-    const player = await getPlayer(session.user.id, validatedData.playerId);
+    // Verify player exists AND belongs to authenticated user (Admin SDK)
+    const player = await getPlayerAdmin(session.user.id, validatedData.playerId);
 
     if (!player) {
       return NextResponse.json({
-        error: 'Player not found'
+        error: 'PLAYER_NOT_FOUND',
+        message: 'Player not found.'
       }, { status: 404 });
     }
 
@@ -207,8 +212,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create game log with defensive stats (Firestore)
-    const game = await createGame(session.user.id, validatedData.playerId, {
+    // Create game log with defensive stats (Admin SDK)
+    const game = await createGameAdmin(session.user.id, validatedData.playerId, {
       workspaceId: workspace.id,  // Phase 5: Link to workspace
       date: new Date(validatedData.date),
       opponent: validatedData.opponent,
@@ -227,18 +232,18 @@ export async function POST(request: NextRequest) {
       cleanSheet: validatedData.cleanSheet,
     });
 
-    // Phase 5 Task 4: Increment workspace game count
-    await incrementGamesThisMonth(workspace.id);
+    // Phase 5 Task 4: Increment workspace game count (Admin SDK)
+    await incrementWorkspaceGamesThisMonthAdmin(workspace.id);
 
     // Send verification email notification to parent
     try {
-      const parentUser = await getUser(session.user.id);
+      const parentUser = await getUserProfileAdmin(session.user.id);
 
-      // Count all unverified games for this user across all players
-      const allPlayers = await getPlayers(session.user.id);
+      // Count all unverified games for this user across all players (Admin SDK)
+      const allPlayers = await getPlayersAdmin(session.user.id);
       let totalPendingCount = 0;
       for (const p of allPlayers) {
-        const unverified = await getUnverifiedGames(session.user.id, p.id);
+        const unverified = await getUnverifiedGamesAdmin(session.user.id, p.id);
         totalPendingCount += unverified.length;
       }
 
@@ -288,7 +293,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating game:', error);
     return NextResponse.json({
-      error: 'Failed to create game'
+      error: 'GAME_CREATE_FAILED',
+      message: 'Failed to create game. Please try again.'
     }, { status: 500 });
   }
 }
