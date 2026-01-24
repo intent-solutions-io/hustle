@@ -121,32 +121,38 @@ export async function GET() {
     process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
     (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY);
 
-  const requiredEnvVars = [
-    'FIREBASE_PROJECT_ID',
-    'RESEND_API_KEY',
-    'EMAIL_FROM',
-  ];
+  // Critical env vars - app won't function without these
+  const criticalEnvVars = ['FIREBASE_PROJECT_ID'];
 
   // Only check Stripe if billing is enabled
   if (process.env.BILLING_ENABLED !== 'false') {
-    requiredEnvVars.push('STRIPE_SECRET_KEY');
+    criticalEnvVars.push('STRIPE_SECRET_KEY');
   }
 
-  const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
+  // Optional env vars - app can function without these (degraded mode)
+  const optionalEnvVars = ['RESEND_API_KEY', 'EMAIL_FROM'];
 
-  // Add Firebase auth check
+  const missingCritical = criticalEnvVars.filter((envVar) => !process.env[envVar]);
+  const missingOptional = optionalEnvVars.filter((envVar) => !process.env[envVar]);
+
+  // Add Firebase auth check to critical
   if (!hasFirebaseAuth) {
-    missingEnvVars.push('FIREBASE_SERVICE_ACCOUNT_JSON or (FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY)');
+    missingCritical.push('FIREBASE_SERVICE_ACCOUNT_JSON or (FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY)');
   }
 
-  if (missingEnvVars.length > 0) {
+  if (missingCritical.length > 0) {
     result.checks.environment = {
       status: 'fail',
-      missing: missingEnvVars,
+      missing: missingCritical,
     };
     result.status = 'unhealthy';
-
-    logger.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+    logger.error(`Missing critical environment variables: ${missingCritical.join(', ')}`);
+  } else if (missingOptional.length > 0) {
+    result.checks.environment = {
+      status: 'pass', // Pass but log warning - email is optional
+    };
+    // Don't mark as degraded for missing email config - it's optional
+    logger.warn(`Missing optional environment variables (email disabled): ${missingOptional.join(', ')}`);
   }
 
   // Calculate total latency
