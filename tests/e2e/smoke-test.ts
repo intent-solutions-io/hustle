@@ -205,7 +205,6 @@ async function testPlanLimits() {
  */
 async function testCleanup() {
   logWarning('Test data cleanup not implemented (manual cleanup required)');
-  log(`Test user email: ${TEST_EMAIL}`);
 }
 
 /**
