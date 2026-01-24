@@ -175,7 +175,7 @@ test.describe('Complete User Journey - Happy Path', () => {
     await page.waitForURL(/log-game/, { timeout: 30000 });
 
     // Wait for player dropdown to be populated (form fetches players first)
-    await page.waitForSelector('select#playerId option:not([value=""])', { timeout: 30000 });
+    await page.waitForSelector('select#playerId option:not([value=""])', { state: 'attached', timeout: 30000 });
 
     // Fill game details - form uses id attributes, not name
     const today = new Date().toISOString().split('T')[0];
@@ -301,7 +301,7 @@ test.describe('Complete User Journey - Field Player vs Goalkeeper', () => {
     await page.waitForURL(/log-game/, { timeout: 30000 });
 
     // Wait for players dropdown to load
-    await page.waitForSelector('select#playerId option:not([value=""])', { timeout: 30000 });
+    await page.waitForSelector('select#playerId option:not([value=""])', { state: 'attached', timeout: 30000 });
 
     // Fill basic game details (form uses id attributes)
     await page.fill('input#date', new Date().toISOString().split('T')[0]);
@@ -373,7 +373,7 @@ test.describe('Complete User Journey - Data Validation', () => {
     await page.waitForURL(/log-game/, { timeout: 30000 });
 
     // Wait for players dropdown to load
-    await page.waitForSelector('select#playerId option:not([value=""])', { timeout: 30000 });
+    await page.waitForSelector('select#playerId option:not([value=""])', { state: 'attached', timeout: 30000 });
 
     // Fill form with INCONSISTENT data (Win but losing score)
     await page.fill('input#date', new Date().toISOString().split('T')[0]);
@@ -444,7 +444,7 @@ test.describe('Complete User Journey - Data Validation', () => {
     await page.waitForURL(/log-game/, { timeout: 30000 });
 
     // Wait for players dropdown to load
-    await page.waitForSelector('select#playerId option:not([value=""])', { timeout: 30000 });
+    await page.waitForSelector('select#playerId option:not([value=""])', { state: 'attached', timeout: 30000 });
 
     // Try to use future date
     const futureDate = new Date();
@@ -519,7 +519,7 @@ test.describe('Complete User Journey - Security', () => {
     await page.waitForURL(/log-game/, { timeout: 30000 });
 
     // Wait for players dropdown to load
-    await page.waitForSelector('select#playerId option:not([value=""])', { timeout: 30000 });
+    await page.waitForSelector('select#playerId option:not([value=""])', { state: 'attached', timeout: 30000 });
 
     // Monitor for alert (XSS vulnerability)
     let xssDetected = false;
@@ -597,8 +597,13 @@ test.describe('Complete User Journey - Security', () => {
     await logBtn.click();
     await page.waitForURL(/log-game/, { timeout: 30000 });
 
-    // Wait for players dropdown to load
-    await page.waitForSelector('select#playerId option:not([value=""])', { timeout: 30000 });
+    // Wait for players dropdown to load and select the first player
+    await page.waitForSelector('select#playerId option:not([value=""])', { state: 'attached', timeout: 30000 });
+    const firstPlayerOption = await page.locator('select#playerId option:not([value=""])').first();
+    const playerValue = await firstPlayerOption.getAttribute('value');
+    if (playerValue) {
+      await page.selectOption('select#playerId', playerValue);
+    }
 
     // Attempt 11 rapid submissions
     let blocked = false;
