@@ -48,7 +48,7 @@ npx eas build --platform ios   # EAS cloud build
 npm run test:unit              # Vitest unit tests (src/**/*.test.ts)
 npm run test:watch             # Vitest watch mode
 npm run test:coverage          # Coverage report (V8)
-npm run test:e2e               # Playwright E2E (03-Tests/e2e/) - headless
+npm run test:e2e               # Playwright E2E (03-Tests/e2e/) on port 4000
 npm run test:e2e:ui            # Playwright UI mode (interactive)
 npm run test:e2e:headed        # Run with visible browser
 npm run test:e2e:debug         # Debug mode (PWDEBUG=1, headed, Chromium)
@@ -58,9 +58,12 @@ npm run qa:e2e:update-snapshots # Update visual regression baselines
 # Run single test file
 npx vitest run src/lib/billing/plan-limits.test.ts
 npx playwright test 03-Tests/e2e/01-authentication.spec.ts
+
+# Run single E2E test with specific browser
+npx playwright test 03-Tests/e2e/01-authentication.spec.ts --project=chromium
 ```
 
-**CI vs Local**: CI runs headless mode automatically. Use `test:e2e:debug` locally to step through tests with Playwright Inspector.
+**CI vs Local**: CI builds production app then runs tests. Locally, dev server is used. E2E tests run on port 4000 (not 3000). Use `test:e2e:debug` to step through tests with Playwright Inspector.
 
 ### Firebase & Cloud Functions
 ```bash
@@ -100,15 +103,22 @@ Cloud Functions (functions/src/) → Vertex AI Agents (A2A protocol)
 /users/{userId}                        # User profile, COPPA compliance
   /players/{playerId}                  # Child athlete profiles
     /games/{gameId}                    # Game statistics
+    /dreamGym                          # Training profile (singleton)
+    /workoutLogs/{logId}               # Completed workout history
+    /journal/{entryId}                 # Player journal entries
+    /biometrics/{logId}                # Health/recovery metrics
+    /assessments/{assessmentId}        # Fitness test results
 /waitlist/{email}                      # Early access signups
 /workspace-invites/{inviteId}          # Pending collaborator invites
 ```
 
 ### Key Types (`src/types/firestore.ts`)
 - `WorkspaceDocument` - tenant with plan (free/starter/plus/pro), status (active/trial/past_due/canceled/suspended), Stripe integration
-- `UserDocument` - Firebase Auth user profile with workspace ownership
+- `UserDocument` - Firebase Auth user profile with workspace ownership, verification PIN hash
 - `PlayerDocument` - athlete with 13 position codes (GK, CB, DM, CM, ST, etc.)
-- `GameDocument` - match stats (goals, assists, tackles, saves, etc.)
+- `GameDocument` - match stats (goals, assists, tackles, saves, etc.) with self-assessment
+- `DreamGymDocument` - training profile, schedule, events, mental check-ins
+- `WorkoutLogDocument` - completed workout with actual reps/sets/weight tracked
 
 ### Service Layer Pattern
 - **Client services** (`src/lib/firebase/services/`) - browser-side Firestore ops using Firebase SDK
@@ -126,6 +136,15 @@ Cloud Functions (functions/src/) → Vertex AI Agents (A2A protocol)
 
 ### Vertex AI Agent System (`vertex-agents/`)
 5 agents coordinated via A2A protocol: Operations Manager (root), Validation, User Creation, Onboarding, Analytics
+
+### Middleware & Auth (`src/middleware.ts`)
+Edge middleware protects `/dashboard/*` and `/api/*` routes:
+- Session cookies: `__session` or `firebase-auth-token`
+- Dashboard routes → redirect to `/login` if no session
+- Protected API routes → return 401 JSON if no session
+- Public API routes (no auth required): `/api/health`, `/api/auth/*`, `/api/waitlist`, `/api/webhooks`, `/api/verify`
+
+Debug middleware with `MIDDLEWARE_DEBUG=verbose npm run dev`
 
 ## Critical Rules
 
@@ -149,6 +168,34 @@ Cloud Functions (functions/src/) → Vertex AI Agents (A2A protocol)
 - **Unit tests**: Vitest + Testing Library, co-located in `src/**/*.test.ts`
 - **E2E tests**: Playwright in `03-Tests/e2e/`, numbered sequentially (01-authentication, 02-dashboard, etc.)
 - **Firestore tests**: Use Firebase emulators locally
+
+## Environment Variables
+
+Required in `.env` (copy from `.env.example`):
+```bash
+# Firebase (client-side)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+
+# Firebase Admin (server-side)
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+
+# Stripe
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+
+# E2E Testing
+E2E_TEST_EMAIL=              # Test user email for Playwright
+E2E_TEST_PASSWORD=           # Test user password
+NEXT_PUBLIC_E2E_TEST_MODE=   # Set to "true" in test env
+```
 
 ## Coding Conventions
 
