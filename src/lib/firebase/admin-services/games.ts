@@ -294,3 +294,78 @@ export async function getAllGamesAdmin(
     throw new Error(`Failed to fetch all games: ${error.message}`);
   }
 }
+
+/**
+ * Create a new game for a player (Admin SDK)
+ * @param userId - User UID
+ * @param playerId - Player document ID
+ * @param data - Game data to create
+ * @returns Created Game object
+ */
+export async function createGameAdmin(
+  userId: string,
+  playerId: string,
+  data: {
+    workspaceId: string;
+    date: Date;
+    opponent: string;
+    result: 'Win' | 'Loss' | 'Draw';
+    finalScore: string;
+    minutesPlayed: number;
+    goals?: number;
+    assists?: number | null;
+    tackles?: number | null;
+    interceptions?: number | null;
+    clearances?: number | null;
+    blocks?: number | null;
+    aerialDuelsWon?: number | null;
+    saves?: number | null;
+    goalsAgainst?: number | null;
+    cleanSheet?: boolean | null;
+  }
+): Promise<Game> {
+  try {
+    const now = new Date();
+    const isE2EMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+
+    const gameDoc: Omit<GameDocument, 'date' | 'verifiedAt' | 'createdAt' | 'updatedAt'> & {
+      date: Date;
+      verifiedAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+    } = {
+      workspaceId: data.workspaceId,
+      date: data.date,
+      opponent: data.opponent,
+      result: data.result,
+      finalScore: data.finalScore,
+      minutesPlayed: data.minutesPlayed,
+      goals: data.goals || 0,
+      assists: data.assists || 0,
+      tackles: data.tackles ?? null,
+      interceptions: data.interceptions ?? null,
+      clearances: data.clearances ?? null,
+      blocks: data.blocks ?? null,
+      aerialDuelsWon: data.aerialDuelsWon ?? null,
+      saves: data.saves ?? null,
+      goalsAgainst: data.goalsAgainst ?? null,
+      cleanSheet: data.cleanSheet ?? null,
+      // Auto-verify games in E2E test mode for test reliability
+      verified: isE2EMode,
+      verifiedAt: isE2EMode ? now : null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const gamesRef = adminDb.collection(`users/${userId}/players/${playerId}/games`);
+    const docRef = await gamesRef.add(gameDoc);
+
+    return {
+      id: docRef.id,
+      ...gameDoc,
+    };
+  } catch (error: any) {
+    console.error('Error creating game (Admin):', error);
+    throw new Error(`Failed to create game: ${error.message}`);
+  }
+}

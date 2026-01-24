@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         rawBodyPreview: rawBody.slice(0, 500),
       });
       return NextResponse.json(
-        { error: 'Invalid request body' },
+        { error: 'INVALID_REQUEST_BODY', message: 'Invalid request body. Please check the form data and try again.' },
         { status: 400 }
       );
     }
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'UNAUTHORIZED', message: 'You must be logged in to create a player.' },
         { status: 401 }
       );
     }
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'MISSING_REQUIRED_FIELDS', message: 'Please fill in all required fields: name, birthday, position, team/club, gender, and league.' },
         { status: 400 }
       );
     }
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       logger.error(`User has no default workspace after provisioning: ${session.user.id}`);
 
       return NextResponse.json(
-        { error: 'No workspace found. Please try logging out and back in, or contact support.' },
+        { error: 'WORKSPACE_NOT_FOUND', message: 'No workspace found. Please try logging out and back in, or contact support.' },
         { status: 500 }
       );
     }
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       logger.error(`Workspace not found: userId=${session.user.id}, workspaceId=${user.defaultWorkspaceId}`);
 
       return NextResponse.json(
-        { error: 'Workspace not found. Please contact support.' },
+        { error: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found. Please contact support.' },
         { status: 500 }
       );
     }
@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json(
-      { error: 'Failed to create player' },
+      { error: 'PLAYER_CREATE_FAILED', message: 'Failed to create player. Please try again.' },
       { status: 500 }
     );
   }
