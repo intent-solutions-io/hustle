@@ -106,23 +106,39 @@ graph TB
 
 ```mermaid
 graph TD
-    Users["users/{userId}\n- email\n- name\n- agreedToTerms\n- isParentGuardian\n- createdAt"]
-    Players["users/{userId}/players/{playerId}\n- name\n- birthday\n- gender\n- primaryPosition\n- secondaryPositions\n- leagueCode\n- teamClub"]
-    Games["users/{userId}/players/{playerId}/games/{gameId}\n- date\n- opponent\n- result\n- position\n- goals, assists, saves\n- tackles, passes, shots"]
+    Workspaces["workspaces/{workspaceId}\n- plan, status, billing\n- Stripe integration"]
+    Users["users/{userId}\n- email, name\n- workspace ownership\n- COPPA compliance"]
+    Players["players/{playerId}\n- name, birthday, gender\n- positions, league, team"]
+    Games["games/{gameId}\n- date, opponent, result\n- stats by position"]
+    DreamGym["dreamGym (singleton)\n- training profile\n- schedule, events"]
+    WorkoutLogs["workoutLogs/{logId}\n- completed workouts"]
+    Journal["journal/{entryId}\n- player journal"]
+    Waitlist["waitlist/{email}\n- early access signups"]
+    Invites["workspace-invites/{inviteId}\n- collaborator invites"]
 
+    Workspaces --> Users
     Users --> Players
     Players --> Games
+    Players --> DreamGym
+    Players --> WorkoutLogs
+    Players --> Journal
 ```
 
-**Hierarchical Collections:**
-- `users/{userId}` - Parent accounts with COPPA compliance
-- `users/{userId}/players/{playerId}` - Child player profiles (subcollection)
-- `users/{userId}/players/{playerId}/games/{gameId}` - Game statistics (nested subcollection)
+**Collections:**
+- `/workspaces/{workspaceId}` - Billable tenant (plan, status, Stripe)
+- `/users/{userId}` - Parent accounts with COPPA compliance
+- `/users/{userId}/players/{playerId}` - Child athlete profiles
+- `/users/{userId}/players/{playerId}/games/{gameId}` - Game statistics
+- `/users/{userId}/players/{playerId}/dreamGym` - Training profile (singleton)
+- `/users/{userId}/players/{playerId}/workoutLogs/{logId}` - Workout history
+- `/users/{userId}/players/{playerId}/journal/{entryId}` - Journal entries
+- `/waitlist/{email}` - Early access signups
+- `/workspace-invites/{inviteId}` - Pending collaborator invites
 
 **Security Model:**
 - Firestore security rules enforce parent-child ownership
 - Users can only read/write their own players and games
-- All player data cascades when parent user is deleted
+- Workspace access controls billing and collaboration
 
 ---
 
