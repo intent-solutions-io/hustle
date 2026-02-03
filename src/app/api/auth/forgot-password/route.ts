@@ -89,7 +89,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     // Avoid user enumeration: return success for unknown users.
-    if (error?.code === 'auth/user-not-found') {
+    // Firebase Admin SDK may return different error codes:
+    // - 'auth/user-not-found' (documented but rare)
+    // - 'auth/internal-error' with message containing 'EMAIL_NOT_FOUND' (common)
+    const isUserNotFound =
+      error?.code === 'auth/user-not-found' ||
+      (error?.code === 'auth/internal-error' && error?.message?.includes('EMAIL_NOT_FOUND'));
+
+    if (isUserNotFound) {
       logger.info('User not found (returning success to prevent enumeration)');
       return NextResponse.json({
         success: true,
