@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isOnWaitlist, addToWaitlist } from '@/lib/firebase/services/waitlist';
+import { isOnWaitlistAdmin, addToWaitlistAdmin } from '@/lib/firebase/admin-services/waitlist';
 
 // Validation schema
 const waitlistSchema = z.object({
@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
     // Validate input
     const validatedData = waitlistSchema.parse(body);
 
-    // Check if email already exists (Firestore)
-    const exists = await isOnWaitlist(validatedData.email);
+    // Check if email already exists (Admin SDK)
+    const exists = await isOnWaitlistAdmin(validatedData.email);
 
     if (exists) {
       return NextResponse.json(
@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create waitlist entry (Firestore)
-    await addToWaitlist({
+    // Create waitlist entry (Admin SDK)
+    await addToWaitlistAdmin({
       email: validatedData.email,
       firstName: validatedData.firstName,
       lastName: validatedData.lastName,

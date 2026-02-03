@@ -22,18 +22,20 @@ export default function ForgotPasswordPage() {
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         setStatus('success');
         setMessage(data.message || 'Password reset email sent successfully');
         setEmail(''); // Clear form
       } else {
         setStatus('error');
-        setMessage(data.error || 'Failed to send password reset email');
+        // Use message field first, then error field
+        setMessage(data.message || data.error || 'Failed to send password reset email');
+        console.error('Forgot password API error:', { status: response.status, data });
       }
     } catch (error) {
-      console.error('Forgot password error:', error);
+      console.error('Forgot password network error:', error);
       setStatus('error');
-      setMessage('An error occurred. Please try again.');
+      setMessage('Network error. Please check your connection and try again.');
     }
   };
 
