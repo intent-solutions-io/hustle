@@ -88,44 +88,22 @@ export async function POST(request: NextRequest) {
       message: 'If an account exists with this email, a reset link has been sent.',
     });
   } catch (error: any) {
-    // Avoid user enumeration: return success for unknown users.
-    // Firebase Admin SDK may return different error codes depending on version:
-    // - 'auth/user-not-found' (documented)
-    // - 'auth/email-not-found' (newer SDK versions)
-    // - 'auth/internal-error' with message containing 'EMAIL_NOT_FOUND' (older SDK)
+    // For security (user enumeration prevention), return success for ALL Firebase Auth errors.
+    // We don't want to reveal whether an account exists or not.
     const errorCode = error?.code || '';
     const errorMessage = error?.message || '';
-    const errorString = JSON.stringify(error);
 
-    logger.info('Password reset error details', {
+    logger.info('Password reset caught error', {
       errorCode,
       errorMessage: errorMessage.substring(0, 200),
-      hasEmailNotFound: errorMessage.includes('EMAIL_NOT_FOUND') || errorString.includes('EMAIL_NOT_FOUND')
     });
 
-    const isUserNotFound =
-      errorCode === 'auth/user-not-found' ||
-      errorCode === 'auth/email-not-found' ||
-      (errorCode === 'auth/internal-error' && errorMessage.includes('EMAIL_NOT_FOUND')) ||
-      errorMessage.includes('EMAIL_NOT_FOUND') ||
-      errorString.includes('EMAIL_NOT_FOUND');
-
-    if (isUserNotFound) {
-      logger.info('User not found (returning success to prevent enumeration)');
-      return NextResponse.json({
-        success: true,
-        message: 'If an account exists with this email, a reset link has been sent.',
-      });
-    }
-
-    logger.error('Password reset failed', error instanceof Error ? error : new Error(String(error)), {
-      errorCode,
-      errorMessage,
+    // Any error from generatePasswordResetLink should return success
+    // to prevent user enumeration (whether user exists or not, same response)
+    logger.info('Returning success to prevent user enumeration', { errorCode });
+    return NextResponse.json({
+      success: true,
+      message: 'If an account exists with this email, a reset link has been sent.',
     });
-
-    return NextResponse.json(
-      { success: false, error: 'PASSWORD_RESET_FAILED', message: 'Failed to send reset email. Please try again.' },
-      { status: 500 }
-    );
   }
 }
