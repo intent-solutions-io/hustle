@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { sendEmail } from '@/lib/email';
 import { emailTemplates } from '@/lib/email-templates';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/auth/forgot-password');
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -34,13 +37,19 @@ export async function POST(request: NextRequest) {
     : `https://${origin}`;
 
   try {
+    logger.info('Generating password reset link', { email: email.substring(0, 3) + '***' });
+
     const firebaseLink = await adminAuth.generatePasswordResetLink(email);
+    logger.info('Firebase link generated successfully');
+
     const actionUrl = new URL(firebaseLink);
     const oobCode = actionUrl.searchParams.get('oobCode');
 
     const resetUrl = oobCode
       ? `${websiteOrigin}/reset-password?oobCode=${encodeURIComponent(oobCode)}`
       : firebaseLink;
+
+    logger.info('Sending password reset email', { resetUrlDomain: new URL(resetUrl).hostname });
 
     const template = emailTemplates.passwordReset(email, resetUrl);
     const result = await sendEmail({
@@ -51,12 +60,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.success) {
+      logger.error('Failed to send email via Resend', undefined, { error: result.error });
       return NextResponse.json(
-        { success: false, error: result.error || 'Failed to send reset email.' },
+        { success: false, error: 'SEND_EMAIL_FAILED', message: result.error || 'Failed to send reset email.' },
         { status: 500 }
       );
     }
 
+    logger.info('Password reset email sent successfully');
     return NextResponse.json({
       success: true,
       message: 'If an account exists with this email, a reset link has been sent.',
@@ -64,15 +75,20 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     // Avoid user enumeration: return success for unknown users.
     if (error?.code === 'auth/user-not-found') {
+      logger.info('User not found (returning success to prevent enumeration)');
       return NextResponse.json({
         success: true,
         message: 'If an account exists with this email, a reset link has been sent.',
       });
     }
 
-    console.error('[api/auth/forgot-password] Failed:', error);
+    logger.error('Password reset failed', error instanceof Error ? error : new Error(String(error)), {
+      errorCode: error?.code,
+      errorMessage: error?.message,
+    });
+
     return NextResponse.json(
-      { success: false, error: 'Failed to send reset email. Please try again.' },
+      { success: false, error: 'PASSWORD_RESET_FAILED', message: 'Failed to send reset email. Please try again.' },
       { status: 500 }
     );
   }
