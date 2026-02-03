@@ -89,12 +89,26 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     // Avoid user enumeration: return success for unknown users.
-    // Firebase Admin SDK may return different error codes:
-    // - 'auth/user-not-found' (documented but rare)
-    // - 'auth/internal-error' with message containing 'EMAIL_NOT_FOUND' (common)
+    // Firebase Admin SDK may return different error codes depending on version:
+    // - 'auth/user-not-found' (documented)
+    // - 'auth/email-not-found' (newer SDK versions)
+    // - 'auth/internal-error' with message containing 'EMAIL_NOT_FOUND' (older SDK)
+    const errorCode = error?.code || '';
+    const errorMessage = error?.message || '';
+    const errorString = JSON.stringify(error);
+
+    logger.info('Password reset error details', {
+      errorCode,
+      errorMessage: errorMessage.substring(0, 200),
+      hasEmailNotFound: errorMessage.includes('EMAIL_NOT_FOUND') || errorString.includes('EMAIL_NOT_FOUND')
+    });
+
     const isUserNotFound =
-      error?.code === 'auth/user-not-found' ||
-      (error?.code === 'auth/internal-error' && error?.message?.includes('EMAIL_NOT_FOUND'));
+      errorCode === 'auth/user-not-found' ||
+      errorCode === 'auth/email-not-found' ||
+      (errorCode === 'auth/internal-error' && errorMessage.includes('EMAIL_NOT_FOUND')) ||
+      errorMessage.includes('EMAIL_NOT_FOUND') ||
+      errorString.includes('EMAIL_NOT_FOUND');
 
     if (isUserNotFound) {
       logger.info('User not found (returning success to prevent enumeration)');
@@ -105,8 +119,8 @@ export async function POST(request: NextRequest) {
     }
 
     logger.error('Password reset failed', error instanceof Error ? error : new Error(String(error)), {
-      errorCode: error?.code,
-      errorMessage: error?.message,
+      errorCode,
+      errorMessage,
     });
 
     return NextResponse.json(
