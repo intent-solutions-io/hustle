@@ -28,13 +28,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const origin =
-    process.env.WEBSITE_URL ||
-    process.env.NEXT_PUBLIC_WEBSITE_DOMAIN ||
-    new URL(request.url).origin;
-  const websiteOrigin = origin.startsWith('http://') || origin.startsWith('https://')
-    ? origin
-    : `https://${origin}`;
+  // Determine the correct origin for reset URL
+  // Priority: x-forwarded-host (reverse proxy) > host header > env vars > hardcoded production
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const hostHeader = request.headers.get('host');
+  const protocol = request.headers.get('x-forwarded-proto') || 'https';
+
+  let websiteOrigin: string;
+  if (forwardedHost && !forwardedHost.includes('0.0.0.0') && !forwardedHost.includes('localhost')) {
+    websiteOrigin = `${protocol}://${forwardedHost}`;
+  } else if (hostHeader && !hostHeader.includes('0.0.0.0') && !hostHeader.includes('localhost')) {
+    websiteOrigin = `${protocol}://${hostHeader}`;
+  } else if (process.env.WEBSITE_URL) {
+    websiteOrigin = process.env.WEBSITE_URL;
+  } else if (process.env.NEXT_PUBLIC_WEBSITE_DOMAIN) {
+    const domain = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN;
+    websiteOrigin = domain.startsWith('http') ? domain : `https://${domain}`;
+  } else {
+    // Hardcoded fallback for production
+    websiteOrigin = 'https://hustlestats.io';
+  }
+
+  logger.info('Determined website origin', { websiteOrigin, forwardedHost, hostHeader });
 
   try {
     logger.info('Generating password reset link', { email: email.substring(0, 3) + '***' });
