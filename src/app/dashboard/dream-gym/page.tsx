@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, Heart, Target, TrendingUp, Sparkles } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Brain, Loader2, ChevronDown, Heart, Target, TrendingUp, Sparkles, Route, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -357,6 +357,38 @@ export default function DreamGymPage() {
             <CardContent>
               <p className="text-sm text-zinc-600">
                 Get personalized workout plans powered by AI.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href={`/dashboard/dream-gym/cardio?playerId=${selectedPlayer?.id}`}>
+          <Card className="border-zinc-200 cursor-pointer hover:border-blue-300 transition-colors h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Route className="h-5 w-5 text-blue-500" />
+                Cardio Log
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-600">
+                Track running, miles, and cardio activities.
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href={`/dashboard/dream-gym/practices?playerId=${selectedPlayer?.id}`}>
+          <Card className="border-zinc-200 cursor-pointer hover:border-green-300 transition-colors h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-green-500" />
+                Practice Log
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-zinc-600">
+                Log practice sessions, drills, and skills worked on.
               </p>
             </CardContent>
           </Card>
