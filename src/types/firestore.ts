@@ -774,3 +774,138 @@ export interface FitnessAssessment extends Omit<FitnessAssessmentDocument, 'date
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ============================================================================
+// CARDIO LOG TYPES (Running/Distance Tracking)
+// ============================================================================
+
+/**
+ * Cardio Activity Types
+ */
+export type CardioActivityType =
+  | 'run'         // General running
+  | 'jog'         // Light jogging
+  | 'sprint'      // Sprint training
+  | 'interval'    // Interval training (HIIT)
+  | 'recovery'    // Recovery run
+  | 'long_run';   // Long distance run
+
+/**
+ * Cardio Log Document
+ * Subcollection: /users/{userId}/players/{playerId}/cardioLogs/{logId}
+ *
+ * Track running and cardio activities with distance.
+ */
+export interface CardioLogDocument {
+  playerId: string;
+  date: Timestamp;
+  activityType: CardioActivityType;
+
+  // Distance & Duration
+  distanceMiles: number;           // Distance in miles
+  durationMinutes: number;         // Duration in minutes
+
+  // Calculated/Optional metrics
+  avgPacePerMile?: string | null;  // e.g., "8:30" (mm:ss per mile)
+  calories?: number | null;        // Estimated calories burned
+
+  // Heart rate (optional)
+  avgHeartRate?: number | null;    // Average bpm during activity
+  maxHeartRate?: number | null;    // Max bpm during activity
+
+  // Context
+  location?: string | null;        // Where the run happened (e.g., "Track", "Neighborhood")
+  weather?: string | null;         // Weather conditions
+  notes?: string | null;           // Additional notes
+
+  // Effort level
+  perceivedEffort?: 1 | 2 | 3 | 4 | 5 | null; // Rate of Perceived Exertion (1-5)
+
+  // Timestamps
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Cardio Log client-side types
+export interface CardioLog extends Omit<CardioLogDocument, 'date' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ============================================================================
+// PRACTICE LOG TYPES (Training Session Tracking)
+// ============================================================================
+
+/**
+ * Practice Focus Areas
+ */
+export type PracticeFocusArea =
+  | 'passing'
+  | 'shooting'
+  | 'dribbling'
+  | 'defending'
+  | 'heading'
+  | 'first_touch'
+  | 'positioning'
+  | 'set_pieces'
+  | 'goalkeeping'
+  | 'fitness'
+  | 'scrimmage'
+  | 'tactics'
+  | 'other';
+
+/**
+ * Practice Type
+ */
+export type PracticeType =
+  | 'team_practice'    // Full team practice
+  | 'small_group'      // Small group training
+  | 'individual'       // Solo practice/drills
+  | 'private_lesson'   // 1-on-1 coaching session
+  | 'camp'             // Soccer camp session
+  | 'clinic';          // Skills clinic
+
+/**
+ * Practice Log Document
+ * Subcollection: /users/{userId}/players/{playerId}/practiceLogs/{logId}
+ *
+ * Track practice sessions with duration and focus areas.
+ */
+export interface PracticeLogDocument {
+  playerId: string;
+  date: Timestamp;
+  practiceType: PracticeType;
+
+  // Duration
+  durationMinutes: number;         // How long was the practice
+
+  // Focus areas (multi-select)
+  focusAreas: PracticeFocusArea[];
+
+  // Details
+  teamName?: string | null;        // Team or coach name
+  location?: string | null;        // Practice location
+  drillsCompleted?: string[] | null; // List of specific drills done
+
+  // Self-assessment
+  intensity?: 1 | 2 | 3 | 4 | 5 | null; // Practice intensity (1-5)
+  enjoyment?: 1 | 2 | 3 | 4 | 5 | null; // How much they enjoyed it (1-5)
+  improvement?: string | null;     // What did they improve on?
+
+  // General notes
+  notes?: string | null;
+
+  // Timestamps
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Practice Log client-side types
+export interface PracticeLog extends Omit<PracticeLogDocument, 'date' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
