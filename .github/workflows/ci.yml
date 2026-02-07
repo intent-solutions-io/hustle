@@ -70,6 +70,8 @@ jobs:
         run: npm run test:e2e -- --project=chromium
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:4000
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
       - name: Run security audit
         run: npm run test:security

@@ -13,6 +13,24 @@ jobs:
     name: Pre-merge Validation
     runs-on: ubuntu-latest
 
+    env:
+      # Firebase configuration (public - safe to expose)
+      NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "hustleapp-production.firebaseapp.com"
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: "hustleapp-production"
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "hustleapp-production.firebasestorage.app"
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "335713777643"
+      NEXT_PUBLIC_FIREBASE_APP_ID: "1:335713777643:web:209e728afd5aee07c80bae"
+      # E2E test mode
+      NEXT_PUBLIC_E2E_TEST_MODE: 'true'
+      # Firebase Admin (private - from secrets)
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+      FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+      # E2E Test credentials
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
