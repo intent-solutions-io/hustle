@@ -197,7 +197,6 @@ export default function PracticeLogPage() {
       alert('An error occurred while deleting the log.');
     }
   }
-  }
 
   // Calculate stats
   const totalPractices = logs.length;

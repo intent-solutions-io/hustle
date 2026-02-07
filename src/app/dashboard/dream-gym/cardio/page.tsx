@@ -162,7 +162,6 @@ export default function CardioLogPage() {
       alert('An error occurred while deleting the log.');
     }
   }
-  }
 
   // Calculate stats
   const totalMiles = logs.reduce((sum, log) => sum + log.distanceMiles, 0);
