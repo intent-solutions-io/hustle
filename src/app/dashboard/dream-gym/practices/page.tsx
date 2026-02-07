@@ -189,10 +189,14 @@ export default function PracticeLogPage() {
 
       if (res.ok) {
         setLogs(logs.filter(l => l.id !== logId));
+      } else {
+        alert('Failed to delete log. Please try again.');
       }
     } catch (error) {
       console.error('Error deleting log:', error);
+      alert('An error occurred while deleting the log.');
     }
+  }
   }
 
   // Calculate stats
