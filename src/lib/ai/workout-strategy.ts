@@ -105,18 +105,19 @@ function getVertexAI(): VertexAI {
 export async function generateWorkoutStrategy(
   input: WorkoutStrategyInput
 ): Promise<WorkoutStrategy> {
-  const vertexAI = getVertexAI();
-  const model = vertexAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 4096,
-    },
-  });
-
-  const prompt = buildStrategyPrompt(input);
-
   try {
+    console.log('[AI Strategy] Attempting Vertex AI generation for player:', input.playerName);
+    const vertexAI = getVertexAI();
+    const model = vertexAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+      },
+    });
+
+    const prompt = buildStrategyPrompt(input);
+    console.log('[AI Strategy] Sending request to Vertex AI...');
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -125,10 +126,11 @@ export async function generateWorkoutStrategy(
       throw new Error('No response from Vertex AI');
     }
 
+    console.log('[AI Strategy] SUCCESS - Received AI-generated strategy');
     return parseStrategyResponse(text, input);
-  } catch (error) {
-    console.error('Error generating workout strategy:', error);
-    // Return a fallback strategy
+  } catch (error: any) {
+    console.error('[AI Strategy] FAILED - Using fallback strategy. Error:', error?.message || error);
+    // Return a fallback strategy when Vertex AI is unavailable or fails
     return generateFallbackStrategy(input);
   }
 }
@@ -235,7 +237,77 @@ Format your response as JSON with this structure:
   "insights": ["Insight 1", "Insight 2"]
 }
 
-Respond ONLY with valid JSON, no markdown formatting.`;
+IMPORTANT:
+- Respond ONLY with valid JSON, no markdown formatting or code blocks
+- Keep exercise descriptions brief (under 50 characters)
+- Limit to 3-4 exercises per day maximum
+- Ensure all strings are properly terminated
+- Do not truncate the response - complete all JSON structures`;
+}
+
+/**
+ * Attempt to fix common JSON issues from LLM responses
+ */
+function tryFixJSON(text: string): string {
+  let fixed = text;
+
+  // Try to find the last complete object/array
+  // Count braces and brackets to find where JSON might be truncated
+  let braceCount = 0;
+  let bracketCount = 0;
+  let inString = false;
+  let lastValidEnd = -1;
+
+  for (let i = 0; i < fixed.length; i++) {
+    const char = fixed[i];
+    const prevChar = i > 0 ? fixed[i - 1] : '';
+
+    if (char === '"' && prevChar !== '\\') {
+      inString = !inString;
+    }
+
+    if (!inString) {
+      if (char === '{') braceCount++;
+      if (char === '}') {
+        braceCount--;
+        if (braceCount === 0 && bracketCount === 0) {
+          lastValidEnd = i;
+        }
+      }
+      if (char === '[') bracketCount++;
+      if (char === ']') {
+        bracketCount--;
+        if (braceCount === 0 && bracketCount === 0) {
+          lastValidEnd = i;
+        }
+      }
+    }
+  }
+
+  // If we found a valid end point, truncate there
+  if (lastValidEnd > 0 && lastValidEnd < fixed.length - 1) {
+    fixed = fixed.slice(0, lastValidEnd + 1);
+  }
+
+  // If still unbalanced, try to close open structures
+  if (braceCount > 0 || bracketCount > 0) {
+    // Close any unclosed strings first
+    const quoteCount = (fixed.match(/(?<!\\)"/g) || []).length;
+    if (quoteCount % 2 !== 0) {
+      fixed += '"';
+    }
+    // Close arrays and objects
+    while (bracketCount > 0) {
+      fixed += ']';
+      bracketCount--;
+    }
+    while (braceCount > 0) {
+      fixed += '}';
+      braceCount--;
+    }
+  }
+
+  return fixed;
 }
 
 /**
@@ -259,7 +331,23 @@ function parseStrategyResponse(
     }
     cleanText = cleanText.trim();
 
-    const parsed = JSON.parse(cleanText);
+    // First attempt: parse as-is
+    let parsed;
+    try {
+      parsed = JSON.parse(cleanText);
+    } catch {
+      // Second attempt: try to fix the JSON
+      console.log('[AI Strategy] Attempting to fix malformed JSON...');
+      const fixedText = tryFixJSON(cleanText);
+      try {
+        parsed = JSON.parse(fixedText);
+        console.log('[AI Strategy] Successfully fixed and parsed JSON');
+      } catch (fixError) {
+        // If still failing, use fallback
+        console.error('[AI Strategy] Could not fix JSON, using fallback strategy');
+        return generateFallbackStrategy(input);
+      }
+    }
 
     return {
       weeklyPlan: parsed.weeklyPlan || generateDefaultWeeklyPlan(input),
