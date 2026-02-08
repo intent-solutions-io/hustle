@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         const { cookies } = await import('next/headers');
         const cookieStore = await cookies();
         const sessionCookie = cookieStore.get('__session')?.value || '';
-        const decodedToken = await adminAuth.verifyIdToken(sessionCookie);
+        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie);
         const provisionResult = await ensureUserProvisioned(decodedToken);
         logger.info(`Fallback provisioning succeeded: userId=${provisionResult.userId}, workspaceId=${provisionResult.workspaceId}`);
 

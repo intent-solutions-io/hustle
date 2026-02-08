@@ -1,8 +1,8 @@
 /**
  * Set Session API Route (Firebase Auth)
  *
- * Sets a secure HTTP-only cookie with the Firebase ID token
- * for server-side authentication verification.
+ * Creates a proper Firebase session cookie (not raw ID token).
+ * ID tokens expire in 1 hour; session cookies can last up to 14 days.
  *
  * Note: Uses response.cookies.set() instead of cookies() API
  * for better compatibility with Playwright E2E tests.
@@ -68,8 +68,23 @@ export async function POST(request: NextRequest) {
       // This prevents login failures due to Firestore issues
     }
 
-    // Set session cookie (14 days expiry)
-    const expiresIn = 60 * 60 * 24 * 14; // 14 days in seconds
+    // Create a proper Firebase session cookie (NOT raw ID token!)
+    // ID tokens expire in 1 hour; session cookies can last up to 14 days
+    const expiresIn = 60 * 60 * 24 * 14 * 1000; // 14 days in MILLISECONDS (required by createSessionCookie)
+
+    console.log('[set-session] Creating Firebase session cookie...');
+    let sessionCookie: string;
+    try {
+      sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
+      console.log('[set-session] Session cookie created successfully');
+    } catch (cookieError: any) {
+      console.error('[set-session] Failed to create session cookie:', cookieError?.message);
+      console.error('[set-session] Cookie error code:', cookieError?.code);
+      return NextResponse.json(
+        { success: false, error: 'Failed to create session. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     // Create response with user info
     const response = NextResponse.json({
@@ -92,8 +107,9 @@ export async function POST(request: NextRequest) {
 
     console.log('[set-session] Cookie settings - secure:', useSecureCookie, 'NODE_ENV:', process.env.NODE_ENV, 'E2E:', isE2ETest);
 
-    response.cookies.set('__session', idToken, {
-      maxAge: expiresIn,
+    // Use the proper session cookie (not raw ID token)
+    response.cookies.set('__session', sessionCookie, {
+      maxAge: expiresIn / 1000, // Convert back to seconds for cookie maxAge
       httpOnly: true,
       secure: useSecureCookie,
       sameSite: 'lax',

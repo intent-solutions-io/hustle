@@ -1,7 +1,7 @@
 /**
  * Firebase Admin Authentication Utilities
  *
- * Server-side auth helpers for verifying Firebase ID tokens
+ * Server-side auth helpers for verifying Firebase session cookies
  * and fetching authenticated user data.
  */
 
@@ -45,8 +45,8 @@ export async function getDashboardUser(): Promise<DashboardUser | null> {
       return null;
     }
 
-    // Verify the ID token
-    const decodedToken = await adminAuth.verifyIdToken(sessionCookie, true);
+    // Verify the session cookie (not raw ID token - session cookies last up to 14 days)
+    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
 
     // Fetch user data from Firestore
     const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();

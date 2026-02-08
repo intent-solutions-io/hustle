@@ -1,8 +1,8 @@
 /**
  * Server-Side Authentication (Firebase Auth)
  *
- * Replaces NextAuth session validation with Firebase Auth ID token verification.
- * Used in API routes for server-side authentication.
+ * Validates Firebase session cookies for server-side authentication.
+ * Used in API routes.
  *
  * Migration Note: This file replaces the NextAuth configuration that was
  * archived to 99-Archive/20251115-nextauth-legacy/auth.ts
@@ -20,9 +20,9 @@ export interface Session {
 }
 
 /**
- * Get authenticated session from Firebase Auth ID token
+ * Get authenticated session from Firebase session cookie
  *
- * Validates Firebase ID token from cookie and returns session object.
+ * Validates Firebase session cookie and returns session object.
  * Compatible with NextAuth session structure for minimal migration changes.
  *
  * Usage in API routes:
@@ -39,15 +39,15 @@ export async function auth(): Promise<Session | null> {
   try {
     const cookieStore = await cookies();
 
-    // Get Firebase ID token from cookie (set by client-side Firebase Auth)
-    const idToken = cookieStore.get('__session')?.value;
+    // Get Firebase session cookie (created by set-session API route)
+    const sessionCookie = cookieStore.get('__session')?.value;
 
-    if (!idToken) {
+    if (!sessionCookie) {
       return null;
     }
 
-    // Verify ID token with Firebase Admin SDK
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    // Verify session cookie with Firebase Admin SDK (not ID token!)
+    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie);
 
     return {
       user: {
