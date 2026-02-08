@@ -156,21 +156,32 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div
+      className="min-h-screen relative flex flex-col"
+      style={{
+        backgroundImage: 'url(/images/tracks.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Dark Overlay */}
+      <div className="absolute inset-0 bg-black/60" />
+
       {/* Header */}
-      <header className="bg-white border-b border-zinc-100">
+      <header className="relative z-10 bg-transparent">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex items-center gap-4">
           <Link href="/">
-            <Button variant="ghost" size="sm" className="gap-2 text-zinc-600">
+            <Button variant="ghost" size="sm" className="gap-2 text-white hover:text-white/80">
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
           </Link>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-zinc-900 rounded-md flex items-center justify-center">
-              <span className="text-white font-bold text-xs">H</span>
+            <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
+              <span className="text-zinc-900 font-bold text-xs">H</span>
             </div>
-            <span className="text-lg font-semibold text-zinc-900">
+            <span className="text-lg font-semibold text-white">
               HUSTLE<sup className="text-[0.5em] align-super">™</sup>
             </span>
           </div>
@@ -178,8 +189,8 @@ export default function Login() {
       </header>
 
       {/* Main Content */}
-      <main className="flex items-center justify-center px-6 py-24">
-        <Card className="w-full max-w-md border-zinc-200 shadow-sm">
+      <main className="relative z-10 flex-1 flex items-center justify-center px-6 py-24">
+        <Card className="w-full max-w-md border-zinc-200 shadow-xl bg-white/95 backdrop-blur-sm">
           <CardHeader className="space-y-2 pb-6">
             <CardTitle className="text-2xl font-semibold text-zinc-900">
               Welcome Back

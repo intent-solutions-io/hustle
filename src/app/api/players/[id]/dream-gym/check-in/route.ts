@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayer } from '@/lib/firebase/services/players';
-import { addMentalCheckIn } from '@/lib/firebase/services/dream-gym';
+import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { addMentalCheckInAdmin } from '@/lib/firebase/admin-services/dream-gym';
 
 /**
  * POST /api/players/[id]/dream-gym/check-in - Add a mental check-in
@@ -54,8 +54,8 @@ export async function POST(
       );
     }
 
-    // Verify player belongs to user
-    const player = await getPlayer(session.user.id, playerId);
+    // Verify player belongs to user (using Admin SDK)
+    const player = await getPlayerAdmin(session.user.id, playerId);
     if (!player) {
       return NextResponse.json(
         { error: 'Player not found' },
@@ -63,8 +63,8 @@ export async function POST(
       );
     }
 
-    // Add check-in
-    await addMentalCheckIn(session.user.id, playerId, {
+    // Add check-in (using Admin SDK)
+    await addMentalCheckInAdmin(session.user.id, playerId, {
       mood: mood as 1 | 2 | 3 | 4 | 5,
       energy,
       soreness,

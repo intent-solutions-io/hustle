@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayer } from '@/lib/firebase/services/players';
-import { removeDreamGymEvent } from '@/lib/firebase/services/dream-gym';
+import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { removeDreamGymEventAdmin } from '@/lib/firebase/admin-services/dream-gym';
 
 /**
  * DELETE /api/players/[id]/dream-gym/events/[eventId] - Remove a Dream Gym event
@@ -22,8 +22,8 @@ export async function DELETE(
 
     const { id: playerId, eventId } = await params;
 
-    // Verify player belongs to user
-    const player = await getPlayer(session.user.id, playerId);
+    // Verify player belongs to user (using Admin SDK)
+    const player = await getPlayerAdmin(session.user.id, playerId);
     if (!player) {
       return NextResponse.json(
         { error: 'Player not found' },
@@ -31,8 +31,8 @@ export async function DELETE(
       );
     }
 
-    // Remove event
-    await removeDreamGymEvent(session.user.id, playerId, eventId);
+    // Remove event (using Admin SDK)
+    await removeDreamGymEventAdmin(session.user.id, playerId, eventId);
 
     return NextResponse.json({
       success: true

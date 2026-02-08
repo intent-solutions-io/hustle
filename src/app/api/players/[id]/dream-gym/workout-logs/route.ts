@@ -37,10 +37,11 @@ export async function GET(
       );
     }
 
-    // Parse query params
+    // Parse query params - convert null to undefined for Zod validation
     const url = new URL(request.url);
+    const typeParam = url.searchParams.get('type');
     const queryParams = {
-      type: url.searchParams.get('type') as WorkoutLogType | undefined,
+      type: typeParam ? (typeParam as WorkoutLogType) : undefined,
       startDate: url.searchParams.get('startDate') || undefined,
       endDate: url.searchParams.get('endDate') || undefined,
       limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!) : undefined,
@@ -64,11 +65,22 @@ export async function GET(
       cursor: queryParams.cursor,
     };
 
+    console.log('[WORKOUT-LOG-GET] Fetching workout logs:', {
+      userId: session.user.id,
+      playerId,
+      options,
+    });
+
     const { logs, nextCursor } = await getWorkoutLogsAdmin(
       session.user.id,
       playerId,
       options
     );
+
+    console.log('[WORKOUT-LOG-GET] Found logs:', {
+      count: logs.length,
+      logIds: logs.map(l => l.id),
+    });
 
     return NextResponse.json({
       success: true,
@@ -115,23 +127,46 @@ export async function POST(
     }
 
     // Validate request body
-    const validationResult = workoutLogCreateSchema.safeParse({
+    const dataToValidate = {
       ...body,
       playerId, // Inject from URL
-    });
+    };
+
+    console.log('[WORKOUT-LOG-CREATE] Validating payload:', JSON.stringify({
+      playerId: dataToValidate.playerId,
+      type: dataToValidate.type,
+      title: dataToValidate.title,
+      duration: dataToValidate.duration,
+      exerciseCount: dataToValidate.exercises?.length,
+    }));
+
+    const validationResult = workoutLogCreateSchema.safeParse(dataToValidate);
 
     if (!validationResult.success) {
+      console.error('[WORKOUT-LOG-CREATE] Validation failed:', validationResult.error.flatten());
       return NextResponse.json(
         { error: 'Invalid workout log data', details: validationResult.error.flatten() },
         { status: 400 }
       );
     }
 
+    console.log('[WORKOUT-LOG-CREATE] Creating workout log:', {
+      userId: session.user.id,
+      playerId,
+      title: validationResult.data.title,
+      exerciseCount: validationResult.data.exercises.length,
+    });
+
     const workoutLog = await createWorkoutLogAdmin(
       session.user.id,
       playerId,
       validationResult.data
     );
+
+    console.log('[WORKOUT-LOG-CREATE] Successfully created:', {
+      workoutLogId: workoutLog.id,
+      title: workoutLog.title,
+    });
 
     return NextResponse.json({
       success: true,

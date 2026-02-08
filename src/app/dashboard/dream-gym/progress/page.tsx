@@ -54,11 +54,16 @@ export default function ProgressPage() {
 
         if (playerToLoad) {
           setSelectedPlayer(playerToLoad);
-          // Fetch workout logs for the selected player
-          const logsRes = await fetch(`/api/players/${playerToLoad.id}/dream-gym/workout-logs`);
-          if (isCancelled || !logsRes.ok) return;
+          // Fetch workout logs for the selected player (with cache-busting)
+          const logsRes = await fetch(`/api/players/${playerToLoad.id}/dream-gym/workout-logs?_t=${Date.now()}`);
+          if (isCancelled) return;
+          if (!logsRes.ok) {
+            console.error('Failed to fetch workout logs:', logsRes.status);
+            return;
+          }
           const data = await logsRes.json();
-          setWorkoutLogs(data.workoutLogs || []);
+          console.log('[PROGRESS] Received workout logs:', data);
+          setWorkoutLogs(data.logs || []);
         } else {
           setSelectedPlayer(null);
           setWorkoutLogs([]);
@@ -80,10 +85,13 @@ export default function ProgressPage() {
   // Fetch workout logs for player selection (separate from initial load)
   async function fetchWorkoutLogsForPlayer(pId: string) {
     try {
-      const res = await fetch(`/api/players/${pId}/dream-gym/workout-logs`);
+      const res = await fetch(`/api/players/${pId}/dream-gym/workout-logs?_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        setWorkoutLogs(data.workoutLogs || []);
+        console.log('[PROGRESS] Received workout logs for player:', data);
+        setWorkoutLogs(data.logs || []);
+      } else {
+        console.error('Failed to fetch workout logs:', res.status);
       }
     } catch (error) {
       console.error('Error fetching workout logs:', error);

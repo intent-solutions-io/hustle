@@ -128,18 +128,29 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div
+      className="min-h-screen relative flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      style={{
+        backgroundImage: 'url(/images/tracks.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Dark Overlay */}
+      <div className="absolute inset-0 bg-black/60" />
+
       {/* Back to Home */}
       <Link
         href="/"
-        className="absolute top-8 left-8 flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 transition-colors"
+        className="absolute top-8 left-8 z-10 flex items-center gap-2 text-sm text-white hover:text-white/80 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Home
       </Link>
 
       {/* Registration Card */}
-      <Card className="w-full max-w-md">
+      <Card className="relative z-10 w-full max-w-md bg-white/95 backdrop-blur-sm shadow-xl">
         <CardHeader className="space-y-2 text-center">
           <div className="flex items-center justify-center gap-3 mb-2">
             <div className="w-8 h-8 bg-zinc-900 rounded-md flex items-center justify-center">

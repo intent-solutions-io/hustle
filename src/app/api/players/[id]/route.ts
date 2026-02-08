@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayer, updatePlayer, deletePlayer } from '@/lib/firebase/services/players';
-import { getUser } from '@/lib/firebase/services/users';
-import { getWorkspaceById } from '@/lib/firebase/services/workspaces';
+import { getPlayerAdmin, updatePlayerAdmin, deletePlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
+import { getWorkspaceByIdAdmin } from '@/lib/firebase/admin-services/workspaces';
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce';
 import { WorkspaceAccessError } from '@/lib/firebase/access-control';
 
@@ -27,7 +27,7 @@ export async function GET(
     const { id } = await params;
 
     // Get player (Firestore - ownership verified by subcollection path)
-    const player = await getPlayer(session.user.id, id);
+    const player = await getPlayerAdmin(session.user.id, id);
 
     if (!player) {
       return NextResponse.json(
@@ -80,7 +80,7 @@ export async function PUT(
     }
 
     // Phase 6 Task 5: Enforce workspace status
-    const user = await getUser(session.user.id);
+    const user = await getUserProfileAdmin(session.user.id);
     if (!user?.defaultWorkspaceId) {
       return NextResponse.json(
         { error: 'No workspace found' },
@@ -88,7 +88,7 @@ export async function PUT(
       );
     }
 
-    const workspace = await getWorkspaceById(user.defaultWorkspaceId);
+    const workspace = await getWorkspaceByIdAdmin(user.defaultWorkspaceId);
     if (!workspace) {
       return NextResponse.json(
         { error: 'Workspace not found' },
@@ -109,7 +109,7 @@ export async function PUT(
     }
 
     // Verify player exists AND belongs to authenticated user (Firestore)
-    const existingPlayer = await getPlayer(session.user.id, id);
+    const existingPlayer = await getPlayerAdmin(session.user.id, id);
 
     if (!existingPlayer) {
       return NextResponse.json(
@@ -119,14 +119,14 @@ export async function PUT(
     }
 
     // Update player (Firestore)
-    await updatePlayer(session.user.id, id, {
+    await updatePlayerAdmin(session.user.id, id, {
       name,
       primaryPosition: position,
       teamClub,
     });
 
     // Get updated player for response
-    const updatedPlayer = await getPlayer(session.user.id, id);
+    const updatedPlayer = await getPlayerAdmin(session.user.id, id);
 
     return NextResponse.json({
       success: true,
@@ -163,7 +163,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Phase 6 Task 5: Enforce workspace status
-    const user = await getUser(session.user.id);
+    const user = await getUserProfileAdmin(session.user.id);
     if (!user?.defaultWorkspaceId) {
       return NextResponse.json(
         { error: 'No workspace found' },
@@ -171,7 +171,7 @@ export async function DELETE(
       );
     }
 
-    const workspace = await getWorkspaceById(user.defaultWorkspaceId);
+    const workspace = await getWorkspaceByIdAdmin(user.defaultWorkspaceId);
     if (!workspace) {
       return NextResponse.json(
         { error: 'Workspace not found' },
@@ -192,7 +192,7 @@ export async function DELETE(
     }
 
     // Verify player exists AND belongs to authenticated user (Firestore)
-    const existingPlayer = await getPlayer(session.user.id, id);
+    const existingPlayer = await getPlayerAdmin(session.user.id, id);
 
     if (!existingPlayer) {
       return NextResponse.json(
@@ -202,7 +202,7 @@ export async function DELETE(
     }
 
     // Delete player (Firestore - CASCADE handled by security rules)
-    await deletePlayer(session.user.id, id);
+    await deletePlayerAdmin(session.user.id, id);
 
     return NextResponse.json({
       success: true,

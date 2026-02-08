@@ -162,3 +162,54 @@ export async function createPlayerAdmin(
     throw new Error(`Failed to create player: ${error.message}`);
   }
 }
+
+/**
+ * Update a player (Admin SDK)
+ * @param userId - User UID
+ * @param playerId - Player document ID
+ * @param data - Partial player data to update
+ */
+export async function updatePlayerAdmin(
+  userId: string,
+  playerId: string,
+  data: Partial<{
+    name: string;
+    gender: PlayerGender;
+    primaryPosition: SoccerPositionCode;
+    secondaryPositions: SoccerPositionCode[];
+    positionNote: string | null;
+    leagueCode: LeagueCode;
+    leagueOtherName: string | null;
+    teamClub: string;
+    photoUrl: string | null;
+  }>
+): Promise<void> {
+  try {
+    const playerRef = adminDb.collection(`users/${userId}/players`).doc(playerId);
+    await playerRef.update({
+      ...data,
+      updatedAt: new Date(),
+    });
+  } catch (error: any) {
+    console.error('Error updating player (Admin):', error);
+    throw new Error(`Failed to update player: ${error.message}`);
+  }
+}
+
+/**
+ * Delete a player (Admin SDK)
+ * @param userId - User UID
+ * @param playerId - Player document ID
+ */
+export async function deletePlayerAdmin(
+  userId: string,
+  playerId: string
+): Promise<void> {
+  try {
+    const playerRef = adminDb.collection(`users/${userId}/players`).doc(playerId);
+    await playerRef.delete();
+  } catch (error: any) {
+    console.error('Error deleting player (Admin):', error);
+    throw new Error(`Failed to delete player: ${error.message}`);
+  }
+}

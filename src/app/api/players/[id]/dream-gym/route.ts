@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayer } from '@/lib/firebase/services/players';
-import { getDreamGym, upsertDreamGym } from '@/lib/firebase/services/dream-gym';
+import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getDreamGymAdmin, upsertDreamGymAdmin } from '@/lib/firebase/admin-services/dream-gym';
 import type { DreamGymProfile, DreamGymSchedule } from '@/types/firestore';
 
 /**
@@ -24,8 +24,8 @@ export async function GET(
 
     const { id: playerId } = await params;
 
-    // Verify player belongs to user
-    const player = await getPlayer(session.user.id, playerId);
+    // Verify player belongs to user (using Admin SDK)
+    const player = await getPlayerAdmin(session.user.id, playerId);
     if (!player) {
       return NextResponse.json(
         { error: 'Player not found' },
@@ -33,8 +33,8 @@ export async function GET(
       );
     }
 
-    // Get Dream Gym profile
-    const dreamGym = await getDreamGym(session.user.id, playerId);
+    // Get Dream Gym profile (using Admin SDK)
+    const dreamGym = await getDreamGymAdmin(session.user.id, playerId);
 
     return NextResponse.json({
       success: true,
@@ -98,8 +98,8 @@ export async function POST(
       );
     }
 
-    // Verify player belongs to user
-    const player = await getPlayer(session.user.id, playerId);
+    // Verify player belongs to user (using Admin SDK)
+    const player = await getPlayerAdmin(session.user.id, playerId);
     if (!player) {
       return NextResponse.json(
         { error: 'Player not found' },
@@ -107,8 +107,8 @@ export async function POST(
       );
     }
 
-    // Create/update Dream Gym profile
-    const dreamGym = await upsertDreamGym(session.user.id, playerId, {
+    // Create/update Dream Gym profile (using Admin SDK)
+    const dreamGym = await upsertDreamGymAdmin(session.user.id, playerId, {
       profile,
       schedule,
     });

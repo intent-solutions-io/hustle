@@ -7,95 +7,90 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Premium Header */}
-      <header className="border-b border-zinc-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <header className="absolute top-0 left-0 right-0 z-50 bg-transparent">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-zinc-900 rounded-md flex items-center justify-center">
-              <span className="text-white font-bold text-sm">H</span>
+            <div className="w-8 h-8 bg-white rounded-md flex items-center justify-center">
+              <span className="text-zinc-900 font-bold text-sm">H</span>
             </div>
-            <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">
+            <h1 className="text-xl font-semibold text-white tracking-tight">
               HUSTLE<sup className="text-[0.5em] align-super">™</sup>
             </h1>
           </div>
           <Link href="/login">
-            <Button variant="ghost" className="text-zinc-600 hover:text-zinc-900 font-medium">
+            <Button variant="ghost" className="text-white hover:text-white hover:bg-white/20 font-medium">
               Sign In
             </Button>
           </Link>
         </div>
       </header>
 
-      {/* Hero Section - Premium Spacing */}
-      <main className="max-w-5xl mx-auto px-6 lg:px-8">
-        <div className="pt-16 pb-12 md:pt-20 md:pb-16 text-center">
-          {/* Primary Value Proposition */}
-          <div className="space-y-8 mb-12">
-            <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-zinc-900 tracking-tight leading-[1.1] max-w-4xl mx-auto">
-              performance DATA
-              <br />
-              recruiters trust
-            </h2>
-            <p className="text-xl md:text-2xl text-zinc-600 max-w-3xl mx-auto leading-relaxed font-light">
-              Professional athletic tracking for families invested in elite player development and college recruiting.
-            </p>
-          </div>
+      {/* Hero Section with Video Background - Extended to include quote */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-32">
+        {/* Video Background */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/videos/GOAL.mp4" type="video/mp4" />
+        </video>
 
-          {/* Trust Signal Quote */}
-          <div className="mb-12">
-            <div className="max-w-3xl mx-auto border-l-2 border-zinc-900 pl-8 text-left">
-              <p className="text-lg md:text-xl text-zinc-700 italic font-light leading-relaxed">
-                &ldquo;When teammates can see the data, honesty becomes automatic. When coaches can verify performance, recruiting becomes transparent.&rdquo;
-              </p>
-            </div>
-          </div>
+        {/* Dark Overlay */}
+        <div className="absolute inset-0 bg-black/50" />
 
-          {/* Early Access Notice */}
-          <div className="space-y-6 mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full border border-amber-200">
-              <span className="text-sm font-medium text-amber-800">
-                🚧 Currently in Development
-              </span>
-            </div>
-            <p className="text-base text-zinc-600 max-w-2xl mx-auto leading-relaxed">
-              We&apos;re actively building the platform athletes and families deserve.
-              <strong className="text-zinc-900"> Want to try what we have so far?</strong> Create an account and explore the early features.
-            </p>
+        {/* Hero Content */}
+        <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
+          <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white tracking-tight leading-[1.1] max-w-4xl mx-auto mb-8">
+            performance DATA
+            <br />
+            recruiters trust
+          </h2>
+          <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed font-light mb-12">
+            Professional athletic tracking for families invested in elite player development and college recruiting.
+          </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/register">
-                <Button
-                  size="lg"
-                  className="bg-zinc-900 hover:bg-zinc-800 text-white h-14 px-10 text-base font-medium rounded-lg shadow-sm hover:shadow-md transition-all"
-                >
-                  Try Early Access
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <a
-                href="https://intentsolutions.io/survey"
-                target="_blank"
-                rel="noopener noreferrer"
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+            <Link href="/register">
+              <Button
+                size="lg"
+                className="bg-white hover:bg-white/90 text-zinc-900 h-14 px-10 text-base font-medium rounded-lg shadow-lg hover:shadow-xl transition-all"
               >
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-14 px-10 text-base font-medium rounded-lg border-2 border-zinc-200 hover:border-zinc-900 transition-all"
-                >
-                  Share Feedback
-                  <ExternalLink className="ml-2 h-4 w-4" />
-                </Button>
-              </a>
-            </div>
+                Get Started
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <a
+              href="https://intentsolutions.io/survey"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button
+                size="lg"
+                className="h-14 px-10 text-base font-medium rounded-lg bg-transparent border-2 border-white text-white hover:bg-white hover:text-zinc-900 transition-all"
+              >
+                Share Feedback
+                <ExternalLink className="ml-2 h-4 w-4" />
+              </Button>
+            </a>
+          </div>
 
-            <p className="text-sm text-zinc-500">
-              Early access available now • Your feedback shapes the future
+          {/* Quote - Now below buttons, still on video */}
+          <div className="max-w-3xl mx-auto">
+            <p className="text-lg md:text-xl text-white/90 italic font-light leading-relaxed">
+              &ldquo;When teammates can see the data, honesty becomes automatic. When coaches can verify performance, recruiting becomes transparent.&rdquo;
             </p>
           </div>
         </div>
+      </section>
 
+      {/* Rest of Page */}
+      <main className="max-w-5xl mx-auto px-6 lg:px-8">
         {/* Value Props - Refined */}
-        <div className="border-t border-zinc-100 pt-12 pb-16">
+        <div className="py-16">
           <div className="grid md:grid-cols-3 gap-12">
             <div className="text-center space-y-4">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-50">
@@ -126,20 +121,34 @@ export default function Home() {
             </div>
           </div>
         </div>
+      </main>
 
-        {/* Two-Path CTA Section */}
-        <div className="border-t border-zinc-100 pt-16 pb-20">
+      {/* Two-Path CTA Section with Background Image */}
+      <section
+        className="relative py-20"
+        style={{
+          backgroundImage: 'url(/images/sport-path.jpg)',
+          backgroundSize: '100% auto',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundColor: '#1a1a1a',
+        }}
+      >
+        {/* Light Overlay for text readability */}
+        <div className="absolute inset-0 bg-black/30" />
+
+        <div className="relative z-10 max-w-6xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-12 md:mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-zinc-900 mb-3">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
               Choose Your Path
             </h2>
-            <p className="text-zinc-600">
+            <p className="text-white/80">
               Jump in now or stay updated—your choice
             </p>
           </div>
-          <div className="grid md:grid-cols-2 gap-8 md:gap-12 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12">
             {/* Path 1: Try Now */}
-            <div className="bg-zinc-50 p-6 md:p-8 rounded-2xl border-2 border-zinc-900 relative">
+            <div className="bg-white p-6 md:p-8 rounded-2xl border-2 border-zinc-900 relative shadow-xl">
               <div className="absolute -top-3 left-8">
                 <span className="bg-zinc-900 text-white text-xs font-semibold px-3 py-1 rounded-full">
                   RECOMMENDED
@@ -184,7 +193,7 @@ export default function Home() {
             </div>
 
             {/* Path 2: Join Waitlist */}
-            <div className="bg-white p-6 md:p-8 rounded-2xl border-2 border-zinc-200">
+            <div className="bg-white/95 backdrop-blur-sm p-6 md:p-8 rounded-2xl border-2 border-zinc-200 shadow-xl">
               <div className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -204,10 +213,10 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </main>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-100 mt-8">
+      <footer className="border-t border-zinc-100 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
           <div className="flex flex-col items-center gap-6">
             <div className="flex flex-col md:flex-row items-center gap-8">

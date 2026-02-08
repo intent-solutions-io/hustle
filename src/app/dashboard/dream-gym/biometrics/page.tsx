@@ -116,23 +116,29 @@ export default function DreamGymBiometricsPage() {
         source: formData.source,
       };
 
+      console.log('[BIOMETRICS] Saving payload:', payload);
+
       const response = await fetch(`/api/players/${playerId}/biometrics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
+      const responseData = await response.json();
+      console.log('[BIOMETRICS] Save response:', responseData);
+
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to save biometrics');
+        throw new Error(responseData.error || 'Failed to save biometrics');
       }
 
-      // Refresh data
+      // Refresh data with cache-busting
       const biometricsRes = await fetch(
-        `/api/players/${playerId}/biometrics?includeTrends=true&limit=30`
+        `/api/players/${playerId}/biometrics?includeTrends=true&limit=30&_t=${Date.now()}`
       );
+      const data = await biometricsRes.json();
+      console.log('[BIOMETRICS] Refresh response:', data);
+
       if (biometricsRes.ok) {
-        const data = await biometricsRes.json();
         setLogs(data.logs || []);
         setTrends(data.trends);
       }
