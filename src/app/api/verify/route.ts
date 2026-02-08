@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import bcrypt from 'bcrypt'
-import { getUser } from '@/lib/firebase/services/users'
-import { getGame, verifyGame } from '@/lib/firebase/services/games'
-import { getPlayer } from '@/lib/firebase/services/players'
+import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users'
+import { getGameAdmin, verifyGameAdmin } from '@/lib/firebase/admin-services/games'
+import { getPlayerAdmin } from '@/lib/firebase/admin-services/players'
 
 // POST /api/verify - Verify a game log
 export async function POST(request: NextRequest) {
+  console.log('[Verify API] Request received')
+
   try {
     const session = await auth();
+    console.log('[Verify API] Session:', session?.user?.id ? 'authenticated' : 'not authenticated')
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -19,6 +22,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { gameId, playerId, pin } = body
+    console.log('[Verify API] Request body:', { gameId, playerId, pinLength: pin?.length })
 
     if (!gameId) {
       return NextResponse.json({
@@ -38,14 +42,17 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Get game from Firestore (requires userId and playerId for subcollection path)
-    const game = await getGame(session.user.id, playerId, gameId);
+    // Get game from Firestore using Admin SDK
+    console.log('[Verify API] Fetching game...')
+    const game = await getGameAdmin(session.user.id, playerId, gameId);
 
     if (!game) {
+      console.log('[Verify API] Game not found')
       return NextResponse.json({
         error: 'Game not found'
       }, { status: 404 })
     }
+    console.log('[Verify API] Game found:', game.id)
 
     // Check if already verified
     if (game.verified) {
@@ -63,25 +70,34 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Verify player exists and belongs to authenticated user (implicit in Firestore path)
-    const player = await getPlayer(session.user.id, playerId);
+    // Verify player exists using Admin SDK
+    console.log('[Verify API] Fetching player...')
+    const player = await getPlayerAdmin(session.user.id, playerId);
 
     if (!player) {
+      console.log('[Verify API] Player not found')
       return NextResponse.json({
         error: 'Forbidden - Not your player'
       }, { status: 403 })
     }
+    console.log('[Verify API] Player found:', player.name)
 
-    // Verify PIN matches user's verification PIN (Firestore)
-    const user = await getUser(session.user.id);
+    // Get user profile using Admin SDK
+    console.log('[Verify API] Fetching user profile...')
+    const user = await getUserProfileAdmin(session.user.id);
 
     if (!user?.verificationPinHash) {
+      console.log('[Verify API] No PIN hash found')
       return NextResponse.json({
         error: 'Verification PIN not set. Please set up your PIN in settings.'
       }, { status: 400 })
     }
+    console.log('[Verify API] User has PIN hash')
 
+    // Verify PIN
+    console.log('[Verify API] Comparing PIN...')
     const isValidPin = await bcrypt.compare(pin, user.verificationPinHash)
+    console.log('[Verify API] PIN valid:', isValidPin)
 
     if (!isValidPin) {
       return NextResponse.json({
@@ -89,18 +105,20 @@ export async function POST(request: NextRequest) {
       }, { status: 401 })
     }
 
-    // Update game to verified (Firestore)
-    await verifyGame(session.user.id, playerId, gameId);
+    // Update game to verified using Admin SDK
+    console.log('[Verify API] Verifying game...')
+    await verifyGameAdmin(session.user.id, playerId, gameId);
+    console.log('[Verify API] Game verified successfully')
 
     // Get updated game for response
-    const verifiedGame = await getGame(session.user.id, playerId, gameId);
+    const verifiedGame = await getGameAdmin(session.user.id, playerId, gameId);
 
-    // Format response to match Prisma structure
+    // Format response
     const gameWithPlayer = {
       ...verifiedGame,
       player: {
         name: player.name,
-        position: player.position
+        position: player.primaryPosition
       }
     };
 
@@ -110,7 +128,7 @@ export async function POST(request: NextRequest) {
       game: gameWithPlayer
     })
   } catch (error) {
-    console.error('Error verifying game:', error)
+    console.error('[Verify API] Error:', error)
     return NextResponse.json({
       error: 'Failed to verify game'
     }, { status: 500 })
