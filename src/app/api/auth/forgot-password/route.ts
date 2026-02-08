@@ -5,6 +5,11 @@ const log = (msg: string, data?: Record<string, unknown>) => {
   console.log(`[forgot-password] ${msg}`, data ? JSON.stringify(data) : '');
 };
 
+// GET endpoint for debugging - verifies route is loaded
+export async function GET() {
+  return NextResponse.json({ status: 'ok', route: 'forgot-password', timestamp: new Date().toISOString() });
+}
+
 // Timeout wrapper for async operations
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -31,6 +36,12 @@ function isValidEmail(email: string): boolean {
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   log('Request received', { timestamp: new Date().toISOString() });
+
+  // Debug: Test if handler is even being called
+  const debugMode = request.headers.get('x-debug') === 'true';
+  if (debugMode) {
+    return NextResponse.json({ debug: true, message: 'Handler reached', timestamp: new Date().toISOString() });
+  }
 
   try {
     const { email } = await request.json().catch(() => ({ email: '' }));
