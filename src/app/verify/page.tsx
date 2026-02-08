@@ -40,6 +40,7 @@ export default function VerifyPage() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [isVerifying, setIsVerifying] = useState(false)
 
   useEffect(() => {
     const initialParams = new URLSearchParams(window.location.search)
@@ -121,14 +122,23 @@ export default function VerifyPage() {
       return
     }
 
+    if (!selectedPlayerId) {
+      setError('No player selected')
+      return
+    }
+
+    setIsVerifying(true)
+
     try {
+      console.log('[Verify] Sending request:', { gameId, playerId: selectedPlayerId })
       const response = await fetch('/api/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, pin })
+        body: JSON.stringify({ gameId, playerId: selectedPlayerId, pin })
       })
 
       const data = await response.json()
+      console.log('[Verify] Response:', response.status, data)
 
       if (!response.ok) {
         throw new Error(data.error || 'Verification failed')
@@ -141,43 +151,26 @@ export default function VerifyPage() {
       // Remove verified game from list
       setGames(games.filter(g => g.id !== gameId))
     } catch (err) {
+      console.error('[Verify] Error:', err)
       setError(err instanceof Error ? err.message : 'Verification failed')
+    } finally {
+      setIsVerifying(false)
     }
   }
 
   if (loadingPlayers) {
     return (
-      <div
-        className="min-h-screen relative flex items-center justify-center"
-        style={{
-          backgroundImage: 'url(/images/sport-path.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }}
-      >
-        <div className="absolute inset-0 bg-black/60" />
-        <p className="relative z-10 text-white text-lg">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#e8e4dc' }}>
+        <p className="text-zinc-700 text-lg">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div
-      className="min-h-screen relative flex flex-col"
-      style={{
-        backgroundImage: 'url(/images/sport-path.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
-      {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/60" />
-
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#e8e4dc' }}>
       {/* Header */}
-      <header className="relative z-10 bg-transparent">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex items-center justify-between">
+      <header className="bg-zinc-900">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
               <Button variant="ghost" size="sm" className="gap-2 text-white hover:text-white/80 hover:bg-white/10">
@@ -198,20 +191,20 @@ export default function VerifyPage() {
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 flex-1 py-8 px-4 sm:px-6 lg:px-8">
+      <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           {/* PIN Setup Help Box */}
-          <div className="bg-blue-500/20 backdrop-blur-sm border border-blue-400/30 rounded-lg p-4 mb-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
-              <HelpCircle className="h-5 w-5 text-blue-300 mt-0.5 flex-shrink-0" />
+              <HelpCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-white font-medium mb-1">Need to set up your verification PIN?</p>
-                <p className="text-blue-100 text-sm mb-3">
+                <p className="text-blue-900 font-medium mb-1">Need to set up your verification PIN?</p>
+                <p className="text-blue-700 text-sm mb-3">
                   Parents/guardians must create a 4-6 digit PIN in Settings before verifying games.
                   This PIN confirms the stats are accurate.
                 </p>
                 <Link href="/dashboard/settings">
-                  <Button size="sm" className="gap-2 bg-white text-blue-600 hover:bg-blue-50">
+                  <Button size="sm" className="gap-2 bg-blue-600 text-white hover:bg-blue-700">
                     <Settings className="h-4 w-4" />
                     Go to Settings to Set PIN
                   </Button>
@@ -220,7 +213,7 @@ export default function VerifyPage() {
             </div>
           </div>
 
-          <div className="bg-white/95 backdrop-blur-sm shadow-xl rounded-lg p-8">
+          <div className="bg-white shadow-lg rounded-lg p-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-6">Verify Game Logs</h1>
 
             {players.length > 0 ? (
@@ -361,12 +354,14 @@ export default function VerifyPage() {
                           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
                           className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           autoFocus
+                          disabled={isVerifying}
                         />
                         <button
                           onClick={() => handleVerify(game.id)}
-                          className="px-6 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-colors"
+                          disabled={isVerifying}
+                          className="px-6 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Verify
+                          {isVerifying ? 'Verifying...' : 'Verify'}
                         </button>
                         <button
                           onClick={() => {
@@ -374,7 +369,8 @@ export default function VerifyPage() {
                             setPin('')
                             setError('')
                           }}
-                          className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md font-medium hover:bg-gray-400 transition-colors"
+                          disabled={isVerifying}
+                          className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md font-medium hover:bg-gray-400 transition-colors disabled:opacity-50"
                         >
                           Cancel
                         </button>
