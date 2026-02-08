@@ -3,23 +3,26 @@
 import { Suspense, useState, FormEvent, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { confirmPasswordReset } from 'firebase/auth';
+import { auth } from '@/lib/firebase/config';
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const [oobCode, setOobCode] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const tokenParam = searchParams.get('token');
-    if (!tokenParam) {
+    // Firebase uses 'oobCode' parameter for password reset links
+    const code = searchParams.get('oobCode');
+    if (!code) {
       setStatus('error');
-      setMessage('No reset token provided');
+      setMessage('Invalid or missing reset link. Please request a new password reset.');
     } else {
-      setToken(tokenParam);
+      setOobCode(code);
     }
   }, [searchParams]);
 
@@ -42,43 +45,54 @@ function ResetPasswordContent() {
       return;
     }
 
-    if (!token) {
+    if (!oobCode) {
       setStatus('error');
-      setMessage('Invalid reset token');
+      setMessage('Invalid reset link');
       return;
     }
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
-      });
+      // Use Firebase client SDK to confirm password reset
+      await confirmPasswordReset(auth, oobCode, password);
 
-      const data = await response.json();
+      setStatus('success');
+      setMessage('Your password has been reset successfully!');
 
-      if (response.ok) {
-        setStatus('success');
-        setMessage(data.message || 'Password reset successfully');
+      // Redirect to login after 3 seconds
+      setTimeout(() => {
+        router.push('/login?reset=success');
+      }, 3000);
+    } catch (error: unknown) {
+      console.error('Reset password error:', error);
+      const firebaseError = error as { code?: string; message?: string };
 
-        // Redirect to login after 3 seconds
-        setTimeout(() => {
-          router.push('/login?reset=success');
-        }, 3000);
+      // Handle specific Firebase errors
+      if (firebaseError.code === 'auth/expired-action-code') {
+        setStatus('error');
+        setMessage('This reset link has expired. Please request a new password reset.');
+      } else if (firebaseError.code === 'auth/invalid-action-code') {
+        setStatus('error');
+        setMessage('This reset link is invalid or has already been used. Please request a new password reset.');
+      } else if (firebaseError.code === 'auth/weak-password') {
+        setStatus('error');
+        setMessage('Password is too weak. Please use a stronger password.');
       } else {
         setStatus('error');
-        setMessage(data.error || 'Failed to reset password');
+        setMessage(firebaseError.message || 'An error occurred. Please try again.');
       }
-    } catch (error) {
-      console.error('Reset password error:', error);
-      setStatus('error');
-      setMessage('An error occurred. Please try again.');
     }
   };
 
-  if (!token && status !== 'error') {
+  if (!oobCode && status !== 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{
+          backgroundImage: 'url(/images/tracks.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
@@ -88,7 +102,14 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div
+      className="min-h-screen flex items-center justify-center px-4"
+      style={{
+        backgroundImage: 'url(/images/tracks.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
@@ -125,6 +146,13 @@ function ResetPasswordContent() {
             {status === 'error' && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                 {message}
+                {message.includes('request a new') && (
+                  <div className="mt-2">
+                    <Link href="/forgot-password" className="text-red-600 underline font-medium">
+                      Request new reset link
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 
@@ -167,7 +195,7 @@ function ResetPasswordContent() {
 
             <button
               type="submit"
-              disabled={status === 'loading' || !token}
+              disabled={status === 'loading' || !oobCode}
               className="w-full bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {status === 'loading' ? (
@@ -201,7 +229,7 @@ function ResetPasswordContent() {
 
             <div className="text-center">
               <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700">
-                ← Back to Login
+                Back to Login
               </Link>
             </div>
           </form>
@@ -214,7 +242,14 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{
+          backgroundImage: 'url(/images/tracks.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
       </div>
     }>
