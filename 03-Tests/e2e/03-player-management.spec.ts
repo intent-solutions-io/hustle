@@ -13,6 +13,7 @@ async function login(page: Page) {
   const testPassword = 'TestPassword123!';
 
   await page.goto('/register');
+  await page.waitForSelector('button[type="submit"]', { timeout: 30000 });
   await page.fill('input[id="firstName"]', 'Player');
   await page.fill('input[id="lastName"]', 'Test');
   await page.fill('input[id="email"]', testEmail);
@@ -21,14 +22,20 @@ async function login(page: Page) {
   await page.fill('input[id="confirmPassword"]', testPassword);
   await page.click('button[type="submit"]');
 
-  await page.waitForTimeout(2000);
+  // Wait for redirect to login page
+  await page.waitForURL(/\/login/, { timeout: 60000 });
 
-  await page.goto('/login');
+  // Login
+  await page.waitForSelector('button[type="submit"]', { timeout: 30000 });
   await page.fill('input[id="email"], input[type="email"]', testEmail);
   await page.fill('input[id="password"], input[type="password"]', testPassword);
   await page.click('button[type="submit"]');
 
-  await page.waitForTimeout(2000);
+  // Wait for dashboard redirect (confirms login + session established)
+  await page.waitForURL(/\/dashboard/, { timeout: 90000 });
+
+  // Wait for session to be fully established
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
   return { email: testEmail, password: testPassword };
 }
@@ -191,7 +198,7 @@ test.describe('Player Management - Security', () => {
     await page.fill('input#birthday', '2010-06-15');
     await page.click('input[name="gender"][value="male"]');
     await page.selectOption('select#primaryPosition', 'CB');
-    await page.selectOption('select#leagueCode', 'comp_travel');
+    await page.selectOption('select#leagueCode', 'local_travel');
     await page.fill('input#teamClub', 'Elite FC');
 
     // Monitor for alerts (XSS vulnerability indicator)
@@ -274,7 +281,7 @@ test.describe('Player Management - Edge Cases', () => {
     await page.fill('input#birthday', '2010-06-15');
     await page.click('input[name="gender"][value="male"]');
     await page.selectOption('select#primaryPosition', 'CB');
-    await page.selectOption('select#leagueCode', 'comp_travel');
+    await page.selectOption('select#leagueCode', 'local_travel');
     await page.fill('input#teamClub', 'Elite FC');
 
     await page.click('button[type="submit"]');
@@ -301,7 +308,7 @@ test.describe('Player Management - Edge Cases', () => {
 
     await page.click('input[name="gender"][value="male"]');
     await page.selectOption('select#primaryPosition', 'CB');
-    await page.selectOption('select#leagueCode', 'comp_travel');
+    await page.selectOption('select#leagueCode', 'local_travel');
     await page.fill('input#teamClub', 'Elite FC');
 
     await page.click('button[type="submit"]');
@@ -322,7 +329,7 @@ test.describe('Player Management - Edge Cases', () => {
     await page.fill('input#birthday', '1924-01-01');
     await page.click('input[name="gender"][value="male"]');
     await page.selectOption('select#primaryPosition', 'CB');
-    await page.selectOption('select#leagueCode', 'comp_travel');
+    await page.selectOption('select#leagueCode', 'local_travel');
     await page.fill('input#teamClub', 'Elite FC');
 
     await page.click('button[type="submit"]');

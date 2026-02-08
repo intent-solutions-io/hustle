@@ -15,6 +15,28 @@ import { test, expect, Page } from '@playwright/test';
  * 9. Verify dashboard stats update
  */
 
+// Helper function to navigate with retry
+async function safeGoto(page: Page, url: string, options: { timeout?: number; retries?: number } = {}) {
+  const { timeout = 30000, retries = 2 } = options;
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+      // Wait for page to stabilize
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      return;
+    } catch (error: any) {
+      lastError = error;
+      console.log(`Navigation attempt ${attempt + 1} failed: ${error.message}`);
+      if (attempt < retries) {
+        await page.waitForTimeout(1000);
+      }
+    }
+  }
+  throw lastError;
+}
+
 // Helper function to register and login
 async function registerAndLogin(page: Page) {
   const timestamp = Date.now();
@@ -45,6 +67,10 @@ async function registerAndLogin(page: Page) {
 
   // Wait for dashboard redirect (confirms login + provisioning completed)
   await page.waitForURL(/\/dashboard/, { timeout: 90000 });
+
+  // Wait for session to be fully established (session cookie creation is async)
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(1000);
 
   return { email: testEmail, password: testPassword };
 }
@@ -153,7 +179,7 @@ test.describe('Complete User Journey - Happy Path', () => {
     // Brief wait to ensure Firestore write is fully committed before SSR read
     await page.waitForTimeout(1000);
 
-    await page.goto('/dashboard/athletes');
+    await safeGoto(page, '/dashboard/athletes');
 
     // Wait for the page to load and show athletes grid (not empty state)
     await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
@@ -302,8 +328,8 @@ test.describe('Complete User Journey - Field Player vs Goalkeeper', () => {
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
-    // Navigate to log game through athletes list
-    await page.goto('/dashboard/athletes');
+    // Navigate to log game through athletes list (with retry for session timing)
+    await safeGoto(page, '/dashboard/athletes');
     await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
 
     // Find the goalkeeper athlete link
@@ -374,8 +400,8 @@ test.describe('Complete User Journey - Data Validation', () => {
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
-    // Navigate to log game through athletes list
-    await page.goto('/dashboard/athletes');
+    // Navigate to log game through athletes list (with retry for session timing)
+    await safeGoto(page, '/dashboard/athletes');
     await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
 
     // Find and click the athlete link
@@ -445,8 +471,8 @@ test.describe('Complete User Journey - Data Validation', () => {
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
-    // Navigate to log game through athletes list
-    await page.goto('/dashboard/athletes');
+    // Navigate to log game through athletes list (with retry for session timing)
+    await safeGoto(page, '/dashboard/athletes');
     await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
 
     // Find and click the athlete link
@@ -520,8 +546,8 @@ test.describe('Complete User Journey - Security', () => {
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
-    // Navigate to log game through athletes list
-    await page.goto('/dashboard/athletes');
+    // Navigate to log game through athletes list (with retry for session timing)
+    await safeGoto(page, '/dashboard/athletes');
     await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
 
     // Find and click the athlete link
@@ -577,7 +603,7 @@ test.describe('Complete User Journey - Security', () => {
     // If game was created, verify the opponent name is displayed safely
     if (response && response.status() < 400) {
       // Navigate to games list or athlete detail to see the stored data
-      await page.goto('/dashboard/athletes');
+      await safeGoto(page, '/dashboard/athletes');
       await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
 
       // Check page content for raw script tag (would indicate improper escaping)
@@ -630,8 +656,8 @@ test.describe('Complete User Journey - Security', () => {
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
-    // Navigate to log game through athletes list
-    await page.goto('/dashboard/athletes');
+    // Navigate to log game through athletes list (with retry for session timing)
+    await safeGoto(page, '/dashboard/athletes');
     await page.waitForSelector('h1:has-text("Athletes")', { timeout: 10000 });
 
     // Find and click the athlete link
