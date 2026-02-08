@@ -127,10 +127,13 @@ export async function POST(request: NextRequest) {
       message: 'Game verified successfully',
       game: gameWithPlayer
     })
-  } catch (error) {
-    console.error('[Verify API] Error:', error)
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+    console.error('[Verify API] Error:', errorMessage)
+    console.error('[Verify API] Stack:', errorStack)
     return NextResponse.json({
-      error: 'Failed to verify game'
+      error: `Failed to verify game: ${errorMessage}`
     }, { status: 500 })
   }
 }
