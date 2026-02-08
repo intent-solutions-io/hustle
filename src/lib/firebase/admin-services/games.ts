@@ -369,3 +369,54 @@ export async function createGameAdmin(
     throw new Error(`Failed to create game: ${error.message}`);
   }
 }
+
+/**
+ * Get a single game by ID (Admin SDK)
+ * @param userId - User UID
+ * @param playerId - Player document ID
+ * @param gameId - Game document ID
+ * @returns Game object or null if not found
+ */
+export async function getGameAdmin(
+  userId: string,
+  playerId: string,
+  gameId: string
+): Promise<Game | null> {
+  try {
+    const gameRef = adminDb.doc(`users/${userId}/players/${playerId}/games/${gameId}`);
+    const snapshot = await gameRef.get();
+
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    return toGame(snapshot.id, snapshot.data() as GameDocument);
+  } catch (error: any) {
+    console.error('Error fetching game (Admin):', error);
+    throw new Error(`Failed to fetch game: ${error.message}`);
+  }
+}
+
+/**
+ * Mark a game as verified (Admin SDK)
+ * @param userId - User UID
+ * @param playerId - Player document ID
+ * @param gameId - Game document ID
+ */
+export async function verifyGameAdmin(
+  userId: string,
+  playerId: string,
+  gameId: string
+): Promise<void> {
+  try {
+    const gameRef = adminDb.doc(`users/${userId}/players/${playerId}/games/${gameId}`);
+    await gameRef.update({
+      verified: true,
+      verifiedAt: new Date(),
+      updatedAt: new Date(),
+    });
+  } catch (error: any) {
+    console.error('Error verifying game (Admin):', error);
+    throw new Error(`Failed to verify game: ${error.message}`);
+  }
+}
