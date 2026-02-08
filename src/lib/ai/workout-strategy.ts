@@ -89,6 +89,13 @@ function getVertexAI(): VertexAI {
   const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
   const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
 
+  console.log('[AI Strategy] Initializing Vertex AI:', {
+    projectId: projectId ? `${projectId.slice(0, 10)}...` : 'NOT SET',
+    location,
+    hasGoogleCloudProject: !!process.env.GOOGLE_CLOUD_PROJECT,
+    hasGCloudProject: !!process.env.GCLOUD_PROJECT,
+  });
+
   if (!projectId) {
     throw new Error('GOOGLE_CLOUD_PROJECT environment variable is required');
   }
