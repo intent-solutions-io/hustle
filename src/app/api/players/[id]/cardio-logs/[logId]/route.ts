@@ -13,7 +13,7 @@ import { cardioLogUpdateSchema } from '@/lib/validations/cardio-log-schema';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; logId: string } }
+  { params }: { params: Promise<{ id: string; logId: string }> }
 ) {
   try {
     const session = await auth();

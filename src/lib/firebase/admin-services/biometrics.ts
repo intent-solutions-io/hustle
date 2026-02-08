@@ -69,6 +69,7 @@ export async function createBiometricsLogAdmin(
 ): Promise<BiometricsLog> {
   try {
     const biometricsRef = getBiometricsRef(userId, playerId);
+    console.log('[createBiometricsLogAdmin] Collection path:', `users/${userId}/players/${playerId}/biometrics`);
     const now = Timestamp.now();
 
     const docData = {
@@ -88,7 +89,9 @@ export async function createBiometricsLogAdmin(
     };
 
     const docRef = await biometricsRef.add(docData);
+    console.log('[createBiometricsLogAdmin] Created document with ID:', docRef.id);
     const doc = await docRef.get();
+    console.log('[createBiometricsLogAdmin] Document exists:', doc.exists);
 
     return toBiometricsLog(docRef.id, doc.data() as BiometricsLogDocument);
   } catch (error: unknown) {
@@ -139,44 +142,58 @@ export async function getBiometricsLogsAdmin(
 ): Promise<{ logs: BiometricsLog[]; nextCursor: string | null }> {
   try {
     const biometricsRef = getBiometricsRef(userId, playerId);
-    let query = biometricsRef.orderBy('date', 'desc');
+    const limit = options?.limit ?? 30;
 
-    // Apply source filter
-    if (options?.source) {
-      query = query.where('source', '==', options.source);
+    console.log('[getBiometricsLogsAdmin] Collection path:', `users/${userId}/players/${playerId}/biometrics`);
+
+    // Fetch all documents and sort in memory (more reliable than Firestore orderBy for subcollections)
+    const allDocsSnapshot = await biometricsRef.get();
+
+    console.log('[getBiometricsLogsAdmin] Total documents found:', allDocsSnapshot.size);
+
+    if (allDocsSnapshot.size === 0) {
+      return { logs: [], nextCursor: null };
     }
 
-    // Apply date range filter
+    // Get all documents and convert to BiometricsLog
+    const allLogs = allDocsSnapshot.docs.map((doc) => {
+      const data = doc.data() as BiometricsLogDocument;
+      return toBiometricsLog(doc.id, data);
+    });
+
+    // Sort by date descending
+    allLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Apply source filter if specified
+    let filteredLogs = allLogs;
+    if (options?.source) {
+      filteredLogs = filteredLogs.filter(log => log.source === options.source);
+    }
+
+    // Apply date range filters
     if (options?.startDate) {
-      query = query.where('date', '>=', Timestamp.fromDate(options.startDate));
+      filteredLogs = filteredLogs.filter(log => new Date(log.date) >= options.startDate!);
     }
     if (options?.endDate) {
-      query = query.where('date', '<=', Timestamp.fromDate(options.endDate));
+      filteredLogs = filteredLogs.filter(log => new Date(log.date) <= options.endDate!);
     }
 
-    // Apply pagination cursor
+    // Apply pagination
+    let startIndex = 0;
     if (options?.cursor) {
-      const cursorDoc = await biometricsRef.doc(options.cursor).get();
-      if (cursorDoc.exists) {
-        query = query.startAfter(cursorDoc);
+      const cursorIndex = filteredLogs.findIndex(log => log.id === options.cursor);
+      if (cursorIndex !== -1) {
+        startIndex = cursorIndex + 1;
       }
     }
 
-    // Apply limit (default 30)
-    const limit = options?.limit ?? 30;
-    query = query.limit(limit + 1);
-
-    const snapshot = await query.get();
-    const docs = snapshot.docs;
-
-    const hasNextPage = docs.length > limit;
-    const logs = docs.slice(0, limit).map((doc) =>
-      toBiometricsLog(doc.id, doc.data() as BiometricsLogDocument)
-    );
+    const paginatedLogs = filteredLogs.slice(startIndex, startIndex + limit + 1);
+    const hasNextPage = paginatedLogs.length > limit;
+    const resultLogs = paginatedLogs.slice(0, limit);
 
     return {
-      logs,
-      nextCursor: hasNextPage ? docs[limit - 1].id : null,
+      logs: resultLogs,
+      nextCursor: hasNextPage ? resultLogs[resultLogs.length - 1]?.id ?? null : null,
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -252,19 +269,46 @@ export async function getBiometricsTrendsAdmin(
 ): Promise<BiometricsTrends> {
   try {
     const biometricsRef = getBiometricsRef(userId, playerId);
-    let query = biometricsRef.orderBy('date', 'desc');
+    const limit = options?.limit ?? 30;
 
+    // Fetch all documents and filter/sort in memory
+    const allDocsSnapshot = await biometricsRef.get();
+
+    if (allDocsSnapshot.size === 0) {
+      return {
+        avgRestingHeartRate: null,
+        avgHrv: null,
+        avgSleepScore: null,
+        avgSleepHours: null,
+        avgSteps: null,
+        dataPoints: 0,
+      };
+    }
+
+    // Get all documents
+    let allLogs = allDocsSnapshot.docs.map((doc) => doc.data() as BiometricsLogDocument);
+
+    // Apply date filters
     if (options?.startDate) {
-      query = query.where('date', '>=', Timestamp.fromDate(options.startDate));
+      allLogs = allLogs.filter(log => {
+        const logDate = log.date && 'toDate' in log.date ? log.date.toDate() : new Date(String(log.date));
+        return logDate >= options.startDate!;
+      });
     }
     if (options?.endDate) {
-      query = query.where('date', '<=', Timestamp.fromDate(options.endDate));
+      allLogs = allLogs.filter(log => {
+        const logDate = log.date && 'toDate' in log.date ? log.date.toDate() : new Date(String(log.date));
+        return logDate <= options.endDate!;
+      });
     }
 
-    query = query.limit(options?.limit ?? 30);
-
-    const snapshot = await query.get();
-    const logs = snapshot.docs.map((doc) => doc.data() as BiometricsLogDocument);
+    // Sort by date descending and limit
+    allLogs.sort((a, b) => {
+      const dateA = a.date && 'toDate' in a.date ? a.date.toDate() : new Date(String(a.date));
+      const dateB = b.date && 'toDate' in b.date ? b.date.toDate() : new Date(String(b.date));
+      return dateB.getTime() - dateA.getTime();
+    });
+    const logs = allLogs.slice(0, limit);
 
     if (logs.length === 0) {
       return {
@@ -288,14 +332,14 @@ export async function getBiometricsTrendsAdmin(
 
     // Calculate each average once
     const avgRhr = avg(rhrValues);
-    const avgHrv = avg(hrvValues);
+    const avgHrvVal = avg(hrvValues);
     const avgSleepScore = avg(sleepScoreValues);
     const avgSleepHours = avg(sleepHoursValues);
     const avgSteps = avg(stepsValues);
 
     return {
       avgRestingHeartRate: avgRhr !== null ? Math.round(avgRhr) : null,
-      avgHrv: avgHrv !== null ? Math.round(avgHrv) : null,
+      avgHrv: avgHrvVal !== null ? Math.round(avgHrvVal) : null,
       avgSleepScore: avgSleepScore !== null ? Math.round(avgSleepScore) : null,
       avgSleepHours: avgSleepHours !== null ? Math.round(avgSleepHours * 10) / 10 : null,
       avgSteps: avgSteps !== null ? Math.round(avgSteps) : null,

@@ -204,8 +204,26 @@ export default async function DashboardPage() {
             <Target className='h-4 w-4 text-zinc-500' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold text-zinc-900'>--</div>
-            <p className='text-xs text-zinc-500 mt-1'>Complete profile to unlock</p>
+            {athletes.length === 0 ? (
+              <>
+                <div className='text-2xl font-bold text-zinc-400'>--</div>
+                <p className='text-xs text-zinc-500 mt-1'>Add an athlete to begin</p>
+              </>
+            ) : totalVerifiedGames === 0 ? (
+              <>
+                <div className='text-2xl font-bold text-zinc-400'>--</div>
+                <p className='text-xs text-zinc-500 mt-1'>Log verified games to unlock</p>
+              </>
+            ) : (
+              <>
+                <div className='text-2xl font-bold text-emerald-600'>
+                  {Math.min(100, Math.round((totalVerifiedGames / 10) * 100))}
+                </div>
+                <p className='text-xs text-zinc-500 mt-1'>
+                  Based on {totalVerifiedGames} verified {totalVerifiedGames === 1 ? 'game' : 'games'}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

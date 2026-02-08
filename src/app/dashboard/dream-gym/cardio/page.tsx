@@ -113,7 +113,7 @@ export default function CardioLogPage() {
           location: formData.location || null,
           weather: formData.weather || null,
           notes: formData.notes || null,
-          perceivedEffort: formData.perceivedEffort ? parseInt(formData.perceivedEffort) : null,
+          perceivedEffort: formData.perceivedEffort || null, // Keep as string for Zod enum
         }),
       });
 

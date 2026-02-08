@@ -130,45 +130,59 @@ export async function getWorkoutLogsAdmin(
 ): Promise<{ logs: WorkoutLog[]; nextCursor: string | null }> {
   try {
     const logsRef = getWorkoutLogsRef(userId, playerId);
-    let query = logsRef.orderBy('date', 'desc');
+    const limit = options?.limit ?? 20;
 
-    // Apply type filter
-    if (options?.type) {
-      query = query.where('type', '==', options.type);
+    console.log('[getWorkoutLogsAdmin] Fetching from:', `users/${userId}/players/${playerId}/workoutLogs`);
+
+    // First, try to get all documents without orderBy to check if data exists
+    const allDocsSnapshot = await logsRef.get();
+    console.log('[getWorkoutLogsAdmin] Total documents in collection:', allDocsSnapshot.size);
+
+    if (allDocsSnapshot.size === 0) {
+      return { logs: [], nextCursor: null };
     }
 
-    // Apply date range filter
+    // Get all documents and sort in memory (more reliable than Firestore orderBy for subcollections)
+    const allLogs = allDocsSnapshot.docs.map((doc) => {
+      const data = doc.data() as WorkoutLogDocument;
+      return toWorkoutLog(doc.id, data);
+    });
+
+    // Sort by date descending
+    allLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Apply type filter if specified
+    let filteredLogs = allLogs;
+    if (options?.type) {
+      filteredLogs = filteredLogs.filter(log => log.type === options.type);
+    }
+
+    // Apply date range filters
     if (options?.startDate) {
-      query = query.where('date', '>=', Timestamp.fromDate(options.startDate));
+      filteredLogs = filteredLogs.filter(log => new Date(log.date) >= options.startDate!);
     }
     if (options?.endDate) {
-      query = query.where('date', '<=', Timestamp.fromDate(options.endDate));
+      filteredLogs = filteredLogs.filter(log => new Date(log.date) <= options.endDate!);
     }
 
-    // Apply pagination cursor
+    // Apply pagination
+    let startIndex = 0;
     if (options?.cursor) {
-      const cursorDoc = await logsRef.doc(options.cursor).get();
-      if (cursorDoc.exists) {
-        query = query.startAfter(cursorDoc);
+      const cursorIndex = filteredLogs.findIndex(log => log.id === options.cursor);
+      if (cursorIndex !== -1) {
+        startIndex = cursorIndex + 1;
       }
     }
 
-    // Apply limit (default 20)
-    const limit = options?.limit ?? 20;
-    query = query.limit(limit + 1); // Fetch one extra to check for next page
+    const paginatedLogs = filteredLogs.slice(startIndex, startIndex + limit + 1);
+    const hasNextPage = paginatedLogs.length > limit;
+    const resultLogs = paginatedLogs.slice(0, limit);
 
-    const snapshot = await query.get();
-    const docs = snapshot.docs;
-
-    // Check if there's a next page
-    const hasNextPage = docs.length > limit;
-    const logs = docs.slice(0, limit).map((doc) =>
-      toWorkoutLog(doc.id, doc.data() as WorkoutLogDocument)
-    );
+    console.log('[getWorkoutLogsAdmin] Returning logs:', resultLogs.length);
 
     return {
-      logs,
-      nextCursor: hasNextPage ? docs[limit - 1].id : null,
+      logs: resultLogs,
+      nextCursor: hasNextPage ? resultLogs[resultLogs.length - 1]?.id ?? null : null,
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';

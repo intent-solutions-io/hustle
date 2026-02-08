@@ -41,19 +41,19 @@ function toDreamGym(id: string, data: DreamGymDocument): DreamGym {
     playerId: data.playerId,
     profile: data.profile,
     schedule: data.schedule,
-    events: data.events.map((event: DreamGymEvent): DreamGymEventClient => ({
+    events: (data.events ?? []).map((event: DreamGymEvent): DreamGymEventClient => ({
       ...event,
       date: event.date instanceof Timestamp ? event.date.toDate() : event.date as unknown as Date,
     })),
     mental: {
-      checkIns: data.mental.checkIns.map((checkIn: DreamGymMentalCheckIn): DreamGymMentalCheckInClient => ({
+      checkIns: (data.mental?.checkIns ?? []).map((checkIn: DreamGymMentalCheckIn): DreamGymMentalCheckInClient => ({
         ...checkIn,
         date: checkIn.date instanceof Timestamp ? checkIn.date.toDate() : checkIn.date as unknown as Date,
       })),
-      favoriteTips: data.mental.favoriteTips,
-      lastCheckIn: data.mental.lastCheckIn instanceof Timestamp
+      favoriteTips: data.mental?.favoriteTips ?? [],
+      lastCheckIn: data.mental?.lastCheckIn instanceof Timestamp
         ? data.mental.lastCheckIn.toDate()
-        : data.mental.lastCheckIn || null,
+        : data.mental?.lastCheckIn || null,
     },
     createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : data.createdAt as unknown as Date,
     updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : data.updatedAt as unknown as Date,

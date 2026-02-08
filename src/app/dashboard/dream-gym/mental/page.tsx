@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, Brain, Heart, Star, Zap, Battery, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Loader2, Brain, Heart, Star, Zap, Battery, ChevronDown, ChevronUp, Eye, Wind, Target, MessageCircle, Settings, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import type { Player, DreamGym, DreamGymMentalCheckInClient } from '@/types/firestore';
 
@@ -12,32 +12,80 @@ const MENTAL_TIPS = [
   {
     id: 'tip1',
     title: 'Pre-Game Visualization',
-    content: 'Spend 5 minutes before each game visualizing yourself making successful plays. See the ball, feel your movements, hear the crowd.',
+    icon: Eye,
+    summary: 'See your success before it happens',
+    content: 'Spend 5 minutes before each game visualizing yourself making successful plays. See the ball, feel your movements, hear the crowd. Athletes who visualize perform 13% better on average.',
+    steps: [
+      'Find a quiet spot 10 minutes before warm-up',
+      'Close your eyes and take 3 deep breaths',
+      'Picture yourself making 3 perfect plays',
+      'Feel the emotions of success',
+    ],
   },
   {
     id: 'tip2',
     title: 'Bounce-Back Breathing',
-    content: 'When things go wrong, take 3 deep breaths: 4 seconds in, hold 4, out 4. This resets your nervous system and clears your mind.',
+    icon: Wind,
+    summary: 'Reset your mind in 12 seconds',
+    content: 'When things go wrong, take 3 deep breaths: 4 seconds in, hold 4, out 4. This resets your nervous system and clears your mind. Used by elite athletes worldwide.',
+    steps: [
+      'Breathe in through your nose for 4 seconds',
+      'Hold your breath for 4 seconds',
+      'Exhale slowly through your mouth for 4 seconds',
+      'Repeat 3 times, then refocus',
+    ],
   },
   {
     id: 'tip3',
     title: 'Focus on the Next Play',
-    content: 'Champions have short memories. Whether you just scored or made a mistake, the only play that matters is the next one.',
+    icon: Target,
+    summary: 'Champions have short memories',
+    content: 'Whether you just scored or made a mistake, the only play that matters is the next one. Dwelling on the past steals energy from the present.',
+    steps: [
+      'Acknowledge what happened (1 second)',
+      'Say "next play" out loud or in your head',
+      'Reset your body posture - stand tall',
+      'Lock eyes on where you need to be',
+    ],
   },
   {
     id: 'tip4',
     title: 'Positive Self-Talk',
-    content: 'Replace "I can\'t" with "I\'m learning to." Your brain believes what you tell it. Be your own biggest supporter.',
+    icon: MessageCircle,
+    summary: 'Be your own biggest supporter',
+    content: 'Replace "I can\'t" with "I\'m learning to." Your brain believes what you tell it. Studies show positive self-talk improves performance by up to 25%.',
+    steps: [
+      'Notice negative thoughts when they come',
+      'Challenge them: "Is this really true?"',
+      'Replace with a positive statement',
+      'Use "I am" statements: "I am getting better"',
+    ],
   },
   {
     id: 'tip5',
     title: 'Control the Controllables',
-    content: 'You can\'t control the ref, the weather, or your opponents. Focus on your effort, attitude, and preparation.',
+    icon: Settings,
+    summary: 'Focus your energy where it matters',
+    content: 'You can\'t control the ref, the weather, or your opponents. Focus on your effort, attitude, and preparation - the things within your power.',
+    steps: [
+      'List what you CAN control today',
+      'Let go of what you cannot change',
+      'Put 100% effort into your controllables',
+      'Review after: did you control what you could?',
+    ],
   },
   {
     id: 'tip6',
     title: 'Celebrate Small Wins',
-    content: 'Every good pass, tackle won, or smart run is a victory. Acknowledge your progress to build confidence.',
+    icon: Trophy,
+    summary: 'Build confidence through recognition',
+    content: 'Every good pass, tackle won, or smart run is a victory. Acknowledging your progress builds confidence and motivation for bigger achievements.',
+    steps: [
+      'Set 3 mini-goals before each game/practice',
+      'Notice when you achieve them',
+      'Give yourself a small celebration (fist pump)',
+      'Write down 3 wins after each session',
+    ],
   },
 ];
 
@@ -53,6 +101,7 @@ export default function DreamGymMentalPage() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [dreamGym, setDreamGym] = useState<DreamGym | null>(null);
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const [expandedTip, setExpandedTip] = useState<string | null>(null);
   const [checkIn, setCheckIn] = useState({
     mood: 3 as 1 | 2 | 3 | 4 | 5,
     energy: 'ok' as 'low' | 'ok' | 'high',
@@ -307,37 +356,62 @@ export default function DreamGymMentalPage() {
 
       {/* Mood History */}
       {recentCheckIns.length > 0 && (
-        <Card className="border-zinc-200">
-          <CardHeader>
+        <Card className="border-zinc-200 overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50">
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Brain className="h-5 w-5" />
+                <Brain className="h-5 w-5 text-purple-600" />
                 Recent Mood
               </span>
               {moodTrend && (
-                <span className={`text-sm px-2 py-1 rounded ${
+                <span className={`text-sm px-3 py-1 rounded-full font-medium ${
                   moodTrend === 'up' ? 'bg-green-100 text-green-700' :
                   moodTrend === 'down' ? 'bg-red-100 text-red-700' :
-                  'bg-zinc-100 text-zinc-700'
+                  'bg-blue-100 text-blue-700'
                 }`}>
                   {moodTrend === 'up' ? 'Trending Up' : moodTrend === 'down' ? 'Trending Down' : 'Stable'}
                 </span>
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-end gap-2 h-20">
-              {recentCheckIns.map((checkIn, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    className="w-full bg-zinc-900 rounded-t"
-                    style={{ height: `${(checkIn.mood / 5) * 100}%` }}
-                  />
-                  <span className="text-xs text-zinc-500">
-                    {new Date(checkIn.date).toLocaleDateString('en-US', { weekday: 'short' })}
-                  </span>
-                </div>
-              ))}
+          <CardContent className="pt-6">
+            <div className="flex justify-between items-end gap-3 h-32">
+              {recentCheckIns.map((checkInItem, i) => {
+                const moodColors = [
+                  'from-red-400 to-red-500',      // 1 - bad
+                  'from-orange-400 to-orange-500', // 2 - not great
+                  'from-yellow-400 to-yellow-500', // 3 - okay
+                  'from-lime-400 to-lime-500',     // 4 - good
+                  'from-green-400 to-green-500',   // 5 - great
+                ];
+                const moodColor = moodColors[checkInItem.mood - 1];
+                const isToday = new Date(checkInItem.date).toDateString() === new Date().toDateString();
+
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                    <span className="text-2xl">{MOOD_EMOJIS[checkInItem.mood - 1]}</span>
+                    <div className="w-full h-16 bg-zinc-100 rounded-lg relative overflow-hidden">
+                      <div
+                        className={`absolute bottom-0 w-full bg-gradient-to-t ${moodColor} rounded-lg transition-all duration-500`}
+                        style={{ height: `${(checkInItem.mood / 5) * 100}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium ${isToday ? 'text-purple-600' : 'text-zinc-500'}`}>
+                      {isToday ? 'Today' : new Date(checkInItem.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Average mood indicator */}
+            <div className="mt-4 pt-4 border-t border-zinc-100 flex items-center justify-center gap-2">
+              <span className="text-sm text-zinc-500">7-day average:</span>
+              <span className="text-lg">
+                {MOOD_EMOJIS[Math.round(recentCheckIns.reduce((sum, c) => sum + c.mood, 0) / recentCheckIns.length) - 1]}
+              </span>
+              <span className="text-sm font-medium text-zinc-700">
+                {(recentCheckIns.reduce((sum, c) => sum + c.mood, 0) / recentCheckIns.length).toFixed(1)} / 5
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -347,23 +421,67 @@ export default function DreamGymMentalPage() {
       <Card className="border-zinc-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Star className="h-5 w-5" />
+            <Star className="h-5 w-5 text-amber-500" />
             Mental Performance Tips
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {MENTAL_TIPS.map((tip) => (
-            <div
-              key={tip.id}
-              className="p-4 bg-zinc-50 rounded-lg hover:bg-zinc-100 cursor-pointer transition-colors"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="font-medium">{tip.title}</h3>
-                <ChevronRight className="h-4 w-4 text-zinc-400" />
+          {MENTAL_TIPS.map((tip) => {
+            const isExpanded = expandedTip === tip.id;
+            const IconComponent = tip.icon;
+
+            return (
+              <div
+                key={tip.id}
+                className={`rounded-xl border transition-all duration-300 overflow-hidden ${
+                  isExpanded
+                    ? 'bg-gradient-to-br from-zinc-50 to-zinc-100 border-zinc-300 shadow-sm'
+                    : 'bg-zinc-50 border-zinc-200 hover:border-zinc-300 hover:shadow-sm'
+                }`}
+              >
+                <button
+                  onClick={() => setExpandedTip(isExpanded ? null : tip.id)}
+                  className="w-full p-4 flex items-center gap-3 text-left"
+                >
+                  <div className={`p-2 rounded-lg ${isExpanded ? 'bg-zinc-900 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+                    <IconComponent className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-zinc-900">{tip.title}</h3>
+                    <p className="text-sm text-zinc-500">{tip.summary}</p>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronUp className="h-5 w-5 text-zinc-400" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-zinc-400" />
+                  )}
+                </button>
+
+                {isExpanded && (
+                  <div className="px-4 pb-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                    <p className="text-zinc-700 leading-relaxed">{tip.content}</p>
+
+                    <div className="bg-white rounded-lg p-4 border border-zinc-200">
+                      <h4 className="font-medium text-zinc-900 mb-3 flex items-center gap-2">
+                        <Target className="h-4 w-4 text-green-600" />
+                        How to Practice
+                      </h4>
+                      <ol className="space-y-2">
+                        {tip.steps.map((step, i) => (
+                          <li key={i} className="flex items-start gap-3 text-sm">
+                            <span className="flex-shrink-0 w-6 h-6 bg-zinc-900 text-white rounded-full flex items-center justify-center text-xs font-medium">
+                              {i + 1}
+                            </span>
+                            <span className="text-zinc-600 pt-0.5">{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  </div>
+                )}
               </div>
-              <p className="text-sm text-zinc-600">{tip.content}</p>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
     </div>

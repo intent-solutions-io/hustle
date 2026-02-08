@@ -135,45 +135,54 @@ export async function getCardioLogsAdmin(
 ): Promise<{ logs: CardioLog[]; nextCursor: string | null }> {
   try {
     const logsRef = getCardioLogsRef(userId, playerId);
-    let query = logsRef.orderBy('date', 'desc');
+    const limit = options?.limit ?? 20;
 
-    // Apply activity type filter
-    if (options?.activityType) {
-      query = query.where('activityType', '==', options.activityType);
+    // Fetch all documents and sort in memory (more reliable than Firestore orderBy for subcollections)
+    const allDocsSnapshot = await logsRef.get();
+
+    if (allDocsSnapshot.size === 0) {
+      return { logs: [], nextCursor: null };
     }
 
-    // Apply date range filter
+    // Get all documents and convert to CardioLog
+    const allLogs = allDocsSnapshot.docs.map((doc) => {
+      const data = doc.data() as CardioLogDocument;
+      return toCardioLog(doc.id, data);
+    });
+
+    // Sort by date descending
+    allLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Apply activity type filter if specified
+    let filteredLogs = allLogs;
+    if (options?.activityType) {
+      filteredLogs = filteredLogs.filter(log => log.activityType === options.activityType);
+    }
+
+    // Apply date range filters
     if (options?.startDate) {
-      query = query.where('date', '>=', Timestamp.fromDate(options.startDate));
+      filteredLogs = filteredLogs.filter(log => new Date(log.date) >= options.startDate!);
     }
     if (options?.endDate) {
-      query = query.where('date', '<=', Timestamp.fromDate(options.endDate));
+      filteredLogs = filteredLogs.filter(log => new Date(log.date) <= options.endDate!);
     }
 
-    // Apply pagination cursor
+    // Apply pagination
+    let startIndex = 0;
     if (options?.cursor) {
-      const cursorDoc = await logsRef.doc(options.cursor).get();
-      if (cursorDoc.exists) {
-        query = query.startAfter(cursorDoc);
+      const cursorIndex = filteredLogs.findIndex(log => log.id === options.cursor);
+      if (cursorIndex !== -1) {
+        startIndex = cursorIndex + 1;
       }
     }
 
-    // Apply limit (default 20)
-    const limit = options?.limit ?? 20;
-    query = query.limit(limit + 1);
-
-    const snapshot = await query.get();
-    const docs = snapshot.docs;
-
-    // Check if there's a next page
-    const hasNextPage = docs.length > limit;
-    const logs = docs.slice(0, limit).map((doc) =>
-      toCardioLog(doc.id, doc.data() as CardioLogDocument)
-    );
+    const paginatedLogs = filteredLogs.slice(startIndex, startIndex + limit + 1);
+    const hasNextPage = paginatedLogs.length > limit;
+    const resultLogs = paginatedLogs.slice(0, limit);
 
     return {
-      logs,
-      nextCursor: hasNextPage ? docs[limit - 1].id : null,
+      logs: resultLogs,
+      nextCursor: hasNextPage ? resultLogs[resultLogs.length - 1]?.id ?? null : null,
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';

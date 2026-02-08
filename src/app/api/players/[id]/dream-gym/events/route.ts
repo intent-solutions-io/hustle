@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayer } from '@/lib/firebase/services/players';
-import { addDreamGymEvent } from '@/lib/firebase/services/dream-gym';
+import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { addDreamGymEventAdmin } from '@/lib/firebase/admin-services/dream-gym';
 
 /**
  * POST /api/players/[id]/dream-gym/events - Add a Dream Gym event
@@ -32,8 +32,8 @@ export async function POST(
       );
     }
 
-    // Verify player belongs to user
-    const player = await getPlayer(session.user.id, playerId);
+    // Verify player belongs to user (using Admin SDK)
+    const player = await getPlayerAdmin(session.user.id, playerId);
     if (!player) {
       return NextResponse.json(
         { error: 'Player not found' },
@@ -41,8 +41,8 @@ export async function POST(
       );
     }
 
-    // Add event - service handles date-to-Timestamp conversion
-    const eventId = await addDreamGymEvent(session.user.id, playerId, {
+    // Add event (using Admin SDK)
+    const eventId = await addDreamGymEventAdmin(session.user.id, playerId, {
       date: new Date(date),
       type,
       name,

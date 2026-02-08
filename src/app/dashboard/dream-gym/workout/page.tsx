@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, Dumbbell, Clock, Target, CheckCircle2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Loader2, Dumbbell, Clock, Target, CheckCircle2, RefreshCw, Save } from 'lucide-react';
 import Link from 'next/link';
 import type { Player, DreamGym, DreamGymDayType, WorkoutExercise } from '@/types/firestore';
 
@@ -87,6 +87,9 @@ export default function DreamGymWorkoutPage() {
   const [dreamGym, setDreamGym] = useState<DreamGym | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
   const [workoutStarted, setWorkoutStarted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [workoutStartTime, setWorkoutStartTime] = useState<Date | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -142,6 +145,76 @@ export default function DreamGymWorkoutPage() {
       }
       return next;
     });
+  }
+
+  function handleStartWorkout() {
+    setWorkoutStarted(true);
+    setWorkoutStartTime(new Date());
+  }
+
+  async function handleSaveWorkout() {
+    if (!workout || !playerId || saving) return;
+
+    setSaving(true);
+    try {
+      // Calculate duration from start time or use default
+      const duration = workoutStartTime
+        ? Math.round((new Date().getTime() - workoutStartTime.getTime()) / 60000)
+        : workout.duration;
+
+      // Get workout type based on template
+      const workoutType = Object.entries(WORKOUT_TEMPLATES).find(
+        ([_, template]) => template.title === workout.title
+      )?.[0] as 'strength' | 'conditioning' | 'core' | 'recovery' || 'custom';
+
+      // Build exercise logs
+      const exerciseLogs = workout.exercises.map((exercise) => ({
+        exerciseId: exercise.exerciseId,
+        exerciseName: exercise.name,
+        targetSets: exercise.sets,
+        targetReps: exercise.reps,
+        sets: Array.from({ length: exercise.sets }, (_, i) => ({
+          setNumber: i + 1,
+          reps: parseInt(exercise.reps) || 10,
+          weight: null,
+          completed: completedExercises.has(exercise.exerciseId),
+          notes: null,
+        })),
+        notes: null,
+      }));
+
+      const payload = {
+        date: new Date().toISOString(),
+        type: workoutType,
+        title: workout.title,
+        duration: Math.max(duration, 1),
+        exercises: exerciseLogs,
+        totalVolume: null,
+      };
+
+      console.log('[WORKOUT] Saving workout for player:', playerId);
+      console.log('[WORKOUT] Payload:', JSON.stringify(payload, null, 2));
+
+      const response = await fetch(`/api/players/${playerId}/dream-gym/workout-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await response.json();
+      console.log('[WORKOUT] Save response:', responseData);
+
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Failed to save workout');
+      }
+
+      setSaved(true);
+    } catch (error) {
+      console.error('Error saving workout:', error);
+      alert('Failed to save workout. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) {
@@ -218,7 +291,7 @@ export default function DreamGymWorkoutPage() {
 
               {!workoutStarted ? (
                 <Button
-                  onClick={() => setWorkoutStarted(true)}
+                  onClick={handleStartWorkout}
                   className="w-full bg-zinc-900 hover:bg-zinc-800"
                 >
                   Start Workout
@@ -329,17 +402,90 @@ export default function DreamGymWorkoutPage() {
                     <p className="text-green-700 mb-4">
                       Great job {player.name}! Keep up the hard work.
                     </p>
-                    <Button
-                      onClick={() => {
-                        setWorkoutStarted(false);
-                        setCompletedExercises(new Set());
-                      }}
-                      variant="outline"
-                      className="gap-2"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Start Another Workout
-                    </Button>
+
+                    {!saved ? (
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <Button
+                          onClick={handleSaveWorkout}
+                          disabled={saving}
+                          className="gap-2 bg-green-600 hover:bg-green-700"
+                        >
+                          {saving ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Save className="h-4 w-4" />
+                          )}
+                          {saving ? 'Saving...' : 'Save & Log Workout'}
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setWorkoutStarted(false);
+                            setCompletedExercises(new Set());
+                            setWorkoutStartTime(null);
+                          }}
+                          variant="outline"
+                          className="gap-2"
+                          disabled={saving}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Skip & Start New
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-center gap-2 text-green-700">
+                          <CheckCircle2 className="h-5 w-5" />
+                          <span className="font-medium">Workout saved to progress!</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <Link href={`/dashboard/dream-gym/progress?playerId=${playerId}`}>
+                            <Button className="gap-2 bg-zinc-900 hover:bg-zinc-800">
+                              View Progress
+                            </Button>
+                          </Link>
+                          <Button
+                            onClick={() => {
+                              setWorkoutStarted(false);
+                              setCompletedExercises(new Set());
+                              setSaved(false);
+                              setWorkoutStartTime(null);
+                            }}
+                            variant="outline"
+                            className="gap-2"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            Start Another Workout
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Save partial workout button */}
+              {workoutStarted && completedExercises.size > 0 && !allCompleted && !saved && (
+                <Card className="border-zinc-200">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-zinc-600">
+                        {completedExercises.size} of {workout.exercises.length} exercises completed
+                      </p>
+                      <Button
+                        onClick={handleSaveWorkout}
+                        disabled={saving}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        {saving ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                        {saving ? 'Saving...' : 'Save Progress'}
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               )}

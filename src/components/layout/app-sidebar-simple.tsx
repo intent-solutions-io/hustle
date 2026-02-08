@@ -13,7 +13,7 @@ import {
   SidebarRail,
   useSidebar
 } from '@/components/ui/sidebar';
-import { Home, Users, Calendar, BarChart3, Settings, LogOut, Dumbbell } from 'lucide-react';
+import { Home, Users, Calendar, BarChart3, Settings, LogOut, Dumbbell, PanelLeftClose } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut as firebaseSignOut } from '@/lib/firebase/auth';
@@ -54,7 +54,7 @@ const navItems = [
 export default function AppSidebarSimple() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, toggleSidebar } = useSidebar();
 
   // Close mobile sidebar when navigating
   const handleLinkClick = () => {
@@ -88,13 +88,22 @@ export default function AppSidebarSimple() {
   return (
     <Sidebar className="bg-zinc-50 border-r border-zinc-200">
       <SidebarHeader className='p-4 border-b border-zinc-200'>
-        <div className='flex items-center gap-2'>
-          <div className='w-8 h-8 bg-zinc-900 rounded-md flex items-center justify-center'>
-            <span className='text-white font-bold text-sm'>H</span>
+        <div className='flex items-center gap-3'>
+          <button
+            onClick={toggleSidebar}
+            className='w-8 h-8 bg-zinc-200 hover:bg-zinc-300 rounded-md flex items-center justify-center transition-colors'
+            title='Collapse Sidebar'
+          >
+            <PanelLeftClose className='h-4 w-4 text-zinc-700' />
+          </button>
+          <div className='flex items-center gap-2'>
+            <div className='w-8 h-8 bg-zinc-900 rounded-md flex items-center justify-center'>
+              <span className='text-white font-bold text-sm'>H</span>
+            </div>
+            <span className='text-lg font-semibold'>
+              HUSTLE<sup className="text-[0.5em] align-super">™</sup>
+            </span>
           </div>
-          <span className='text-lg font-semibold'>
-            HUSTLE<sup className="text-[0.5em] align-super">™</sup>
-          </span>
         </div>
       </SidebarHeader>
 

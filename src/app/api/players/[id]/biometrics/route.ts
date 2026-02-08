@@ -38,12 +38,13 @@ export async function GET(
       );
     }
 
-    // Parse query params
+    // Parse query params - convert null to undefined for Zod validation
     const url = new URL(request.url);
     const includeTrends = url.searchParams.get('includeTrends') === 'true';
+    const sourceParam = url.searchParams.get('source');
 
     const queryParams = {
-      source: url.searchParams.get('source') as BiometricsSource | undefined,
+      source: sourceParam ? (sourceParam as BiometricsSource) : undefined,
       startDate: url.searchParams.get('startDate') || undefined,
       endDate: url.searchParams.get('endDate') || undefined,
       limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
@@ -75,11 +76,16 @@ export async function GET(
       cursor: queryParams.cursor,
     };
 
+    console.log('[BIOMETRICS API GET] userId:', session.user.id, 'playerId:', playerId);
+    console.log('[BIOMETRICS API GET] options:', JSON.stringify(options));
+
     const { logs, nextCursor } = await getBiometricsLogsAdmin(
       session.user.id,
       playerId,
       options
     );
+
+    console.log('[BIOMETRICS API GET] Found logs:', logs.length);
 
     // Optionally include trend data
     let trends = null;
@@ -131,6 +137,9 @@ export async function POST(
     const { id: playerId } = await params;
     const body = await request.json();
 
+    console.log('[BIOMETRICS API POST] userId:', session.user.id, 'playerId:', playerId);
+    console.log('[BIOMETRICS API POST] body:', JSON.stringify(body));
+
     // Verify player belongs to user
     const player = await getPlayerAdmin(session.user.id, playerId);
     if (!player) {
@@ -153,11 +162,15 @@ export async function POST(
       );
     }
 
+    console.log('[BIOMETRICS API POST] validated data:', JSON.stringify(validationResult.data));
+
     const biometricsLog = await createBiometricsLogAdmin(
       session.user.id,
       playerId,
       validationResult.data
     );
+
+    console.log('[BIOMETRICS API POST] created log:', JSON.stringify(biometricsLog));
 
     return NextResponse.json({
       success: true,
