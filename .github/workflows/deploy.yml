@@ -223,6 +223,12 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --min-instances=1 \
+            --max-instances=10 \
+            --memory=1Gi \
+            --cpu=1 \
+            --timeout=300 \
+            --concurrency=80 \
+            --cpu-boost \
             --set-env-vars "NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>,BILLING_ENABLED=false" \
             --set-secrets "FIREBASE_SERVICE_ACCOUNT_JSON=FIREBASE_SERVICE_ACCOUNT_JSON:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
 
