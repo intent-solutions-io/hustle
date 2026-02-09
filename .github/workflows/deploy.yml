@@ -229,8 +229,18 @@ jobs:
             --timeout=300 \
             --concurrency=80 \
             --cpu-boost \
+            --startup-cpu-boost \
+            --session-affinity \
             --set-env-vars "NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>,BILLING_ENABLED=false" \
             --set-secrets "FIREBASE_SERVICE_ACCOUNT_JSON=FIREBASE_SERVICE_ACCOUNT_JSON:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
+
+      - name: Configure health checks
+        run: |
+          # Add HTTP startup probe to ensure container is ready
+          gcloud run services update ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --update-probes=startup:httpGet:path=/api/health,port=8080,initial-delay=5,timeout=10,period=10,failure-threshold=3 \
+            --update-probes=liveness:httpGet:path=/api/health,port=8080,timeout=5,period=30,failure-threshold=3 || echo "Probe update skipped (may not be supported)"
 
       - name: Verify deployment (GET + POST with retry)
         run: |
