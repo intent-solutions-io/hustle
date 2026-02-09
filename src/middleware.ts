@@ -56,6 +56,7 @@ const PUBLIC_API_ROUTES = [
   '/api/waitlist',
   '/api/webhooks',
   '/api/verify',
+  '/api/test-post',  // Debug endpoint for testing POST requests
 ];
 
 /**
