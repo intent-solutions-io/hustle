@@ -226,10 +226,64 @@ jobs:
             --set-env-vars "NODE_ENV=production,FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},EMAIL_FROM=HUSTLE <HUSTLE@intentsolutions.io>,BILLING_ENABLED=false" \
             --set-secrets "FIREBASE_SERVICE_ACCOUNT_JSON=FIREBASE_SERVICE_ACCOUNT_JSON:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
 
-      - name: Verify deployment
+      - name: Verify deployment (GET + POST with retry)
         run: |
           URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --region ${{ env.REGION }} \
             --format 'value(status.url)')
-          curl -f $URL/api/healthcheck || exit 1
-          echo "Production deployment successful: $URL"
+
+          # Function to test endpoint with retries
+          test_endpoint() {
+            local method=$1
+            local endpoint=$2
+            local max_retries=3
+            local retry_delay=10
+
+            for i in $(seq 1 $max_retries); do
+              echo "Attempt $i/$max_retries: $method $endpoint"
+
+              if [ "$method" = "GET" ]; then
+                if curl -sf --max-time 30 "$URL$endpoint" > /dev/null; then
+                  echo "✅ $method $endpoint passed"
+                  return 0
+                fi
+              else
+                if curl -sf --max-time 30 -X POST -H "Content-Type: application/json" -d '{"test":true}' "$URL$endpoint" > /dev/null; then
+                  echo "✅ $method $endpoint passed"
+                  return 0
+                fi
+              fi
+
+              if [ $i -lt $max_retries ]; then
+                echo "⏳ Retrying in ${retry_delay}s..."
+                sleep $retry_delay
+              fi
+            done
+
+            echo "❌ $method $endpoint failed after $max_retries attempts"
+            return 1
+          }
+
+          echo "=== Deployment Verification ==="
+          echo "URL: $URL"
+          echo ""
+
+          # Test GET endpoint
+          if ! test_endpoint "GET" "/api/healthcheck"; then
+            echo "❌ Deployment verification FAILED (GET)"
+            exit 1
+          fi
+
+          echo ""
+
+          # Test POST endpoint (critical for login/auth/forgot-password)
+          if ! test_endpoint "POST" "/api/healthcheck"; then
+            echo "❌ Deployment verification FAILED (POST)"
+            echo "⚠️  POST requests not working - login and auth will fail!"
+            exit 1
+          fi
+
+          echo ""
+          echo "🚀 Production deployment verified successfully!"
+          echo "Both GET and POST requests are working correctly."
+          echo "URL: $URL"
