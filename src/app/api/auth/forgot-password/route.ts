@@ -35,16 +35,36 @@ function isValidEmail(email: string): boolean {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  log('Request received', { timestamp: new Date().toISOString() });
 
-  // Debug: Test if handler is even being called
+  // VERY EARLY debug check - before ANY async operations
   const debugMode = request.headers.get('x-debug') === 'true';
   if (debugMode) {
-    return NextResponse.json({ debug: true, message: 'Handler reached', timestamp: new Date().toISOString() });
+    return NextResponse.json({
+      debug: true,
+      message: 'Handler reached',
+      timestamp: new Date().toISOString(),
+      method: request.method,
+    });
   }
 
+  log('Request received', { timestamp: new Date().toISOString() });
+
   try {
-    const { email } = await request.json().catch(() => ({ email: '' }));
+    // Parse body with timeout to catch hanging
+    log('Parsing request body...');
+    let email = '';
+    try {
+      const body = await Promise.race([
+        request.json(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Body parsing timeout')), 5000)
+        ),
+      ]) as { email?: string };
+      email = body.email || '';
+    } catch (parseErr) {
+      log('Body parsing failed', { error: String(parseErr) });
+      email = '';
+    }
     log('Email parsed', { hasEmail: !!email, elapsed: Date.now() - startTime });
 
     if (!email || typeof email !== 'string' || !isValidEmail(email)) {
