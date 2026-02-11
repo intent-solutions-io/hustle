@@ -14,7 +14,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { User as FirebaseUser } from 'firebase/auth';
 import { onAuthStateChange } from '@/lib/firebase/auth';
@@ -27,8 +27,10 @@ interface ProtectedRouteProps {
 // Check if session cookie exists (client-side check)
 function hasSessionCookie(): boolean {
   if (typeof document === 'undefined') return false;
-  const cookies = document.cookie.split(';').map(c => c.trim());
-  return cookies.some(c => c.startsWith('__session=') || c.startsWith('firebase-auth-token='));
+  const cookies = document.cookie.split(';').map((c) => c.trim());
+  return cookies.some(
+    (c) => c.startsWith('__session=') || c.startsWith('firebase-auth-token=')
+  );
 }
 
 export default function ProtectedRoute({
@@ -38,21 +40,19 @@ export default function ProtectedRoute({
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [authCheckComplete, setAuthCheckComplete] = useState(false);
+  const authCheckCompleteRef = useRef(false);
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
     const unsubscribe = onAuthStateChange((authUser) => {
       setUser(authUser);
-      setAuthCheckComplete(true);
+      authCheckCompleteRef.current = true;
       setLoading(false);
     });
 
     // Safety timeout: If onAuthStateChanged doesn't fire within 3s,
     // check for session cookie and proceed if present
-    timeoutId = setTimeout(() => {
-      if (!authCheckComplete) {
+    const timeoutId = setTimeout(() => {
+      if (!authCheckCompleteRef.current) {
         console.log('[ProtectedRoute] Auth check timeout, checking session cookie');
         if (hasSessionCookie()) {
           console.log('[ProtectedRoute] Session cookie present, proceeding');
@@ -70,22 +70,28 @@ export default function ProtectedRoute({
       unsubscribe();
       clearTimeout(timeoutId);
     };
-  }, [authCheckComplete, router]);
+  }, [router]);
 
   useEffect(() => {
     // Only redirect if we're sure there's no auth
     // If we have a session cookie but no Firebase user, trust the cookie
-    if (!loading && authCheckComplete && !user && !hasSessionCookie()) {
+    if (!loading && authCheckCompleteRef.current && !user && !hasSessionCookie()) {
       console.log('[ProtectedRoute] No user and no session cookie, redirecting');
       router.push('/login');
-    } else if (!loading && authCheckComplete && user && requireEmailVerification && !user.emailVerified) {
+    } else if (
+      !loading &&
+      authCheckCompleteRef.current &&
+      user &&
+      requireEmailVerification &&
+      !user.emailVerified
+    ) {
       // Skip email verification in E2E test mode
       const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
       if (!isE2ETestMode) {
         router.push('/verify-email');
       }
     }
-  }, [loading, authCheckComplete, user, requireEmailVerification, router]);
+  }, [loading, user, requireEmailVerification, router]);
 
   if (loading) {
     return (
