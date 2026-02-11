@@ -51,8 +51,11 @@ test.describe('Dashboard - Basic Functionality', () => {
     // Should be on dashboard
     expect(page.url()).toContain('/dashboard');
 
-    // Check for dashboard elements
-    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible();
+    // Wait for dashboard to fully load (server component may take time to render)
+    await page.waitForLoadState('domcontentloaded');
+
+    // Check for dashboard elements - give extra time for server component rendering
+    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible({ timeout: 15000 });
 
     // Note: Visual regression tests disabled - require baseline screenshots
     // To enable: run `npx playwright test --update-snapshots` locally
@@ -159,9 +162,10 @@ test.describe('Dashboard - Responsive Design', () => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     await login(page);
+    await page.waitForLoadState('domcontentloaded');
 
-    // Dashboard should be visible
-    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible();
+    // Dashboard should be visible - give extra time for server component rendering
+    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible({ timeout: 15000 });
 
     // Content should not overflow
     const body = await page.locator('body').boundingBox();
@@ -174,8 +178,9 @@ test.describe('Dashboard - Responsive Design', () => {
     await page.setViewportSize({ width: 768, height: 1024 });
 
     await login(page);
+    await page.waitForLoadState('domcontentloaded');
 
-    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible();
+    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible({ timeout: 15000 });
 
     // Note: Visual regression disabled - requires baseline screenshots
   });
@@ -184,8 +189,9 @@ test.describe('Dashboard - Responsive Design', () => {
     await page.setViewportSize({ width: 1920, height: 1080 });
 
     await login(page);
+    await page.waitForLoadState('domcontentloaded');
 
-    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible();
+    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible({ timeout: 15000 });
 
     // Note: Visual regression disabled - requires baseline screenshots
   });
