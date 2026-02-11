@@ -29,6 +29,29 @@ export const metadata: Metadata = {
   authors: [{ name: "Jeremy Longshore", url: "https://jeremylongshore.com" }],
   creator: "Intent Solutions",
   publisher: "Intent Solutions",
+  metadataBase: new URL("https://hustlestats.io"),
+  openGraph: {
+    title: "Hustle | Performance Data Recruiters Trust",
+    description: "Professional athletic tracking for families invested in elite player development and college recruiting.",
+    url: "https://hustlestats.io",
+    siteName: "Hustle",
+    images: [
+      {
+        url: "/images/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Hustle - Elite Athletic Performance Tracking",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hustle | Performance Data Recruiters Trust",
+    description: "Professional athletic tracking for families invested in elite player development and college recruiting.",
+    images: ["/images/og-image.jpg"],
+  },
 };
 
 export default function RootLayout({
