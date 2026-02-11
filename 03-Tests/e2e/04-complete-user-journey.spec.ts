@@ -142,36 +142,22 @@ test.describe('Complete User Journey - Happy Path', () => {
       }
     }
 
-    // Wait for either redirect to dashboard OR error banner to appear
-    const result = await Promise.race([
-      page.waitForURL(/\/dashboard/, { timeout: 30000 }).then(() => 'redirect'),
-      page.waitForSelector('[role="alert"], [class*="bg-red-50"]', { timeout: 30000 }).then(() => 'error'),
-    ]).catch(() => 'timeout');
-
-    console.log(`Form submission result: ${result}`);
-
-    // Check for error banner (role="alert" is used in the new error display)
-    const errorBanner = page.locator('[role="alert"]');
-    if (await errorBanner.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const errorText = await errorBanner.textContent();
-      console.error(`Error banner visible: ${errorText}`);
-      throw new Error(`Athlete creation failed: ${errorText}`);
-    }
-
-    // Also check for any other error indicators
-    const errorVisible = await page.locator('[class*="text-red-700"], [class*="bg-red"]').isVisible().catch(() => false);
-    if (errorVisible) {
-      const errorText = await page.locator('[class*="text-red-700"], [class*="bg-red"]').first().textContent();
-      console.error(`Error visible: ${errorText}`);
-      throw new Error(`Athlete creation failed: ${errorText}`);
-    }
-
-    if (result === 'timeout') {
+    // Wait for redirect to dashboard root (the form does window.location.href = '/dashboard')
+    // Must use /\/dashboard\/?$/ to avoid matching /dashboard/add-athlete
+    await page.waitForURL(/\/dashboard\/?$/, { timeout: 30000 }).catch(async () => {
+      // Check for visible error banner with actual text content
+      const errorBanner = page.locator('.bg-red-50[role="alert"]');
+      if (await errorBanner.isVisible({ timeout: 2000 }).catch(() => false)) {
+        const errorText = await errorBanner.textContent();
+        if (errorText?.trim()) {
+          throw new Error(`Athlete creation failed: ${errorText}`);
+        }
+      }
       // Take screenshot for debugging
-      console.log('Timeout waiting for form result, taking screenshot...');
+      console.log('Timeout waiting for dashboard redirect, taking screenshot...');
       await page.screenshot({ path: 'test-results/athlete-form-timeout.png' });
-      throw new Error('Athlete form submission timed out - no redirect or error');
-    }
+      throw new Error('Athlete form submission timed out - no redirect');
+    });
 
     console.log(`✓ Athlete added: ${athleteName}`);
 
@@ -322,9 +308,10 @@ test.describe('Complete User Journey - Field Player vs Goalkeeper', () => {
 
     await page.click('button[type="submit"]');
 
-    // Wait for redirect or success
+    // Wait for redirect to dashboard root or success indicator
+    // Must use /\/dashboard\/?$/ to avoid matching /dashboard/add-athlete
     await Promise.race([
-      page.waitForURL(/\/dashboard/, { timeout: 30000 }),
+      page.waitForURL(/\/dashboard\/?$/, { timeout: 30000 }),
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
@@ -465,9 +452,10 @@ test.describe('Complete User Journey - Data Validation', () => {
     await page.fill('input[id="teamClub"]', 'Future FC');
     await page.click('button[type="submit"]');
 
-    // Wait for redirect or success
+    // Wait for redirect to dashboard root or success indicator
+    // Must use /\/dashboard\/?$/ to avoid matching /dashboard/add-athlete
     await Promise.race([
-      page.waitForURL(/\/dashboard/, { timeout: 30000 }),
+      page.waitForURL(/\/dashboard\/?$/, { timeout: 30000 }),
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
@@ -540,9 +528,10 @@ test.describe('Complete User Journey - Security', () => {
     await page.fill('input[id="teamClub"]', 'Security FC');
     await page.click('button[type="submit"]');
 
-    // Wait for redirect or success
+    // Wait for redirect to dashboard root or success indicator
+    // Must use /\/dashboard\/?$/ to avoid matching /dashboard/add-athlete
     await Promise.race([
-      page.waitForURL(/\/dashboard/, { timeout: 30000 }),
+      page.waitForURL(/\/dashboard\/?$/, { timeout: 30000 }),
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
@@ -650,9 +639,10 @@ test.describe('Complete User Journey - Security', () => {
     await page.fill('input[id="teamClub"]', 'Rate FC');
     await page.click('button[type="submit"]');
 
-    // Wait for redirect or success
+    // Wait for redirect to dashboard root or success indicator
+    // Must use /\/dashboard\/?$/ to avoid matching /dashboard/add-athlete
     await Promise.race([
-      page.waitForURL(/\/dashboard/, { timeout: 30000 }),
+      page.waitForURL(/\/dashboard\/?$/, { timeout: 30000 }),
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
