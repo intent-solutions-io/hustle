@@ -55,7 +55,7 @@ test.describe('Dashboard - Basic Functionality', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Check for dashboard elements - give extra time for server component rendering
-    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i }).first()).toBeVisible({ timeout: 15000 });
 
     // Note: Visual regression tests disabled - require baseline screenshots
     // To enable: run `npx playwright test --update-snapshots` locally
@@ -165,7 +165,7 @@ test.describe('Dashboard - Responsive Design', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Dashboard should be visible - give extra time for server component rendering
-    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i }).first()).toBeVisible({ timeout: 15000 });
 
     // Content should not overflow
     const body = await page.locator('body').boundingBox();
@@ -180,7 +180,7 @@ test.describe('Dashboard - Responsive Design', () => {
     await login(page);
     await page.waitForLoadState('domcontentloaded');
 
-    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i }).first()).toBeVisible({ timeout: 15000 });
 
     // Note: Visual regression disabled - requires baseline screenshots
   });
@@ -191,7 +191,7 @@ test.describe('Dashboard - Responsive Design', () => {
     await login(page);
     await page.waitForLoadState('domcontentloaded');
 
-    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('h1, h2').filter({ hasText: /dashboard/i }).first()).toBeVisible({ timeout: 15000 });
 
     // Note: Visual regression disabled - requires baseline screenshots
   });
