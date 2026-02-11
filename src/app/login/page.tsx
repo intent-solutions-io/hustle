@@ -43,7 +43,8 @@ export default function Login() {
 
     try {
       // Step 1: Firebase Auth sign in (30s timeout)
-      console.log('[Login] Step 1: Calling Firebase Auth signIn...');
+      // This is all we need - Firebase SDK handles everything else
+      console.log('[Login] Calling Firebase Auth signIn...');
       const startAuth = Date.now();
       let user;
       try {
@@ -52,73 +53,34 @@ export default function Login() {
           30000,
           'Sign in'
         );
-        console.log('[Login] Step 1 SUCCESS: Firebase Auth completed in', Date.now() - startAuth, 'ms');
+        console.log('[Login] Firebase Auth completed in', Date.now() - startAuth, 'ms');
         console.log('[Login] User UID:', user.uid, 'Email verified:', user.emailVerified);
       } catch (authError: any) {
-        console.error('[Login] Step 1 FAILED: Firebase Auth error');
-        console.error('[Login] Error code:', authError?.code);
-        console.error('[Login] Error message:', authError?.message);
-        console.error('[Login] Full error:', authError);
+        console.error('[Login] Firebase Auth error:', authError?.code, authError?.message);
         throw authError;
       }
 
-      // Step 2: Get ID token (10s timeout)
-      console.log('[Login] Step 2: Getting ID token...');
-      const startToken = Date.now();
-      let idToken;
+      // Step 2: Set session cookie for server-side routes (optional, best-effort)
+      // This allows SSR pages to know user is authenticated, but client-side
+      // auth (onAuthStateChanged) is the primary protection mechanism
+      console.log('[Login] Setting session cookie (best-effort)...');
       try {
-        idToken = await withTimeout(
-          user.getIdToken(),
-          10000,
-          'Get token'
-        );
-        console.log('[Login] Step 2 SUCCESS: Got ID token in', Date.now() - startToken, 'ms');
-        console.log('[Login] Token length:', idToken?.length || 0);
-      } catch (tokenError: any) {
-        console.error('[Login] Step 2 FAILED: getIdToken error');
-        console.error('[Login] Error:', tokenError?.message || tokenError);
-        throw new Error('Failed to get authentication token. Please try again.');
-      }
-
-      // Step 3: Set session cookie via API route (30s timeout for cold starts)
-      console.log('[Login] Step 3: Setting session cookie via API...');
-      const startSession = Date.now();
-      let sessionRes;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-        sessionRes = await fetch('/api/auth/set-session', {
+        const idToken = await user.getIdToken();
+        await fetch('/api/auth/set-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken }),
           credentials: 'include',
-          signal: controller.signal,
         });
-
-        clearTimeout(timeoutId);
-        console.log('[Login] Step 3: API response status:', sessionRes.status, 'in', Date.now() - startSession, 'ms');
-
-        if (!sessionRes.ok) {
-          const errorBody = await sessionRes.text();
-          console.error('[Login] Step 3 FAILED: Session API error');
-          console.error('[Login] Response body:', errorBody);
-          throw new Error('Failed to set session. Please try again.');
-        }
-
-        const sessionData = await sessionRes.json();
-        console.log('[Login] Step 3 SUCCESS: Session set for user:', sessionData?.user?.uid);
+        console.log('[Login] Session cookie set');
       } catch (sessionError: any) {
-        console.error('[Login] Step 3 FAILED:', sessionError?.message || sessionError);
-        if (sessionError.name === 'AbortError') {
-          throw new Error('Session setup timed out. Please check your connection and try again.');
-        }
-        throw sessionError;
+        // Don't fail login if session cookie fails - client-side auth still works
+        console.warn('[Login] Session cookie failed (non-fatal):', sessionError?.message);
       }
 
-      // Step 4: Redirect to dashboard
-      console.log('[Login] Step 4: Redirecting to dashboard...');
-      window.location.href = '/dashboard';
+      // Step 3: Redirect to dashboard
+      console.log('[Login] Redirecting to dashboard...');
+      router.push('/dashboard');
     } catch (error: any) {
       console.error('[Login] FINAL ERROR CAUGHT:');
       console.error('[Login] Error type:', typeof error);
