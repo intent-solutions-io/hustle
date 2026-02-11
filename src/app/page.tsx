@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowRight, Shield, Users, TrendingUp, ExternalLink, Mail } from 'lucide-react';
+import { ArrowRight, ExternalLink, Mail } from 'lucide-react';
 import { WaitlistForm } from '@/components/waitlist-form';
+import { LandingFeatures } from '@/components/landing-features';
 
 export default function Home() {
   return (
@@ -89,38 +90,7 @@ export default function Home() {
 
       {/* Rest of Page */}
       <main className="max-w-5xl mx-auto px-6 lg:px-8">
-        {/* Value Props - Refined */}
-        <div className="py-16">
-          <div className="grid md:grid-cols-3 gap-12">
-            <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-50">
-                <Shield className="w-6 h-6 text-zinc-900" />
-              </div>
-              <h3 className="text-lg font-semibold text-zinc-900">Verified Performance</h3>
-              <p className="text-zinc-600 text-sm leading-relaxed">
-                Team-validated statistics that college recruiters can trust
-              </p>
-            </div>
-            <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-50">
-                <TrendingUp className="w-6 h-6 text-zinc-900" />
-              </div>
-              <h3 className="text-lg font-semibold text-zinc-900">Development Tracking</h3>
-              <p className="text-zinc-600 text-sm leading-relaxed">
-                Comprehensive progress analytics across seasons and tournaments
-              </p>
-            </div>
-            <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-50">
-                <Users className="w-6 h-6 text-zinc-900" />
-              </div>
-              <h3 className="text-lg font-semibold text-zinc-900">Team Transparency</h3>
-              <p className="text-zinc-600 text-sm leading-relaxed">
-                Shared visibility creates accountability and builds trust
-              </p>
-            </div>
-          </div>
-        </div>
+        <LandingFeatures />
       </main>
 
       {/* Two-Path CTA Section with Background Image */}
@@ -128,7 +98,7 @@ export default function Home() {
         className="relative py-20"
         style={{
           backgroundImage: 'url(/images/sport-path.jpg)',
-          backgroundSize: '100% auto',
+          backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
           backgroundColor: '#1a1a1a',
