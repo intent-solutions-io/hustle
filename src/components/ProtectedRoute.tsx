@@ -1,8 +1,15 @@
 /**
  * ProtectedRoute Component
  *
- * Client-side auth protection that works exactly like Perception's ProtectedRoute.
- * Uses Firebase onAuthStateChanged - no server-side session cookies needed.
+ * Client-side auth protection that works with server-side session cookies.
+ * The middleware already checks for session cookies before allowing access.
+ * This component provides a loading state and handles email verification.
+ *
+ * Key insight: In Next.js with server session cookies, the middleware
+ * protects routes at the edge. This component just needs to:
+ * 1. Show loading while Firebase client SDK initializes
+ * 2. Handle email verification redirect
+ * 3. Trust that if we got here, the session cookie is valid
  */
 
 'use client';
@@ -17,6 +24,13 @@ interface ProtectedRouteProps {
   requireEmailVerification?: boolean;
 }
 
+// Check if session cookie exists (client-side check)
+function hasSessionCookie(): boolean {
+  if (typeof document === 'undefined') return false;
+  const cookies = document.cookie.split(';').map(c => c.trim());
+  return cookies.some(c => c.startsWith('__session=') || c.startsWith('firebase-auth-token='));
+}
+
 export default function ProtectedRoute({
   children,
   requireEmailVerification = true,
@@ -24,29 +38,54 @@ export default function ProtectedRoute({
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authCheckComplete, setAuthCheckComplete] = useState(false);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     const unsubscribe = onAuthStateChange((authUser) => {
       setUser(authUser);
+      setAuthCheckComplete(true);
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.push('/login');
-      } else if (requireEmailVerification && !user.emailVerified) {
-        // Skip email verification in E2E test mode
-        const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
-        if (!isE2ETestMode) {
-          router.push('/verify-email');
+    // Safety timeout: If onAuthStateChanged doesn't fire within 3s,
+    // check for session cookie and proceed if present
+    timeoutId = setTimeout(() => {
+      if (!authCheckComplete) {
+        console.log('[ProtectedRoute] Auth check timeout, checking session cookie');
+        if (hasSessionCookie()) {
+          console.log('[ProtectedRoute] Session cookie present, proceeding');
+          // Trust the middleware - it already verified the session cookie
+          setLoading(false);
+        } else {
+          console.log('[ProtectedRoute] No session cookie, redirecting to login');
+          setLoading(false);
+          router.push('/login');
         }
       }
+    }, 3000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeoutId);
+    };
+  }, [authCheckComplete, router]);
+
+  useEffect(() => {
+    // Only redirect if we're sure there's no auth
+    // If we have a session cookie but no Firebase user, trust the cookie
+    if (!loading && authCheckComplete && !user && !hasSessionCookie()) {
+      console.log('[ProtectedRoute] No user and no session cookie, redirecting');
+      router.push('/login');
+    } else if (!loading && authCheckComplete && user && requireEmailVerification && !user.emailVerified) {
+      // Skip email verification in E2E test mode
+      const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+      if (!isE2ETestMode) {
+        router.push('/verify-email');
+      }
     }
-  }, [loading, user, requireEmailVerification, router]);
+  }, [loading, authCheckComplete, user, requireEmailVerification, router]);
 
   if (loading) {
     return (
@@ -56,15 +95,24 @@ export default function ProtectedRoute({
     );
   }
 
-  if (!user) {
-    return null; // Will redirect
+  // If we have a user, show content
+  if (user) {
+    // Skip email verification check in E2E test mode
+    const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+    if (requireEmailVerification && !user.emailVerified && !isE2ETestMode) {
+      return null; // Will redirect to verify-email
+    }
+    return <>{children}</>;
   }
 
-  // Skip email verification check in E2E test mode
-  const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
-  if (requireEmailVerification && !user.emailVerified && !isE2ETestMode) {
-    return null; // Will redirect
+  // If we have a session cookie but no Firebase user yet,
+  // trust the server-side session and show content
+  // The middleware already verified the session cookie is valid
+  if (hasSessionCookie()) {
+    console.log('[ProtectedRoute] Trusting session cookie, showing content');
+    return <>{children}</>;
   }
 
-  return <>{children}</>;
+  // No auth at all - will redirect
+  return null;
 }
