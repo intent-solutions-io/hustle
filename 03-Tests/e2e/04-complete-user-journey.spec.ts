@@ -290,6 +290,8 @@ test.describe('Complete User Journey - Happy Path', () => {
 });
 
 test.describe('Complete User Journey - Field Player vs Goalkeeper', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('should show different stats fields for goalkeeper', async ({ page }) => {
     // Register and login
     await registerAndLogin(page);
@@ -366,6 +368,8 @@ test.describe('Complete User Journey - Field Player vs Goalkeeper', () => {
 });
 
 test.describe('Complete User Journey - Data Validation', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('should enforce result-score consistency', async ({ page }) => {
     await registerAndLogin(page);
 
@@ -381,9 +385,9 @@ test.describe('Complete User Journey - Data Validation', () => {
     await page.fill('input[id="teamClub"]', 'Validation FC');
     await page.click('button[type="submit"]');
 
-    // Wait for success
+    // Wait for redirect to dashboard root or success indicator
     await Promise.race([
-      page.waitForURL(/\/dashboard/, { timeout: 30000 }),
+      page.waitForURL(/\/dashboard\/?$/, { timeout: 30000 }),
       page.waitForSelector('[class*="text-green"]', { timeout: 30000 }),
     ]).catch(() => {});
 
@@ -514,6 +518,8 @@ test.describe('Complete User Journey - Data Validation', () => {
 });
 
 test.describe('Complete User Journey - Security', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('should sanitize opponent name (XSS prevention)', async ({ page }) => {
     await registerAndLogin(page);
 
@@ -556,11 +562,14 @@ test.describe('Complete User Journey - Security', () => {
     // Wait for players dropdown to load
     await page.waitForSelector('select#playerId option:not([value=""])', { state: 'attached', timeout: 30000 });
 
-    // Monitor for alert (XSS vulnerability)
+    // Monitor for XSS-specific alert (not legitimate app alerts like "Failed to load players")
     let xssDetected = false;
-    page.on('dialog', dialog => {
-      xssDetected = true;
-      dialog.dismiss();
+    page.on('dialog', async (dialog) => {
+      console.log(`[Dialog] type=${dialog.type()}, message=${dialog.message()}`);
+      if (dialog.type() === 'alert' && dialog.message().includes('XSS')) {
+        xssDetected = true;
+      }
+      await dialog.dismiss();
     });
 
     // Try XSS payload in opponent field
@@ -672,27 +681,36 @@ test.describe('Complete User Journey - Security', () => {
       await page.selectOption('select#playerId', playerValue);
     }
 
-    // Attempt 11 rapid submissions
+    // Use direct API calls to test rate limiting (form redirects after each submission)
+    const today = new Date().toISOString().split('T')[0];
     let blocked = false;
+
     for (let i = 1; i <= 11; i++) {
-      await page.fill('input#date', new Date().toISOString().split('T')[0]);
-      await page.fill('input#opponent', `Test ${i}`);
-      await page.selectOption('select#result', 'Win');
-      await page.fill('input#finalScore', '1-0');
-      await page.fill('input#minutesPlayed', '90');
-      await page.fill('input#goals', '0');
-      await page.fill('input#assists', '0');
+      const result = await page.evaluate(async ({ playerId, date, index }) => {
+        const res = await fetch('/api/games', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerId,
+            date,
+            opponent: `Rate Test ${index}`,
+            result: 'Win',
+            finalScore: '1-0',
+            minutesPlayed: 90,
+            goals: 0,
+            assists: 0,
+          }),
+        });
+        const body = await res.text();
+        return { status: res.status, body };
+      }, { playerId: playerValue || '', date: today, index: i });
 
-      await page.locator('button[type="submit"]').filter({ hasText: /Save|Submit|Log/i }).click();
-      await page.waitForTimeout(500);
-
-      // Check for rate limit error
-      const bodyText = await page.textContent('body');
-      if (bodyText && bodyText.toLowerCase().includes('rate limit')) {
+      if (result.status === 429 || result.body.toLowerCase().includes('rate limit')) {
         blocked = true;
-        console.log(`✓ Rate limit triggered at request #${i}`);
+        console.log(`✓ Rate limit triggered at request #${i} (status: ${result.status})`);
         break;
       }
+      console.log(`  Request #${i}: status=${result.status}`);
     }
 
     // Rate limiting may not be implemented yet - log result but don't fail test

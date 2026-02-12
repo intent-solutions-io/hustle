@@ -84,10 +84,18 @@ test.describe('Player Management - Add Player', () => {
     const playerName = `Test Player ${Date.now()}`;
     await fillAthleteForm(page, playerName);
 
-    // Submit form
+    // Submit form and wait for redirect (not fixed timeout)
     await page.click('button[type="submit"]');
 
-    await page.waitForTimeout(3000);
+    // Wait for redirect to dashboard root (away from add-athlete)
+    await page.waitForURL(/\/dashboard\/?$/, { timeout: 30000 }).catch(async () => {
+      // If no redirect, check if still on add-athlete with a success indicator
+      const url = page.url();
+      if (url.includes('/add-athlete')) {
+        // Wait a bit more for slow redirect
+        await page.waitForURL(/\/dashboard\/?$/, { timeout: 10000 });
+      }
+    });
 
     // Should redirect to dashboard
     const url = page.url();

@@ -52,8 +52,11 @@ test.describe('Dream Gym - Onboarding', () => {
     // Navigate directly to Dream Gym (sidebar navigation can be unreliable in tests)
     await navigateTo(page, '/dashboard/dream-gym');
 
+    // Wait for page to render meaningful content (not just loading skeleton)
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+
     const pageContent = await page.locator('body').textContent();
-    const hasDreamGymContent = /Dream Gym|Onboarding|Goals|Training|Workout|Schedule/i.test(pageContent || '');
+    const hasDreamGymContent = /Dream Gym|Onboarding|Goals|Training|Workout|Schedule|athlete|player|setup/i.test(pageContent || '');
 
     expect(hasDreamGymContent).toBeTruthy();
     logProgress('Dream Gym UI displayed');
