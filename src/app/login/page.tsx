@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link';
 import { ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { signIn as firebaseSignIn } from '@/lib/firebase/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // Helper to add timeout to any promise
 function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
@@ -23,15 +23,26 @@ function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Pro
   ]);
 }
 
-export default function Login() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+
+  // Show contextual messages based on query params
+  useEffect(() => {
+    if (searchParams.get('registered') === 'true') {
+      setSuccessMessage('Account created! Please check your email and click the verification link before logging in.');
+    } else if (searchParams.get('reset') === 'success') {
+      setSuccessMessage('Password reset successfully! You can now log in with your new password.');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,6 +174,13 @@ export default function Login() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Success Message (registration, password reset) */}
+              {successMessage && !error && (
+                <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                  <p className="text-sm text-green-700">{successMessage}</p>
+                </div>
+              )}
+
               {/* Error Message */}
               {error && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200 space-y-2">
@@ -255,5 +273,17 @@ export default function Login() {
         </Card>
       </main>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900"></div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
