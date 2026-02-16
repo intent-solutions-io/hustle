@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
+import { resetPassword } from '@/lib/firebase/auth';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -14,28 +15,34 @@ export default function ForgotPasswordPage() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      // Uses Firebase client-side sendPasswordResetEmail - goes directly
+      // from browser to Firebase, no Cloud Run involvement
+      await resetPassword(email);
+      setStatus('success');
+      setMessage('If an account exists with this email, a password reset link has been sent.');
+      setEmail('');
+    } catch (error: unknown) {
+      const firebaseError = error as { code?: string; message?: string };
+      const errorCode = firebaseError?.code || '';
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      // Always show success for user-not-found to prevent email enumeration
+      if (errorCode === 'auth/user-not-found') {
         setStatus('success');
-        setMessage(data.message || 'Password reset email sent successfully');
-        setEmail(''); // Clear form
-      } else {
-        setStatus('error');
-        // Use message field first, then error field
-        setMessage(data.message || data.error || 'Failed to send password reset email');
-        console.error('Forgot password API error:', { status: response.status, data });
+        setMessage('If an account exists with this email, a password reset link has been sent.');
+        setEmail('');
+        return;
       }
-    } catch (error) {
-      console.error('Forgot password network error:', error);
+
+      console.error('[forgot-password] Error:', errorCode, firebaseError?.message);
+
+      if (errorCode === 'auth/invalid-email') {
+        setMessage('Please enter a valid email address.');
+      } else if (errorCode === 'auth/too-many-requests') {
+        setMessage('Too many requests. Please wait a few minutes and try again.');
+      } else {
+        setMessage('Something went wrong. Please try again.');
+      }
       setStatus('error');
-      setMessage('Network error. Please check your connection and try again.');
     }
   };
 
