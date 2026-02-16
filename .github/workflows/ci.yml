@@ -103,15 +103,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -f 06-Infrastructure/docker/Dockerfile -t hustle-app:${{ github.sha }} .
-        continue-on-error: true  # Docker build issues don't block main CI
+        run: docker build -f Dockerfile -t hustle-app:${{ github.sha }} .
 
       - name: Test Docker image
         run: |
           docker run -d -p 8080:8080 --name test-app \
+            -e NODE_ENV=production \
             -e NEXT_PUBLIC_FIREBASE_PROJECT_ID=hustleapp-production \
             -e FIREBASE_PROJECT_ID=hustleapp-production \
             hustle-app:${{ github.sha }}
-          sleep 10
-          curl -f http://localhost:8080/api/healthcheck || exit 1
+          echo "Waiting for container startup..."
+          sleep 15
+          docker logs test-app || true
+          curl -sf --max-time 10 http://localhost:8080/api/healthcheck || \
+            (echo "Health check failed - container logs:" && docker logs test-app && exit 1)
           docker stop test-app
