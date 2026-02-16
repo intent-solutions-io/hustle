@@ -189,9 +189,16 @@ export async function signOut(): Promise<void> {
 
 /**
  * Send password reset email
+ *
+ * Uses ActionCodeSettings to redirect user back to our site after reset.
+ * Firebase's default reset page handles the actual password change,
+ * then the "Continue" link brings them to our login page.
  */
 export async function resetPassword(email: string): Promise<void> {
-  await sendPasswordResetEmail(auth, email);
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hustlestats.io';
+  await sendPasswordResetEmail(auth, email, {
+    url: `${origin}/login?reset=success`,
+  });
 }
 
 /**

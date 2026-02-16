@@ -71,18 +71,22 @@ function LoginContent() {
         throw authError;
       }
 
-      // Step 2: Set session cookie for server-side routes (optional, best-effort)
+      // Step 2: Set session cookie for server-side routes (best-effort, 10s timeout)
       // This allows SSR pages to know user is authenticated, but client-side
       // auth (onAuthStateChanged) is the primary protection mechanism
       console.log('[Login] Setting session cookie (best-effort)...');
       try {
         const idToken = await user.getIdToken();
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
         await fetch('/api/auth/set-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken }),
           credentials: 'include',
+          signal: controller.signal,
         });
+        clearTimeout(timeout);
         console.log('[Login] Session cookie set');
       } catch (sessionError: any) {
         // Don't fail login if session cookie fails - client-side auth still works
