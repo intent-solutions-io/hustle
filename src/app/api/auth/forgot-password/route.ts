@@ -17,6 +17,9 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// DEPRECATED: The UI now uses client-side sendPasswordResetEmail() (see src/lib/firebase/auth.ts).
+// This server-side route is kept as a fallback but is not called by the frontend.
+// The client-side approach bypasses Cloud Run entirely (browser → Firebase Auth directly).
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   log('Request received');
