@@ -29,15 +29,18 @@ function VerifyEmailContent() {
           router.push('/login?verified=true');
         }, 3000);
       })
-      .catch((error) => {
-        console.error('Verification error:', error?.code, error?.message);
-        if (error?.code === 'auth/invalid-action-code') {
-          setMessage('This verification link has expired or already been used.');
-        } else if (error?.code === 'auth/expired-action-code') {
-          setMessage('This verification link has expired. Please request a new one.');
-        } else {
-          setMessage('Verification failed. Please try again or request a new link.');
+      .catch((error: unknown) => {
+        console.error('Verification error:', error);
+        let errorMessage = 'Verification failed. Please try again or request a new link.';
+        if (typeof error === 'object' && error !== null && 'code' in error) {
+          const code = (error as { code: string }).code;
+          if (code === 'auth/invalid-action-code') {
+            errorMessage = 'This verification link has expired or already been used.';
+          } else if (code === 'auth/expired-action-code') {
+            errorMessage = 'This verification link has expired. Please request a new one.';
+          }
         }
+        setMessage(errorMessage);
         setStatus('error');
       });
   }, [searchParams, router]);
