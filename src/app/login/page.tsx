@@ -41,6 +41,8 @@ function LoginContent() {
       setSuccessMessage('Account created! Please check your email and click the verification link before logging in.');
     } else if (searchParams.get('reset') === 'success') {
       setSuccessMessage('Password reset successfully! You can now log in with your new password.');
+    } else if (searchParams.get('verified') === 'true') {
+      setSuccessMessage('Email verified! You can now log in.');
     }
   }, [searchParams]);
 

@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { applyActionCode } from 'firebase/auth';
+import { auth } from '@/lib/firebase/config';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -11,36 +13,35 @@ function VerifyEmailContent() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const token = searchParams.get('token');
+    const oobCode = searchParams.get('oobCode');
 
-    if (!token) {
+    if (!oobCode) {
       setStatus('error');
-      setMessage('No verification token provided');
+      setMessage('No verification code provided. Please check your email link.');
       return;
     }
 
-    // Call verification API
-    fetch(`/api/auth/verify-email?token=${token}`)
-      .then(async (response) => {
-        const data = await response.json();
-
-        if (response.ok) {
-          setStatus('success');
-          setMessage(data.message || 'Email verified successfully!');
-
-          // Redirect to login after 3 seconds
-          setTimeout(() => {
-            router.push('/login?verified=true');
-          }, 3000);
-        } else {
-          setStatus('error');
-          setMessage(data.error || 'Verification failed');
-        }
+    applyActionCode(auth, oobCode)
+      .then(() => {
+        setStatus('success');
+        setMessage('Your email has been verified successfully!');
+        setTimeout(() => {
+          router.push('/login?verified=true');
+        }, 3000);
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('Verification error:', error);
+        let errorMessage = 'Verification failed. Please try again or request a new link.';
+        if (typeof error === 'object' && error !== null && 'code' in error) {
+          const code = (error as { code: string }).code;
+          if (code === 'auth/invalid-action-code') {
+            errorMessage = 'This verification link has expired or already been used.';
+          } else if (code === 'auth/expired-action-code') {
+            errorMessage = 'This verification link has expired. Please request a new one.';
+          }
+        }
+        setMessage(errorMessage);
         setStatus('error');
-        setMessage('An error occurred during verification');
       });
   }, [searchParams, router]);
 

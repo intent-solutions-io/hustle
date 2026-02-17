@@ -146,6 +146,13 @@ Edge middleware protects `/dashboard/*` and `/api/*` routes:
 
 Debug middleware with `MIDDLEWARE_DEBUG=verbose npm run dev`
 
+### Auth Domain & Email Links
+- `authDomain` in client config (`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`) stays as `hustleapp-production.firebaseapp.com` — internal SDK setting, not user-facing. Changing to `hustlestats.io` would break OAuth.
+- Email action URLs (password reset, email verification) are configured in **Firebase Console** → Authentication → Templates → Customize action URL to point to `hustlestats.io/reset-password` and `hustlestats.io/verify-email`.
+- All auth actions (sign up, sign in, password reset, email verify) use **client-side Firebase SDK** — no Cloud Run dependency.
+- Server-side `/api/auth/forgot-password` is deprecated (kept as fallback). UI uses `sendPasswordResetEmail()` client-side.
+- Server-side `/api/auth/resend-verification` remains active (uses Resend for branded emails).
+
 ## Critical Rules
 
 1. **Firestore only** - PostgreSQL/Prisma decommissioned (archived in `99-Archive/`)
