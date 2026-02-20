@@ -49,9 +49,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add -A
-          git commit -m "chore: auto-fix ESLint issues
-
-🤖 Automatically fixed by GitHub Actions"
+          git commit -m "chore: auto-fix ESLint issues [bot]"
 
       - name: Push changes
         if: steps.verify-changed-files.outputs.changed == 'true'
