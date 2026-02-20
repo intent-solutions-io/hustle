@@ -13,6 +13,13 @@ function VerifyEmailContent() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    // If Firebase routed a password reset here, redirect to the correct page
+    const mode = searchParams.get('mode');
+    if (mode === 'resetPassword') {
+      router.replace(`/reset-password?${searchParams.toString()}`);
+      return;
+    }
+
     const oobCode = searchParams.get('oobCode');
 
     if (!oobCode) {
