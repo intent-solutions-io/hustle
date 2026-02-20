@@ -109,12 +109,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🎉 Preview Deployment Ready!
-
-**Preview URL:** ${{ steps.preview-url.outputs.url }}
-
-✅ All checks passed
-✅ Deployed to staging environment
-
-Test your changes before merging to production.`
+              body: `## Preview Deployment Ready!\n\n**Preview URL:** ${{ steps.preview-url.outputs.url }}\n\nAll checks passed. Deployed to staging environment.\n\nTest your changes before merging to production.`
             })
