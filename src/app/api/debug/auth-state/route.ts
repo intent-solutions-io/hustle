@@ -2,7 +2,7 @@
  * Auth State Debug Endpoint
  *
  * Returns detailed authentication state for debugging.
- * ONLY available in development or E2E test mode.
+ * ONLY available in non-production environments.
  *
  * GET /api/debug/auth-state
  */
@@ -11,12 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
-  // Only allow in dev/test mode
-  const isDevOrTest =
-    process.env.NODE_ENV !== 'production' ||
-    process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
-
-  if (!isDevOrTest) {
+  if (process.env.NODE_ENV === 'production') {
     return NextResponse.json(
       { error: 'Debug endpoint disabled in production' },
       { status: 403 }
@@ -35,7 +30,6 @@ export async function GET(request: NextRequest) {
 
     // Check specific auth cookies
     const sessionCookie = cookieStore.get('__session');
-    const firebaseToken = cookieStore.get('firebase-auth-token');
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
@@ -51,8 +45,6 @@ export async function GET(request: NextRequest) {
       authState: {
         hasSessionCookie: !!sessionCookie,
         sessionCookieLength: sessionCookie?.value?.length || 0,
-        hasFirebaseToken: !!firebaseToken,
-        firebaseTokenLength: firebaseToken?.value?.length || 0,
       },
       headers: {
         host: request.headers.get('host'),

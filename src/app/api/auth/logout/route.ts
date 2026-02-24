@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
+import { isE2ETestMode } from '@/lib/e2e';
 
 export async function POST(request: NextRequest) {
   const sessionCookie = request.cookies.get('__session')?.value;
@@ -15,19 +16,17 @@ export async function POST(request: NextRequest) {
 
   const response = NextResponse.json({ success: true });
 
-  const isE2ETest = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
   const forwardedProto = request.headers.get('x-forwarded-proto');
   const isHttps = forwardedProto === 'https' || request.nextUrl.protocol === 'https:';
   const cookieOptions = {
     maxAge: 0,
     httpOnly: true,
-    secure: isHttps && !isE2ETest,
+    secure: isHttps && !isE2ETestMode(),
     sameSite: 'lax' as const,
     path: '/',
   };
 
   response.cookies.set('__session', '', cookieOptions);
-  response.cookies.set('firebase-auth-token', '', cookieOptions);
 
   return response;
 }

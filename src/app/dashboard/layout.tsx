@@ -2,7 +2,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import AppSidebarSimple from '@/components/layout/app-sidebar-simple';
 import Header from '@/components/layout/header';
 import { cookies } from 'next/headers';
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { WorkspaceStatusBanners } from '@/components/WorkspaceStatusBanners';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
@@ -15,7 +15,7 @@ export default async function DashboardLayout({
   // If this fails, the client-side ProtectedRoute will handle auth
   let user = null;
   try {
-    user = await getDashboardUser();
+    user = await authWithProfile();
   } catch (error: any) {
     console.warn('[DashboardLayout] Session verification failed:', error?.message);
     // Continue - client-side ProtectedRoute will handle auth

@@ -18,7 +18,7 @@
  */
 
 import { Metadata } from 'next';
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { getBillingLedger } from '@/lib/stripe/ledger';
 import { redirect } from 'next/navigation';
 
@@ -59,7 +59,7 @@ interface PageProps {
 
 export default async function BillingLogsPage({ params }: PageProps) {
   // 1. Authenticate user
-  const user = await getDashboardUser();
+  const user = await authWithProfile();
 
   if (!user) {
     redirect('/login');

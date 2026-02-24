@@ -11,7 +11,7 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
 import { listRecentInvoices } from '@/lib/stripe/billing-portal';
 import { ManageBillingButton } from '@/components/billing/ManageBillingButton';
@@ -34,7 +34,7 @@ export const metadata = {
  */
 export default async function BillingPage() {
   // 1. Authenticate user
-  const dashboardUser = await getDashboardUser();
+  const dashboardUser = await authWithProfile();
 
   if (!dashboardUser) {
     redirect('/login');

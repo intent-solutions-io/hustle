@@ -1,4 +1,4 @@
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function AthletesPage() {
   // Firebase Admin auth check
-  const user = await getDashboardUser();
+  const user = await authWithProfile();
 
   if (!user || !user.emailVerified) {
     redirect('/login');

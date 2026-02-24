@@ -1,4 +1,4 @@
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllGamesAdmin } from '@/lib/firebase/admin-services/games';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,7 +50,7 @@ function getLast6Months(): { month: string; year: number; key: string }[] {
  */
 export default async function AnalyticsPage() {
   // Firebase Admin auth check
-  const user = await getDashboardUser();
+  const user = await authWithProfile();
 
   if (!user || !user.emailVerified) {
     redirect('/login');

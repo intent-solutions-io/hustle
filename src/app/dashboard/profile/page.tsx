@@ -1,4 +1,4 @@
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
 import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 
 export default async function ProfilePage() {
   // Firebase Admin auth check
-  const authUser = await getDashboardUser();
+  const authUser = await authWithProfile();
 
   if (!authUser || !authUser.emailVerified) {
     redirect('/login');

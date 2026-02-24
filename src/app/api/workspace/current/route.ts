@@ -7,13 +7,13 @@
  * Used by useWorkspaceAccess() hook for client-side access checks.
  */
 
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
 
 export async function GET() {
   try {
     // 1. Authenticate user
-    const dashboardUser = await getDashboardUser();
+    const dashboardUser = await authWithProfile();
 
     if (!dashboardUser) {
       return Response.json(

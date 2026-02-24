@@ -1,4 +1,4 @@
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { CreditCard } from 'lucide-react';
 
 export default async function SettingsPage() {
   // Firebase Admin auth check
-  const authUser = await getDashboardUser();
+  const authUser = await authWithProfile();
 
   if (!authUser || !authUser.emailVerified) {
     redirect('/login');

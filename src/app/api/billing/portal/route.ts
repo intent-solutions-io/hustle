@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
 import { getOrCreateBillingPortalUrl } from '@/lib/stripe/billing-portal';
 import type { Workspace } from '@/types/firestore';
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Authenticate user
-    const dashboardUser = await getDashboardUser();
+    const dashboardUser = await authWithProfile();
 
     if (!dashboardUser) {
       return NextResponse.json(

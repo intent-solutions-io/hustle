@@ -9,20 +9,7 @@ import Link from 'next/link';
 import { ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { signIn as firebaseSignIn } from '@/lib/firebase/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
-
-// Helper to add timeout to any promise (clears timer on resolution to prevent stale log spam)
-function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  return Promise.race([
-    promise.then((result) => { if (timeoutId) clearTimeout(timeoutId); return result; }),
-    new Promise<T>((_, reject) => {
-      timeoutId = setTimeout(() => {
-        console.error(`[Login] TIMEOUT: ${operation} after ${ms}ms`);
-        reject(new Error(`${operation} timed out. Please check your connection and try again.`));
-      }, ms);
-    }),
-  ]);
-}
+import { withTimeout } from '@/lib/utils/timeout';
 
 function LoginContent() {
   const router = useRouter();
@@ -52,71 +39,47 @@ function LoginContent() {
     setError('');
     setIsLoading(true);
 
-    console.log('[Login] Form submitted for:', formData.email);
-    console.log('[Login] Starting login flow...');
-
     try {
-      // Step 1: Firebase Auth sign in (30s timeout)
-      // This is all we need - Firebase SDK handles everything else
-      console.log('[Login] Calling Firebase Auth signIn...');
-      const startAuth = Date.now();
-      let user;
-      try {
-        user = await withTimeout(
-          firebaseSignIn(formData.email, formData.password),
-          30000,
-          'Sign in'
-        );
-        console.log('[Login] Firebase Auth completed in', Date.now() - startAuth, 'ms');
-        console.log('[Login] User UID:', user.uid, 'Email verified:', user.emailVerified);
-      } catch (authError: any) {
-        console.error('[Login] Firebase Auth error:', authError?.code, authError?.message);
-        throw authError;
-      }
+      // Step 1: Firebase Auth sign in
+      const user = await withTimeout(
+        firebaseSignIn(formData.email, formData.password),
+        30000,
+        'Sign in'
+      );
 
-      // Step 2: Get ID token and set cookies
+      // Step 2: Create server session cookie with retry-backoff
       const idToken = await user.getIdToken();
-
-      // Set client-side fallback cookie FIRST (before any network call or navigation)
-      // max-age=3600 matches Firebase ID token expiry (1 hour)
-      // Middleware reads this cookie as fallback if __session is absent
-      const isSecure = window.location.protocol === 'https:';
-      document.cookie = `firebase-auth-token=${idToken}; path=/; max-age=3600${isSecure ? '; secure' : ''}; samesite=lax`;
-
-      // AWAIT the server-side session cookie POST — do NOT fire-and-forget
-      // This sets __session (14-day, httpOnly) — the real long-term auth mechanism
-      // Must complete BEFORE router.push() to prevent browser aborting the in-flight request on navigation
-      console.log('[Login] Setting server session cookie...');
-      try {
-        const response = await fetch('/api/auth/set-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-          credentials: 'include',
-        });
-        if (!response.ok) {
-          console.error('[Login] Session cookie API error:', response.status);
-        } else {
-          console.log('[Login] Server session cookie set successfully');
+      const backoffDelays = [0, 500, 1000, 2000];
+      let sessionSet = false;
+      for (let attempt = 0; attempt < backoffDelays.length; attempt++) {
+        if (attempt > 0) {
+          await new Promise(r => setTimeout(r, backoffDelays[attempt]));
         }
-      } catch (sessionError: any) {
-        // POST failed — client-side fallback cookie already set above, user still gets in
-        // They will be logged out after ~1 hour without the 14-day __session cookie
-        console.warn('[Login] Server session cookie failed (non-fatal):', sessionError?.message);
+        try {
+          const response = await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+            credentials: 'include',
+          });
+          if (response.ok) {
+            sessionSet = true;
+            break;
+          }
+          console.warn(`[Login] set-session returned ${response.status} (attempt ${attempt + 1})`);
+        } catch (sessionError: any) {
+          console.warn(`[Login] set-session failed (attempt ${attempt + 1}):`, sessionError?.message);
+        }
+      }
+      if (!sessionSet) {
+        throw new Error('Unable to establish session. Please try again.');
       }
 
       // Step 3: Redirect to dashboard
-      console.log('[Login] Redirecting to dashboard...');
       router.push('/dashboard');
     } catch (error: any) {
-      console.error('[Login] FINAL ERROR CAUGHT:');
-      console.error('[Login] Error type:', typeof error);
-      console.error('[Login] Error code:', error?.code);
-      console.error('[Login] Error message:', error?.message);
-      console.error('[Login] Error name:', error?.name);
-      console.error('[Login] Full error object:', error);
+      console.error('[Login] Error:', error?.code || error?.message);
 
-      // Provide user-friendly error messages
       const errorCode = error?.code || '';
       const errorMessage = error?.message || '';
 

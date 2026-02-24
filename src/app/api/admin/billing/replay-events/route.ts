@@ -22,7 +22,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getStripeClient } from '@/lib/stripe/client';
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import {
@@ -103,7 +103,7 @@ interface ReplayReport {
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate user
-    const user = await getDashboardUser();
+    const user = await authWithProfile();
 
     if (!user) {
       return NextResponse.json(

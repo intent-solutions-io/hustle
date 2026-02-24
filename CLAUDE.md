@@ -154,9 +154,26 @@ Separate TypeScript project (`functions/` has its own `package.json` and `tsconf
 ### Vertex AI Agent System (`vertex-agents/`)
 5 agents coordinated via A2A protocol: Operations Manager (root), Validation, User Creation, Onboarding, Analytics
 
-### Middleware & Auth (`src/middleware.ts`)
+### Auth Architecture
+
+**Single cookie**: `__session` (14-day, httpOnly, server-set via `/api/auth/set-session`).
+
+**Server auth** (`src/lib/auth.ts`) - single canonical module:
+- `auth()` — lightweight session check for API routes (no Firestore)
+- `authWithProfile()` — session + Firestore user profile for dashboard pages
+- `requireAuth()` — throws if unauthenticated or email unverified
+
+**Client auth** (`src/lib/firebase/auth.ts`) — signIn/signUp/signOut, email verification.
+
+**Login flow**: Firebase client auth → `getIdToken()` → POST `/api/auth/set-session` (retry-with-backoff, 4 attempts) → `__session` cookie → redirect to dashboard.
+
+**E2E test mode**: Centralized in `src/lib/e2e.ts` (`isE2ETestMode()`). Bypasses email verification checks.
+
+**Shared utilities**: `src/lib/utils/timeout.ts` (`withTimeout()` for promise timeouts).
+
+### Middleware (`src/middleware.ts`)
 Edge middleware protects `/dashboard/*` and `/api/*` routes:
-- Session cookies: `__session` or `firebase-auth-token`
+- Session cookie: `__session` only
 - Dashboard routes → redirect to `/login` if no session
 - Protected API routes → return 401 JSON if no session
 - Public API routes (no auth required): `/api/health`, `/api/auth/*`, `/api/waitlist`, `/api/webhooks`, `/api/verify`
@@ -167,7 +184,7 @@ Debug middleware with `MIDDLEWARE_DEBUG=verbose npm run dev`
 - `authDomain` in client config (`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`) stays as `hustleapp-production.firebaseapp.com` — internal SDK setting, not user-facing. Changing to `hustlestats.io` would break OAuth.
 - Email action URLs (password reset, email verification) are configured in **Firebase Console** → Authentication → Templates → Customize action URL to point to `hustlestats.io/reset-password` and `hustlestats.io/verify-email`.
 - All auth actions (sign up, sign in, password reset, email verify) use **client-side Firebase SDK** — no Cloud Run dependency.
-- Server-side `/api/auth/forgot-password` is deprecated (kept as fallback). UI uses `sendPasswordResetEmail()` client-side.
+- Password reset uses client-side `sendPasswordResetEmail()`.
 - Server-side `/api/auth/resend-verification` remains active (uses Resend for branded emails).
 
 ## Build Gotchas
