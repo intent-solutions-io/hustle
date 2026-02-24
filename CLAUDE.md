@@ -29,7 +29,7 @@ bd sync                                     # End of session - flush + git sync
 npm run dev                    # Turbopack dev server (http://localhost:3000)
 npm run build                  # Production build with Turbopack
 npm run lint                   # ESLint (flat config)
-npx tsc --noEmit               # Type check
+npx tsc --noEmit               # Type check (NOT run during build — see Build Gotchas)
 ```
 
 ### Mobile App (React Native / Expo)
@@ -38,9 +38,7 @@ cd mobile
 npm start                      # Expo dev server
 npm run ios                    # iOS simulator
 npm run android                # Android emulator
-npm run web                    # Web browser
 npx expo prebuild              # Generate native projects
-npx eas build --platform ios   # EAS cloud build
 ```
 
 ### Testing
@@ -50,41 +48,35 @@ npm run test:watch             # Vitest watch mode
 npm run test:coverage          # Coverage report (V8)
 npm run test:e2e               # Playwright E2E (03-Tests/e2e/) on port 4000
 npm run test:e2e:ui            # Playwright UI mode (interactive)
-npm run test:e2e:headed        # Run with visible browser
 npm run test:e2e:debug         # Debug mode (PWDEBUG=1, headed, Chromium)
 npm run qa:e2e:smoke           # Quick smoke tests (login + journey)
 npm run qa:e2e:update-snapshots # Update visual regression baselines
 
 # Run single test file
 npx vitest run src/lib/billing/plan-limits.test.ts
-npx playwright test 03-Tests/e2e/01-authentication.spec.ts
-
-# Run single E2E test with specific browser
 npx playwright test 03-Tests/e2e/01-authentication.spec.ts --project=chromium
 ```
 
-**CI vs Local**: CI builds production app then runs tests. Locally, dev server is used. E2E tests run on port 4000 (not 3000). Use `test:e2e:debug` to step through tests with Playwright Inspector.
+**E2E details**: Tests run on port 4000 (not 3000). CI builds production app (standalone) then tests against it. Locally, dev server is used. Global setup (`03-Tests/e2e/global-setup.ts`) creates authenticated storage state reused across tests. Use `test:e2e:debug` to step through with Playwright Inspector.
 
 ### Firebase & Cloud Functions
 ```bash
-# Emulators
 firebase emulators:start       # Local emulators (Auth, Firestore, Functions)
 
-# Functions development
-cd functions
-npm run build                  # Compile TypeScript
-npm run serve                  # Run functions locally
-npm run shell                  # Interactive functions shell
-npm run logs                   # View function logs
+# Functions (separate TypeScript project in functions/)
+cd functions && npm run build  # Compile
+cd functions && npm run serve  # Run locally
 
 # Deployment
 firebase deploy --only hosting
 firebase deploy --only functions
 firebase deploy --only firestore:rules
-firebase deploy                # Deploy everything
 ```
 
 ## Architecture
+
+### Path Alias
+`@/` maps to `src/` (configured in `tsconfig.json` and `vitest.config.mts`). All imports use `@/` prefix.
 
 ### Data Flow
 ```
@@ -97,6 +89,13 @@ API Routes (src/app/api/) → Admin Services (src/lib/firebase/admin-services/)
 Cloud Functions (functions/src/) → Vertex AI Agents (A2A protocol)
 ```
 
+### UI Layer
+- **Component library**: shadcn/ui primitives in `src/components/ui/` (Radix UI + Tailwind + CVA)
+- **Forms**: react-hook-form + @hookform/resolvers + Zod v4 schemas (`src/lib/validations/`)
+- **Charts**: Recharts (player analytics, workout progress)
+- **State**: Zustand available; most state via hooks (`useAuth`, `useWorkspaceAccess`) and fetch calls
+- **Theming**: next-themes for dark mode; Tailwind CSS 3
+
 ### Firestore Collections
 ```
 /workspaces/{workspaceId}              # Billable tenant (plan, status, billing)
@@ -108,30 +107,48 @@ Cloud Functions (functions/src/) → Vertex AI Agents (A2A protocol)
     /journal/{entryId}                 # Player journal entries
     /biometrics/{logId}                # Health/recovery metrics
     /assessments/{assessmentId}        # Fitness test results
+    /cardioLogs/{logId}                # Running/distance tracking
+    /practiceLogs/{logId}              # Practice session logs
 /waitlist/{email}                      # Early access signups
 /workspace-invites/{inviteId}          # Pending collaborator invites
 ```
 
 ### Key Types (`src/types/firestore.ts`)
-- `WorkspaceDocument` - tenant with plan (free/starter/plus/pro), status (active/trial/past_due/canceled/suspended), Stripe integration
+Each Firestore document type has two variants: a `*Document` interface (with `Timestamp`) for Firestore operations, and a client-side interface (with `Date`) for React components. Example: `WorkspaceDocument` → `Workspace`.
+
+- `WorkspaceDocument` - tenant with plan (free/starter/plus/pro), status (active/trial/past_due/canceled/suspended), Stripe integration, collaborator members
 - `UserDocument` - Firebase Auth user profile with workspace ownership, verification PIN hash
 - `PlayerDocument` - athlete with 13 position codes (GK, CB, DM, CM, ST, etc.)
 - `GameDocument` - match stats (goals, assists, tackles, saves, etc.) with self-assessment
 - `DreamGymDocument` - training profile, schedule, events, mental check-ins
 - `WorkoutLogDocument` - completed workout with actual reps/sets/weight tracked
+- `CardioLogDocument` - running/distance activities with pace and heart rate
+- `PracticeLogDocument` - practice sessions with focus areas and self-assessment
 
 ### Service Layer Pattern
 - **Client services** (`src/lib/firebase/services/`) - browser-side Firestore ops using Firebase SDK
 - **Admin services** (`src/lib/firebase/admin-services/`) - server-side ops using Firebase Admin SDK
 - **Access control** (`src/lib/firebase/access-control.ts`, `src/lib/workspaces/`) - subscription enforcement
+- **Stripe integration** (`src/lib/stripe/`) - plan enforcement, billing portal, ledger, customer portal
 
-### Key Hooks
+### Key Hooks (`src/hooks/`)
 - `useAuth()` - Firebase Auth state (user, loading)
-- `useWorkspaceAccess()` - subscription status, plan limits, access permissions
+- `useWorkspaceAccess()` - subscription status, plan limits, access permissions (fetches `/api/workspace/current`)
+- `usePlayerPhotoUpload()` - Firebase Storage photo upload
+
+### API Routes (`src/app/api/`)
+Major route groups:
+- `/api/auth/*` - login, logout, session management, password reset, verification
+- `/api/billing/*` - Stripe checkout, plan changes, portal sessions, invoices, webhook
+- `/api/players/*` - CRUD + nested resources (games, dream-gym, journal, biometrics, assessments, cardio-logs, practice-logs, workout-logs)
+- `/api/workspace/*` - current workspace data
+- `/api/webhooks/stripe` - Stripe webhook handler
+- `/api/ai/*` - AI feedback endpoints
 
 ### Cloud Functions (`functions/src/index.ts`)
+Separate TypeScript project (`functions/` has its own `package.json` and `tsconfig.json`):
 - `orchestrator` - A2A gateway to Vertex AI agents
-- `sendWelcomeEmail` - Auth trigger on user creation
+- `sendWelcomeEmail` - Auth trigger on user creation (sends via Resend)
 - `sendTrialReminders` - Daily scheduled function (9:00 UTC)
 
 ### Vertex AI Agent System (`vertex-agents/`)
@@ -153,6 +170,13 @@ Debug middleware with `MIDDLEWARE_DEBUG=verbose npm run dev`
 - Server-side `/api/auth/forgot-password` is deprecated (kept as fallback). UI uses `sendPasswordResetEmail()` client-side.
 - Server-side `/api/auth/resend-verification` remains active (uses Resend for branded emails).
 
+## Build Gotchas
+
+- **ESLint and TypeScript errors are ignored during `npm run build`** (`next.config.ts` has `ignoreDuringBuilds: true` for both). Always run `npm run lint` and `npx tsc --noEmit` separately to catch issues.
+- **Standalone output mode**: `next.config.ts` sets `output: 'standalone'` — production builds produce a self-contained `server.js` in `.next/standalone/`. CI copies static assets into the standalone dir before running.
+- **`NEXT_PUBLIC_E2E_TEST_MODE`** must be set at both build time (inlined into client code) and runtime (server checks) for E2E tests to work correctly.
+- **Trailing-space redirect**: `next.config.ts` has a redirect from `/verify-email%20` → `/verify-email` to handle a Firebase Console config typo.
+
 ## Critical Rules
 
 1. **Firestore only** - PostgreSQL/Prisma decommissioned (archived in `99-Archive/`)
@@ -161,6 +185,7 @@ Debug middleware with `MIDDLEWARE_DEBUG=verbose npm run dev`
 4. **NWSL/Logo gen** - CI-only (gate.sh blocks local execution)
 5. **Docs** - All in `000-docs/` with `NNN-CC-ABCD-desc.md` naming
 6. **ADK standards** - Follow https://google.github.io/adk-docs/
+7. **Functions isolation** - `functions/` is a separate TS project excluded from root `tsconfig.json`
 
 ## Billing Tiers
 
@@ -170,11 +195,14 @@ Debug middleware with `MIDDLEWARE_DEBUG=verbose npm run dev`
 | Plus | 5 | 50 |
 | Pro | Unlimited | Unlimited |
 
+Enforcement: server-side in `src/lib/stripe/plan-enforcement.ts` and `src/lib/workspaces/enforce.ts`, client-side via `useWorkspaceAccess()` hook. Plan limits defined in `src/lib/billing/plan-limits.ts`.
+
 ## Testing Strategy
 
-- **Unit tests**: Vitest + Testing Library, co-located in `src/**/*.test.ts`
-- **E2E tests**: Playwright in `03-Tests/e2e/`, numbered sequentially (01-authentication, 02-dashboard, etc.)
+- **Unit tests**: Vitest + Testing Library, co-located as `src/**/*.test.ts` (jsdom environment, `@vitejs/plugin-react`)
+- **E2E tests**: Playwright in `03-Tests/e2e/`, numbered sequentially (01-authentication, 02-dashboard, etc.). Snapshots in `03-Tests/snapshots/`.
 - **Firestore tests**: Use Firebase emulators locally
+- **Visual regression**: Playwright screenshot comparison with 0.2% pixel tolerance
 
 ## Environment Variables
 
