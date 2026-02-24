@@ -247,6 +247,7 @@ export function onAuthStateChange(callback: (user: FirebaseUser | null) => void)
 }
 
 /**
+/**
  * Listen to ID token changes (fires on sign-in, sign-out, and token refresh)
  *
  * Firebase auto-refreshes ID tokens ~5 minutes before expiry (every ~55 min).
