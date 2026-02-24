@@ -83,25 +83,28 @@ function LoginContent() {
       const isSecure = window.location.protocol === 'https:';
       document.cookie = `firebase-auth-token=${idToken}; path=/; max-age=3600${isSecure ? '; secure' : ''}; samesite=lax`;
 
-      // AWAIT the server-side session cookie POST — do NOT fire-and-forget
+      // AWAIT the server-side session cookie POST with a 15s timeout
       // This sets __session (14-day, httpOnly) — the real long-term auth mechanism
-      // Must complete BEFORE router.push() to prevent browser aborting the in-flight request on navigation
+      // Fallback cookie above guarantees dashboard access even if this times out
       console.log('[Login] Setting server session cookie...');
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         const response = await fetch('/api/auth/set-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken }),
           credentials: 'include',
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         if (!response.ok) {
           console.error('[Login] Session cookie API error:', response.status);
         } else {
           console.log('[Login] Server session cookie set successfully');
         }
       } catch (sessionError: any) {
-        // POST failed — client-side fallback cookie already set above, user still gets in
-        // They will be logged out after ~1 hour without the 14-day __session cookie
+        // POST timed out or failed — fallback cookie already set, user still gets in
         console.warn('[Login] Server session cookie failed (non-fatal):', sessionError?.message);
       }
 
