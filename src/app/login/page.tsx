@@ -10,16 +10,17 @@ import { ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { signIn as firebaseSignIn } from '@/lib/firebase/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-// Helper to add timeout to any promise
+// Helper to add timeout to any promise (clears timer on resolution to prevent stale log spam)
 function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
   return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => {
+    promise.then((result) => { clearTimeout(timeoutId); return result; }),
+    new Promise<T>((_, reject) => {
+      timeoutId = setTimeout(() => {
         console.error(`[Login] TIMEOUT: ${operation} after ${ms}ms`);
         reject(new Error(`${operation} timed out. Please check your connection and try again.`));
-      }, ms)
-    ),
+      }, ms);
+    }),
   ]);
 }
 
@@ -73,26 +74,35 @@ function LoginContent() {
         throw authError;
       }
 
-      // Step 2: Set session cookie for server-side routes (best-effort, 10s timeout)
-      // This allows SSR pages to know user is authenticated, but client-side
-      // auth (onAuthStateChanged) is the primary protection mechanism
-      console.log('[Login] Setting session cookie (best-effort)...');
+      // Step 2: Get ID token and set cookies
+      const idToken = await user.getIdToken();
+
+      // Set client-side fallback cookie FIRST (before any network call or navigation)
+      // max-age=3600 matches Firebase ID token expiry (1 hour)
+      // Middleware reads this cookie as fallback if __session is absent
+      const isSecure = window.location.protocol === 'https:';
+      document.cookie = `firebase-auth-token=${idToken}; path=/; max-age=3600${isSecure ? '; secure' : ''}; samesite=lax`;
+
+      // AWAIT the server-side session cookie POST — do NOT fire-and-forget
+      // This sets __session (14-day, httpOnly) — the real long-term auth mechanism
+      // Must complete BEFORE router.push() to prevent browser aborting the in-flight request on navigation
+      console.log('[Login] Setting server session cookie...');
       try {
-        const idToken = await user.getIdToken();
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-        await fetch('/api/auth/set-session', {
+        const response = await fetch('/api/auth/set-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken }),
           credentials: 'include',
-          signal: controller.signal,
         });
-        clearTimeout(timeout);
-        console.log('[Login] Session cookie set');
+        if (!response.ok) {
+          console.error('[Login] Session cookie API error:', response.status);
+        } else {
+          console.log('[Login] Server session cookie set successfully');
+        }
       } catch (sessionError: any) {
-        // Don't fail login if session cookie fails - client-side auth still works
-        console.warn('[Login] Session cookie failed (non-fatal):', sessionError?.message);
+        // POST failed — client-side fallback cookie already set above, user still gets in
+        // They will be logged out after ~1 hour without the 14-day __session cookie
+        console.warn('[Login] Server session cookie failed (non-fatal):', sessionError?.message);
       }
 
       // Step 3: Redirect to dashboard
