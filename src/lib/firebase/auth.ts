@@ -15,6 +15,7 @@ import {
   updatePassword,
   User as FirebaseUser,
   onAuthStateChanged,
+  onIdTokenChanged,
 } from 'firebase/auth';
 import { auth } from './config';
 import { createUser, markEmailVerified } from './services/users';
@@ -243,6 +244,17 @@ export function getCurrentUser(): FirebaseUser | null {
  */
 export function onAuthStateChange(callback: (user: FirebaseUser | null) => void): () => void {
   return onAuthStateChanged(auth, callback);
+}
+
+/**
+/**
+ * Listen to ID token changes (fires on sign-in, sign-out, and token refresh)
+ *
+ * Firebase auto-refreshes ID tokens ~5 minutes before expiry (every ~55 min).
+ * Use this to keep the firebase-auth-token fallback cookie fresh.
+ */
+export function onIdTokenChange(callback: (user: FirebaseUser | null) => void): () => void {
+  return onIdTokenChanged(auth, callback);
 }
 
 /**
