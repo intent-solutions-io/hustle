@@ -18,7 +18,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User as FirebaseUser } from 'firebase/auth';
-import { onAuthStateChange, onIdTokenChange } from '@/lib/firebase/auth';
+import { onAuthStateChange } from '@/lib/firebase/auth';
+import { isE2ETestMode } from '@/lib/e2e';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -50,29 +51,10 @@ export default function ProtectedRoute({
     };
   }, []);
 
-  // Keep the firebase-auth-token fallback cookie fresh by refreshing it whenever
-  // Firebase auto-renews the ID token (~every 55 minutes). Without this, the
-  // fallback cookie would expire after 1 hour if the __session POST ever failed.
-  useEffect(() => {
-    const unsubscribe = onIdTokenChange(async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const token = await firebaseUser.getIdToken();
-          const isSecure = window.location.protocol === 'https:';
-          document.cookie = `firebase-auth-token=${token}; path=/; max-age=3600${isSecure ? '; secure' : ''}; samesite=lax`;
-        } catch {
-          // Non-fatal: if token refresh fails, existing cookie remains until expiry
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
   useEffect(() => {
     // Only handle email verification redirect - middleware handles auth
     if (!loading && user && requireEmailVerification && !user.emailVerified) {
-      const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
-      if (!isE2ETestMode) {
+      if (!isE2ETestMode()) {
         router.push('/verify-email');
       }
     }
@@ -89,8 +71,7 @@ export default function ProtectedRoute({
 
   // If user exists and email verification is required but not verified, show nothing (redirect happening)
   if (user && requireEmailVerification && !user.emailVerified) {
-    const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
-    if (!isE2ETestMode) {
+    if (!isE2ETestMode()) {
       return null;
     }
   }

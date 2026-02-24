@@ -1,4 +1,4 @@
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import { getAllGamesForPlayerAdmin } from '@/lib/firebase/admin-services/games';
@@ -56,7 +56,7 @@ export default async function AthleteDetailPage({
   const { id } = await params;
 
   // 1. AUTH CHECK: Verify user is authenticated (Firebase Admin)
-  const user = await getDashboardUser();
+  const user = await authWithProfile();
   if (!user || !user.emailVerified) {
     redirect('/login');
   }

@@ -13,7 +13,7 @@
 
 import { getStripeClient } from '@/lib/stripe/client';
 import { adminDb } from '@/lib/firebase/admin';
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import type { Workspace, WorkspaceStatus, WorkspacePlan } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -50,7 +50,7 @@ export interface WorkspaceHealthData {
  */
 export async function getWorkspaceHealth(): Promise<WorkspaceHealthData | null> {
   // 1. Authenticate user
-  const dashboardUser = await getDashboardUser();
+  const dashboardUser = await authWithProfile();
 
   if (!dashboardUser) {
     return null;

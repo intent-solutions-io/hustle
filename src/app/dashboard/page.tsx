@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, Calendar, Target, PlusCircle, User, ChevronDown, Shield, AlertTriangle, Dumbbell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
 import {
@@ -46,7 +46,7 @@ function getCurrentSeasonDates() {
 
 export default async function DashboardPage() {
   // Server-side Firebase Auth protection
-  const user = await getDashboardUser();
+  const user = await authWithProfile();
   if (!user || !user.emailVerified) {
     redirect('/login');
   }

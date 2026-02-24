@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config';
 import type { GameDocument, Game } from '@/types/firestore';
+import { isE2ETestMode } from '@/lib/e2e';
 
 /**
  * Convert Firestore GameDocument to client Game type
@@ -124,7 +125,7 @@ export async function createGame(
   }
 ): Promise<Game> {
   const now = serverTimestamp();
-  const isE2EMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+  const isE2EMode = isE2ETestMode();
   const gameDoc: Omit<GameDocument, 'createdAt' | 'updatedAt' | 'date' | 'verifiedAt'> & {
     date: Timestamp;
     createdAt: any;

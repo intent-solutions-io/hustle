@@ -1,4 +1,4 @@
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllGamesAdmin } from '@/lib/firebase/admin-services/games';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +26,7 @@ import type { GameData } from '@/types/game';
  */
 export default async function GamesHistoryPage() {
   // AUTH CHECK (Firebase Admin)
-  const user = await getDashboardUser();
+  const user = await authWithProfile();
   if (!user || !user.emailVerified) {
     redirect('/login');
   }

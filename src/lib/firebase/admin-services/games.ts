@@ -10,6 +10,7 @@
 
 import { adminDb } from '../admin';
 import type { Game, GameDocument } from '@/types/firestore';
+import { isE2ETestMode } from '@/lib/e2e';
 
 /**
  * Convert Firestore GameDocument to Game type
@@ -326,7 +327,7 @@ export async function createGameAdmin(
 ): Promise<Game> {
   try {
     const now = new Date();
-    const isE2EMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+    const isE2EMode = isE2ETestMode();
 
     const gameDoc: Omit<GameDocument, 'date' | 'verifiedAt' | 'createdAt' | 'updatedAt'> & {
       date: Date;

@@ -51,7 +51,6 @@ const PUBLIC_API_ROUTES = [
   '/api/auth/callback',
   '/api/auth/signout',
   '/api/auth/set-session',
-  '/api/auth/forgot-password',
   '/api/auth/resend-verification',
   '/api/waitlist',
   '/api/webhooks',
@@ -70,10 +69,7 @@ function isPublicApiRoute(pathname: string): boolean {
  * Get session cookie from request
  */
 function getSessionCookie(request: NextRequest): string | null {
-  const sessionCookie =
-    request.cookies.get('__session')?.value ||
-    request.cookies.get('firebase-auth-token')?.value;
-  return sessionCookie || null;
+  return request.cookies.get('__session')?.value || null;
 }
 
 /**

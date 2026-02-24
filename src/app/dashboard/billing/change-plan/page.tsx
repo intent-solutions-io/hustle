@@ -8,7 +8,7 @@
  */
 
 import { redirect } from 'next/navigation';
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAvailablePlans } from '@/lib/billing/plan-change';
 import { PlanSelector } from '@/components/billing/PlanSelector';
@@ -30,7 +30,7 @@ export const metadata = {
  */
 export default async function ChangePlanPage() {
   // 1. Authenticate user
-  const dashboardUser = await getDashboardUser();
+  const dashboardUser = await authWithProfile();
 
   if (!dashboardUser) {
     redirect('/login');

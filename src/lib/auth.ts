@@ -1,15 +1,21 @@
 /**
  * Server-Side Authentication (Firebase Auth)
  *
- * Validates Firebase session cookies for server-side authentication.
- * Used in API routes.
+ * Single canonical module for all server-side auth.
  *
- * Migration Note: This file replaces the NextAuth configuration that was
- * archived to 99-Archive/20251115-nextauth-legacy/auth.ts
+ * - `auth()`            – lightweight session check for API routes (no Firestore)
+ * - `authWithProfile()` – session + Firestore user profile for dashboard pages
+ * - `requireAuth()`     – throws if unauthenticated or email unverified
  */
 
 import { cookies } from 'next/headers';
-import { adminAuth } from './firebase/admin';
+import { adminAuth, adminDb } from './firebase/admin';
+import type { User } from '@/types/firestore';
+import { isE2ETestMode } from '@/lib/e2e';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export interface Session {
   user: {
@@ -19,34 +25,35 @@ export interface Session {
   };
 }
 
+export interface DashboardUser {
+  uid: string;
+  email: string | null;
+  firstName?: string;
+  lastName?: string;
+  emailVerified: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Core helpers
+// ---------------------------------------------------------------------------
+
+async function getSessionCookie(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get('__session')?.value || null;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /**
- * Get authenticated session from Firebase session cookie
- *
- * Validates Firebase session cookie and returns session object.
- * Compatible with NextAuth session structure for minimal migration changes.
- *
- * Usage in API routes:
- * ```typescript
- * const session = await auth();
- * if (!session?.user?.id) {
- *   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
- * }
- * ```
- *
- * @returns Session object with user info, or null if not authenticated
+ * Lightweight session check for API routes (no Firestore hit).
  */
 export async function auth(): Promise<Session | null> {
   try {
-    const cookieStore = await cookies();
+    const sessionCookie = await getSessionCookie();
+    if (!sessionCookie) return null;
 
-    // Get Firebase session cookie (created by set-session API route)
-    const sessionCookie = cookieStore.get('__session')?.value;
-
-    if (!sessionCookie) {
-      return null;
-    }
-
-    // Verify session cookie with Firebase Admin SDK (not ID token!)
     const decodedToken = await adminAuth.verifySessionCookie(sessionCookie);
 
     return {
@@ -60,4 +67,54 @@ export async function auth(): Promise<Session | null> {
     console.error('Auth verification error:', error);
     return null;
   }
+}
+
+/**
+ * Session check + Firestore user profile for dashboard pages.
+ * Returns null if not authenticated.
+ */
+export async function authWithProfile(): Promise<DashboardUser | null> {
+  try {
+    const sessionCookie = await getSessionCookie();
+    if (!sessionCookie) return null;
+
+    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
+
+    const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
+    if (!userDoc.exists) {
+      console.error(`User document not found for UID: ${decodedToken.uid}`);
+      return null;
+    }
+
+    const userData = userDoc.data() as User;
+    const emailVerified = isE2ETestMode() ? true : (decodedToken.email_verified || false);
+
+    return {
+      uid: decodedToken.uid,
+      email: decodedToken.email || null,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      emailVerified,
+    };
+  } catch (error: any) {
+    console.error('Error getting dashboard user:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Require authenticated + email-verified user. Throws if not.
+ */
+export async function requireAuth(): Promise<DashboardUser> {
+  const user = await authWithProfile();
+
+  if (!user) {
+    throw new Error('Unauthorized: No valid Firebase session');
+  }
+
+  if (!user.emailVerified) {
+    throw new Error('Unauthorized: Email not verified');
+  }
+
+  return user;
 }

@@ -1,8 +1,8 @@
 /**
- * Firebase Authentication Service
+ * Firebase Authentication Service (Client-Side)
  *
- * Replaces NextAuth v5 with Firebase Auth.
  * Handles email/password authentication, email verification, and password reset.
+ * For server-side auth, see src/lib/auth.ts.
  */
 
 import {
@@ -15,32 +15,12 @@ import {
   updatePassword,
   User as FirebaseUser,
   onAuthStateChanged,
-  onIdTokenChanged,
 } from 'firebase/auth';
 import { auth } from './config';
 import { createUser, markEmailVerified } from './services/users';
 import type { User } from '@/types/firestore';
-
-/**
- * Sign up new user with email and password
- *
- * Steps:
- * 1. Create Firebase Auth account
- * 2. Update display name
- * 3. Send email verification
- * 4. Create user document in Firestore
- */
-/**
- * Helper to add timeout to any promise
- */
-function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`${operation} timed out after ${ms}ms`)), ms)
-    ),
-  ]);
-}
+import { isE2ETestMode } from '@/lib/e2e';
+import { withTimeout } from '@/lib/utils/timeout';
 
 export async function signUp(data: {
   email: string;
@@ -52,49 +32,22 @@ export async function signUp(data: {
   agreedToPrivacy: boolean;
   isParentGuardian: boolean;
 }): Promise<{ user: FirebaseUser; firestoreUser: User }> {
-  console.log('[signUp] Starting registration for:', data.email);
-  console.log('[signUp] Firebase auth initialized:', !!auth);
-  console.log('[signUp] Firebase config project:', auth?.app?.options?.projectId);
-
-  // Create Firebase Auth account with timeout
-  console.log('[signUp] Creating Firebase Auth account...');
-  let userCredential;
-  try {
-    userCredential = await withTimeout(
-      createUserWithEmailAndPassword(auth, data.email, data.password),
-      30000,
-      'Firebase Auth createUser'
-    );
-    console.log('[signUp] Firebase Auth account created:', userCredential.user.uid);
-  } catch (error: any) {
-    console.error('[signUp] Firebase Auth failed:', error.code, error.message);
-    throw error;
-  }
+  const userCredential = await withTimeout(
+    createUserWithEmailAndPassword(auth, data.email, data.password),
+    30000,
+    'Firebase Auth createUser'
+  );
   const user = userCredential.user;
 
   try {
-    // Update display name with timeout
-    console.log('[signUp] Updating profile...');
     await withTimeout(
-      updateProfile(user, {
-        displayName: `${data.firstName} ${data.lastName}`,
-      }),
+      updateProfile(user, { displayName: `${data.firstName} ${data.lastName}` }),
       10000,
       'Update profile'
     );
-    console.log('[signUp] Profile updated');
 
-    // Send email verification with timeout
-    console.log('[signUp] Sending verification email...');
-    await withTimeout(
-      sendEmailVerification(user),
-      10000,
-      'Send verification email'
-    );
-    console.log('[signUp] Verification email sent');
+    await withTimeout(sendEmailVerification(user), 10000, 'Send verification email');
 
-    // Create Firestore user document with timeout
-    console.log('[signUp] Creating Firestore user doc...');
     const firestoreUser = await withTimeout(
       createUser(user.uid, {
         firstName: data.firstName,
@@ -108,17 +61,14 @@ export async function signUp(data: {
       15000,
       'Create Firestore user'
     );
-    console.log('[signUp] Firestore user created, registration complete!');
 
     return { user, firestoreUser };
   } catch (error: any) {
-    console.error('[signUp] Post-auth step failed:', error.message);
-    // Rollback: delete Firebase Auth user if Firestore creation fails
+    // Rollback: delete Firebase Auth user if post-auth steps fail
     try {
       await user.delete();
-      console.log('[signUp] Rolled back Firebase Auth user');
-    } catch (deleteError) {
-      console.error('[signUp] Failed to rollback user:', deleteError);
+    } catch {
+      console.error('[signUp] Failed to rollback Firebase Auth user');
     }
     throw error;
   }
@@ -131,53 +81,23 @@ export async function signUp(data: {
  * E2E test mode: Set NEXT_PUBLIC_E2E_TEST_MODE=true to skip email verification.
  */
 export async function signIn(email: string, password: string): Promise<FirebaseUser> {
-  console.log('[signIn] Starting sign in for:', email);
-  console.log('[signIn] Firebase auth object exists:', !!auth);
-  console.log('[signIn] Firebase project:', auth?.app?.options?.projectId);
-  console.log('[signIn] Auth domain:', auth?.app?.options?.authDomain);
-
-  let userCredential;
-  try {
-    console.log('[signIn] Calling signInWithEmailAndPassword...');
-    userCredential = await signInWithEmailAndPassword(auth, email, password);
-    console.log('[signIn] Firebase Auth succeeded, user:', userCredential.user.uid);
-  } catch (authError: any) {
-    console.error('[signIn] Firebase Auth FAILED');
-    console.error('[signIn] Error code:', authError?.code);
-    console.error('[signIn] Error message:', authError?.message);
-    throw authError;
-  }
-
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
-  console.log('[signIn] User email verified:', user.emailVerified);
 
-  // Skip email verification in E2E test mode (localhost only)
-  const isE2ETestMode = process.env.NEXT_PUBLIC_E2E_TEST_MODE === 'true';
+  // Enforce email verification (unless in E2E test mode on localhost)
   const isLocalhost = typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-  console.log('[signIn] E2E mode:', isE2ETestMode, 'Localhost:', isLocalhost);
-
-  // Enforce email verification (unless in E2E test mode on localhost)
-  if (!user.emailVerified && !(isE2ETestMode && isLocalhost)) {
-    console.log('[signIn] Email not verified, signing out and throwing error');
+  if (!user.emailVerified && !(isE2ETestMode() && isLocalhost)) {
     await firebaseSignOut(auth);
     throw new Error('Please verify your email before logging in. Check your inbox for the verification link.');
   }
 
-  // Sync email verification status to Firestore (skip in E2E test mode)
+  // Sync email verification status to Firestore (non-fatal)
   if (user.emailVerified) {
-    console.log('[signIn] Syncing email verification to Firestore...');
-    try {
-      await markEmailVerified(user.uid);
-      console.log('[signIn] Email verification synced');
-    } catch (syncError: any) {
-      console.error('[signIn] Failed to sync email verification (non-fatal):', syncError?.message);
-      // Don't fail login due to this - it's just a sync
-    }
+    markEmailVerified(user.uid).catch(() => {});
   }
 
-  console.log('[signIn] Sign in complete, returning user');
   return user;
 }
 
@@ -244,17 +164,6 @@ export function getCurrentUser(): FirebaseUser | null {
  */
 export function onAuthStateChange(callback: (user: FirebaseUser | null) => void): () => void {
   return onAuthStateChanged(auth, callback);
-}
-
-/**
-/**
- * Listen to ID token changes (fires on sign-in, sign-out, and token refresh)
- *
- * Firebase auto-refreshes ID tokens ~5 minutes before expiry (every ~55 min).
- * Use this to keep the firebase-auth-token fallback cookie fresh.
- */
-export function onIdTokenChange(callback: (user: FirebaseUser | null) => void): () => void {
-  return onIdTokenChanged(auth, callback);
 }
 
 /**

@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDashboardUser } from '@/lib/firebase/admin-auth';
+import { authWithProfile } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
 import {
   createCustomerPortalSession,
@@ -21,7 +21,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate user
-    const dashboardUser = await getDashboardUser();
+    const dashboardUser = await authWithProfile();
 
     if (!dashboardUser) {
       return NextResponse.json(
