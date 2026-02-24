@@ -14,7 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout>;
   return Promise.race([
-    promise.then((result) => { clearTimeout(timeoutId); return result; }),
+    promise.then((result) => { if (timeoutId) clearTimeout(timeoutId); return result; }),
     new Promise<T>((_, reject) => {
       timeoutId = setTimeout(() => {
         console.error(`[Login] TIMEOUT: ${operation} after ${ms}ms`);
