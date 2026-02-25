@@ -7,6 +7,9 @@ import {
   deleteJournalEntryAdmin,
 } from '@/lib/firebase/admin-services/journal';
 import { journalEntryUpdateSchema } from '@/lib/validations/journal-schema';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/players/[id]/journal/[entryId]');
 
 /**
  * GET /api/players/[id]/journal/[entryId] - Get single journal entry
@@ -50,7 +53,7 @@ export async function GET(
       entry,
     });
   } catch (error) {
-    console.error('Error fetching journal entry:', error);
+    logger.error('Error fetching journal entry', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch journal entry' },
       { status: 500 }
@@ -118,7 +121,7 @@ export async function PUT(
       entry,
     });
   } catch (error) {
-    console.error('Error updating journal entry:', error);
+    logger.error('Error updating journal entry', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to update journal entry' },
       { status: 500 }
@@ -170,7 +173,7 @@ export async function DELETE(
       message: 'Journal entry deleted',
     });
   } catch (error) {
-    console.error('Error deleting journal entry:', error);
+    logger.error('Error deleting journal entry', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to delete journal entry' },
       { status: 500 }

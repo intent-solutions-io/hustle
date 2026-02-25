@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import { addDreamGymEventAdmin } from '@/lib/firebase/admin-services/dream-gym';
+
+const logger = createLogger('api/players/[id]/dream-gym/events');
 
 /**
  * POST /api/players/[id]/dream-gym/events - Add a Dream Gym event
@@ -54,7 +57,7 @@ export async function POST(
       eventId
     });
   } catch (error) {
-    console.error('Error adding event:', error);
+    logger.error('Error adding event', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to add event' },
       { status: 500 }

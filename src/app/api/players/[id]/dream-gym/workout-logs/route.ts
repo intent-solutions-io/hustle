@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import {
   createWorkoutLogAdmin,
@@ -7,6 +8,8 @@ import {
 } from '@/lib/firebase/admin-services/workout-logs';
 import { workoutLogCreateSchema, workoutLogQuerySchema } from '@/lib/validations/workout-log-schema';
 import type { WorkoutLogType } from '@/types/firestore';
+
+const logger = createLogger('api/players/[id]/dream-gym/workout-logs');
 
 /**
  * GET /api/players/[id]/dream-gym/workout-logs - List workout logs
@@ -88,7 +91,7 @@ export async function GET(
       nextCursor,
     });
   } catch (error) {
-    console.error('Error fetching workout logs:', error);
+    logger.error('Error fetching workout logs', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch workout logs' },
       { status: 500 }
@@ -143,7 +146,7 @@ export async function POST(
     const validationResult = workoutLogCreateSchema.safeParse(dataToValidate);
 
     if (!validationResult.success) {
-      console.error('[WORKOUT-LOG-CREATE] Validation failed:', validationResult.error.flatten());
+      logger.error('[WORKOUT-LOG-CREATE] Validation failed', new Error(JSON.stringify(validationResult.error.flatten())));
       return NextResponse.json(
         { error: 'Invalid workout log data', details: validationResult.error.flatten() },
         { status: 400 }
@@ -173,7 +176,7 @@ export async function POST(
       workoutLog,
     });
   } catch (error) {
-    console.error('Error creating workout log:', error);
+    logger.error('Error creating workout log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to create workout log' },
       { status: 500 }

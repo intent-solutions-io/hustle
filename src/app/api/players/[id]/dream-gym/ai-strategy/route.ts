@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import { getDreamGymAdmin } from '@/lib/firebase/admin-services/dream-gym';
 import { getWorkoutLogsAdmin } from '@/lib/firebase/admin-services/workout-logs';
@@ -12,6 +13,8 @@ import {
   suggestProgressions,
   type WorkoutStrategyInput,
 } from '@/lib/ai/workout-strategy';
+
+const logger = createLogger('api/players/[id]/dream-gym/ai-strategy');
 
 /**
  * Shared helper to fetch common data for AI strategy endpoints
@@ -193,7 +196,7 @@ export async function POST(
       strategy,
     });
   } catch (error) {
-    console.error('Error generating AI strategy:', error);
+    logger.error('Error generating AI strategy', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to generate workout strategy' },
       { status: 500 }
@@ -298,7 +301,7 @@ export async function GET(
       { status: 400 }
     );
   } catch (error) {
-    console.error('Error analyzing data:', error);
+    logger.error('Error analyzing data', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to analyze data' },
       { status: 500 }

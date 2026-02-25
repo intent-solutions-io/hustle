@@ -19,6 +19,9 @@ import {
 } from '@/lib/billing/plan-change';
 import { getPlanForPriceId } from '@/lib/stripe/plan-mapping';
 import type { Workspace } from '@/types/firestore';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/billing/change-plan');
 
 /**
  * POST handler for plan change
@@ -113,7 +116,7 @@ export async function POST(request: NextRequest) {
     try {
       prorationPreview = await getProrationPreview(workspace, targetPriceId);
     } catch (error: any) {
-      console.error('[API] Plan change proration preview failed:', error.message);
+      logger.error('Plan change proration preview failed: ' + error.message, error instanceof Error ? error : new Error(String(error)));
       return NextResponse.json(
         {
           error: 'PRORATION_FAILED',
@@ -128,7 +131,7 @@ export async function POST(request: NextRequest) {
     try {
       checkoutUrl = await buildCheckoutSession(workspace, targetPriceId);
     } catch (error: any) {
-      console.error('[API] Plan change checkout session failed:', error.message);
+      logger.error('Plan change checkout session failed: ' + error.message, error instanceof Error ? error : new Error(String(error)));
       return NextResponse.json(
         {
           error: 'CHECKOUT_FAILED',
@@ -151,7 +154,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('[API] /api/billing/change-plan error:', error.message);
+    logger.error('/api/billing/change-plan error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
 
     // Handle Stripe API errors
     if (error.type) {

@@ -7,6 +7,9 @@ import {
   deleteBiometricsLogAdmin,
 } from '@/lib/firebase/admin-services/biometrics';
 import { biometricsLogUpdateSchema } from '@/lib/validations/biometrics-schema';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/players/[id]/biometrics/[logId]');
 
 /**
  * GET /api/players/[id]/biometrics/[logId] - Get single biometrics log
@@ -54,7 +57,7 @@ export async function GET(
       biometricsLog,
     });
   } catch (error) {
-    console.error('Error fetching biometrics log:', error);
+    logger.error('Error fetching biometrics log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch biometrics log' },
       { status: 500 }
@@ -125,7 +128,7 @@ export async function PUT(
       biometricsLog,
     });
   } catch (error) {
-    console.error('Error updating biometrics log:', error);
+    logger.error('Error updating biometrics log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to update biometrics log' },
       { status: 500 }
@@ -181,7 +184,7 @@ export async function DELETE(
       message: 'Biometrics log deleted',
     });
   } catch (error) {
-    console.error('Error deleting biometrics log:', error);
+    logger.error('Error deleting biometrics log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to delete biometrics log' },
       { status: 500 }

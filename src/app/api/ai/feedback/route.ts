@@ -6,6 +6,9 @@
  */
 import { NextResponse } from 'next/server';
 import type { WorkoutLog } from '@/types/firestore';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/ai/feedback');
 
 // This is a mock AI feedback function.
 // In a real application, this would make a call to an AI service
@@ -41,7 +44,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, feedback });
   } catch (error) {
-    console.error('[AI_FEEDBACK_API] Error:', error);
+    logger.error('Error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Failed to get AI feedback' },
       { status: 500 }

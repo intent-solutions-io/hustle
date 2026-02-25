@@ -7,6 +7,9 @@ import {
   deleteCardioLogAdmin,
 } from '@/lib/firebase/admin-services/cardio-logs';
 import { cardioLogUpdateSchema } from '@/lib/validations/cardio-log-schema';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/players/[id]/cardio-logs/[logId]');
 
 /**
  * GET /api/players/[id]/cardio-logs/[logId] - Get single cardio log
@@ -49,7 +52,7 @@ export async function GET(
       cardioLog,
     });
   } catch (error) {
-    console.error('Error fetching cardio log:', error);
+    logger.error('Error fetching cardio log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch cardio log' },
       { status: 500 }
@@ -116,7 +119,7 @@ export async function PATCH(
       cardioLog: updatedLog,
     });
   } catch (error) {
-    console.error('Error updating cardio log:', error);
+    logger.error('Error updating cardio log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to update cardio log' },
       { status: 500 }
@@ -168,7 +171,7 @@ export async function DELETE(
       message: 'Cardio log deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting cardio log:', error);
+    logger.error('Error deleting cardio log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to delete cardio log' },
       { status: 500 }

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import bcrypt from 'bcrypt';
 import { updateUserProfileAdmin } from '@/lib/firebase/admin-services/users';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/account/pin');
 
 /**
  * PATCH /api/account/pin - Create or update verification PIN
@@ -51,7 +54,7 @@ export async function PATCH(request: NextRequest) {
       message: 'Verification PIN saved successfully.',
     });
   } catch (error) {
-    console.error('Error saving verification PIN:', error);
+    logger.error('Error saving verification PIN', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Unable to save PIN. Please try again.' },
       { status: 500 }

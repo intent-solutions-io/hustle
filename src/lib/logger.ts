@@ -1,31 +1,15 @@
 /**
  * Structured Logging Utility
- * Integrates with Google Cloud Logging for production
- * Falls back to console in development
+ *
+ * Production (Cloud Run): Emits structured JSON to stdout, which Cloud Run
+ * auto-captures into Google Cloud Logging. Includes OTel trace context for
+ * correlation with Cloud Trace spans.
+ *
+ * Development: Pretty console output with context and metadata.
  */
-import { Logging } from '@google-cloud/logging';
-import { ErrorReporting } from '@google-cloud/error-reporting';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT;
-
-// Initialize Google Cloud clients (only in production with credentials)
-let cloudLogging: Logging | null = null;
-let errorReporting: ErrorReporting | null = null;
-
-if (IS_PRODUCTION && PROJECT_ID) {
-  try {
-    cloudLogging = new Logging({ projectId: PROJECT_ID });
-    errorReporting = new ErrorReporting({
-      projectId: PROJECT_ID,
-      reportMode: 'production',
-    });
-  } catch (error) {
-    console.warn('Failed to initialize Google Cloud Logging:', error);
-  }
-}
-
-const log = cloudLogging?.log('hustle-app');
 
 export enum LogLevel {
   DEBUG = 'DEBUG',
@@ -46,7 +30,29 @@ interface LogMetadata {
 }
 
 /**
- * Structured logger with Cloud Logging integration
+ * Get active OTel trace context if available.
+ * Returns undefined fields when no active span exists.
+ */
+function getTraceContext(): { traceId?: string; spanId?: string } {
+  try {
+    // Dynamic import to avoid breaking when OTel isn't initialized
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const api = require('@opentelemetry/api');
+    const span = api.trace.getActiveSpan?.();
+    if (span) {
+      const ctx = span.spanContext();
+      if (ctx?.traceId && ctx.traceId !== '00000000000000000000000000000000') {
+        return { traceId: ctx.traceId, spanId: ctx.spanId };
+      }
+    }
+  } catch {
+    // OTel not available — fine in dev or during build
+  }
+  return {};
+}
+
+/**
+ * Structured logger with Cloud Run native JSON logging + OTel trace context.
  */
 export class Logger {
   private context: string;
@@ -55,70 +61,53 @@ export class Logger {
     this.context = context;
   }
 
-  /**
-   * Log a debug message
-   */
   debug(message: string, metadata?: LogMetadata) {
-    this.log(LogLevel.DEBUG, message, metadata);
+    this.writeLog(LogLevel.DEBUG, message, metadata);
   }
 
-  /**
-   * Log an info message
-   */
   info(message: string, metadata?: LogMetadata) {
-    this.log(LogLevel.INFO, message, metadata);
+    this.writeLog(LogLevel.INFO, message, metadata);
   }
 
-  /**
-   * Log a warning
-   */
   warn(message: string, metadata?: LogMetadata) {
-    this.log(LogLevel.WARNING, message, metadata);
+    this.writeLog(LogLevel.WARNING, message, metadata);
   }
 
-  /**
-   * Log an error
-   */
   error(message: string, error?: Error, metadata?: LogMetadata) {
-    this.log(LogLevel.ERROR, message, {
-      ...metadata,
-      error: error ? {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      } : undefined,
-    });
-
-    // Report to Google Cloud Error Reporting
-    if (errorReporting && error) {
-      errorReporting.report(error);
-    }
+    this.writeLog(LogLevel.ERROR, message, metadata, error);
   }
 
-  /**
-   * Log a critical error
-   */
   critical(message: string, error?: Error, metadata?: LogMetadata) {
-    this.log(LogLevel.CRITICAL, message, {
-      ...metadata,
-      error: error ? {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      } : undefined,
-    });
+    this.writeLog(LogLevel.CRITICAL, message, metadata, error);
+  }
 
-    // Report to Google Cloud Error Reporting
-    if (errorReporting && error) {
-      errorReporting.report(error);
+  private writeLog(
+    level: LogLevel,
+    message: string,
+    metadata?: LogMetadata,
+    error?: Error
+  ) {
+    if (IS_PRODUCTION) {
+      this.writeStructuredJson(level, message, metadata, error);
+    } else {
+      this.writeConsole(level, message, metadata, error);
     }
   }
 
   /**
-   * Internal log method
+   * Production: structured JSON to stdout.
+   * Cloud Run captures this into Cloud Logging automatically.
+   * Cloud Error Reporting auto-detects entries with severity ERROR + @type field.
    */
-  private log(level: LogLevel, message: string, metadata?: LogMetadata) {
-    const logEntry = {
+  private writeStructuredJson(
+    level: LogLevel,
+    message: string,
+    metadata?: LogMetadata,
+    error?: Error
+  ) {
+    const { traceId, spanId } = getTraceContext();
+
+    const entry: Record<string, unknown> = {
       severity: level,
       message,
       context: this.context,
@@ -126,65 +115,73 @@ export class Logger {
       ...metadata,
     };
 
-    if (IS_PRODUCTION && log) {
-      // Send to Google Cloud Logging
-      const entry = log.entry(
-        {
-          severity: level,
-          resource: {
-            type: 'cloud_run_revision',
-            labels: {
-              project_id: PROJECT_ID || '',
-              service_name: 'hustle-app',
-            },
-          },
-        },
-        logEntry
-      );
+    // Cloud Trace correlation
+    if (traceId && PROJECT_ID) {
+      entry['logging.googleapis.com/trace'] =
+        `projects/${PROJECT_ID}/traces/${traceId}`;
+    }
+    if (spanId) {
+      entry['logging.googleapis.com/spanId'] = spanId;
+    }
 
-      log.write(entry).catch((err) => {
-        console.error('Failed to write to Cloud Logging:', err);
-        this.fallbackLog(level, message, metadata);
-      });
+    // Error details + Cloud Error Reporting @type
+    if (error) {
+      entry.error = {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      };
+      if (level === LogLevel.ERROR || level === LogLevel.CRITICAL) {
+        entry['@type'] =
+          'type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent';
+      }
+    }
+
+    // Single structured JSON line to stdout — Cloud Run ingests this
+    const output = JSON.stringify(entry);
+    if (level === LogLevel.ERROR || level === LogLevel.CRITICAL) {
+      process.stderr.write(output + '\n');
     } else {
-      // Development: use console
-      this.fallbackLog(level, message, metadata);
+      process.stdout.write(output + '\n');
     }
   }
 
   /**
-   * Fallback to console logging
+   * Development: pretty console output.
    */
-  private fallbackLog(level: LogLevel, message: string, metadata?: LogMetadata) {
+  private writeConsole(
+    level: LogLevel,
+    message: string,
+    metadata?: LogMetadata,
+    error?: Error
+  ) {
     const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] [${level}] [${this.context}] ${message}`;
+    const prefix = `[${timestamp}] [${level}] [${this.context}]`;
+
+    const args: unknown[] = [`${prefix} ${message}`];
+    if (metadata && Object.keys(metadata).length > 0) args.push(metadata);
+    if (error) args.push(error);
 
     switch (level) {
       case LogLevel.DEBUG:
-        console.debug(logMessage, metadata || '');
+        console.debug(...args);
         break;
       case LogLevel.INFO:
-        console.info(logMessage, metadata || '');
+        console.info(...args);
         break;
       case LogLevel.WARNING:
-        console.warn(logMessage, metadata || '');
+        console.warn(...args);
         break;
       case LogLevel.ERROR:
       case LogLevel.CRITICAL:
-        console.error(logMessage, metadata || '');
+        console.error(...args);
         break;
     }
   }
 }
 
-/**
- * Create a logger for a specific context
- */
 export function createLogger(context: string): Logger {
   return new Logger(context);
 }
 
-/**
- * Default logger instance
- */
 export const logger = new Logger('app');
