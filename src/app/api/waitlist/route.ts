@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isOnWaitlistAdmin, addToWaitlistAdmin } from '@/lib/firebase/admin-services/waitlist';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/waitlist');
 
 // Validation schema
 const waitlistSchema = z.object({
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.error('Waitlist submission error:', error);
+    logger.error('Waitlist submission error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to join waitlist. Please try again.' },
       { status: 500 }

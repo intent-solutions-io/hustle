@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import { getDreamGymAdmin, upsertDreamGymAdmin } from '@/lib/firebase/admin-services/dream-gym';
 import type { DreamGymProfile, DreamGymSchedule } from '@/types/firestore';
+
+const logger = createLogger('api/players/[id]/dream-gym');
 
 /**
  * GET /api/players/[id]/dream-gym - Get Dream Gym profile
@@ -41,7 +44,7 @@ export async function GET(
       dreamGym
     });
   } catch (error) {
-    console.error('Error fetching Dream Gym:', error);
+    logger.error('Error fetching Dream Gym', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch Dream Gym profile' },
       { status: 500 }
@@ -118,7 +121,7 @@ export async function POST(
       dreamGym
     });
   } catch (error) {
-    console.error('Error saving Dream Gym:', error);
+    logger.error('Error saving Dream Gym', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to save Dream Gym profile' },
       { status: 500 }

@@ -8,6 +8,9 @@ import {
 } from '@/lib/firebase/admin-services/biometrics';
 import { biometricsLogCreateSchema, biometricsLogQuerySchema, biometricsSources } from '@/lib/validations/biometrics-schema';
 import type { BiometricsSource } from '@/types/firestore';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/players/[id]/biometrics');
 
 /**
  * GET /api/players/[id]/biometrics - List biometrics logs
@@ -108,7 +111,7 @@ export async function GET(
       trends,
     });
   } catch (error) {
-    console.error('Error fetching biometrics logs:', error);
+    logger.error('Error fetching biometrics logs', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch biometrics logs' },
       { status: 500 }
@@ -177,7 +180,7 @@ export async function POST(
       biometricsLog,
     });
   } catch (error) {
-    console.error('Error creating biometrics log:', error);
+    logger.error('Error creating biometrics log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to create biometrics log' },
       { status: 500 }

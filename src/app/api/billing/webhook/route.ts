@@ -26,6 +26,9 @@ import {
 } from '@/lib/stripe/plan-mapping';
 import { recordBillingEvent } from '@/lib/stripe/ledger';
 import { enforceWorkspacePlan } from '@/lib/stripe/plan-enforcement';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/billing/webhook');
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -40,7 +43,7 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('stripe-signature');
 
     if (!signature) {
-      console.error('Missing Stripe signature header');
+      logger.error('Missing Stripe signature header');
       return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
     }
 
@@ -50,7 +53,7 @@ export async function POST(request: NextRequest) {
     try {
       event = getStripeClient().webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err: any) {
-      console.error('Webhook signature verification failed:', err.message);
+      logger.error('Webhook signature verification failed: ' + err.message, err instanceof Error ? err : new Error(String(err)));
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 400 }
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
     // 5. Return 200 to acknowledge receipt
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    console.error('Webhook handler error:', error);
+    logger.error('Webhook handler error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Webhook processing failed', details: error.message },
       { status: 500 }
@@ -108,7 +111,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   const workspaceId = session.metadata?.workspaceId;
 
   if (!workspaceId) {
-    console.error('Missing workspaceId in checkout session metadata');
+    logger.error('Missing workspaceId in checkout session metadata');
     return;
   }
 
@@ -116,7 +119,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   const subscriptionId = session.subscription as string;
 
   if (!subscriptionId) {
-    console.error('No subscription ID in checkout session');
+    logger.error('No subscription ID in checkout session');
     return;
   }
 
@@ -159,7 +162,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, even
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
 
   if (!workspace) {
-    console.error('Workspace not found for customer:', customerId);
+    logger.error('Workspace not found for customer: ' + customerId);
     return;
   }
 
@@ -197,7 +200,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, even
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
 
   if (!workspace) {
-    console.error('Workspace not found for customer:', customerId);
+    logger.error('Workspace not found for customer: ' + customerId);
     return;
   }
 
@@ -241,7 +244,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice, eventId: string) {
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
 
   if (!workspace) {
-    console.error('Workspace not found for customer:', customerId);
+    logger.error('Workspace not found for customer: ' + customerId);
     return;
   }
 
@@ -284,7 +287,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice, eventId: string) 
   const workspace = await getWorkspaceByStripeCustomerId(customerId);
 
   if (!workspace) {
-    console.error('Workspace not found for customer:', customerId);
+    logger.error('Workspace not found for customer: ' + customerId);
     return;
   }
 

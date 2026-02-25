@@ -17,6 +17,9 @@ import {
   getDefaultReturnUrl,
   isValidStripeCustomerId,
 } from '@/lib/stripe/customer-portal';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/billing/create-portal-session');
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // 4. Validate customer ID format
     if (!isValidStripeCustomerId(stripeCustomerId)) {
-      console.error('[Customer Portal] Invalid Stripe customer ID:', stripeCustomerId);
+      logger.error('Invalid Stripe customer ID: ' + stripeCustomerId);
       return NextResponse.json(
         { error: 'INVALID_CUSTOMER_ID', message: 'Invalid customer ID format' },
         { status: 500 }
@@ -98,7 +101,7 @@ export async function POST(request: NextRequest) {
       url: portalSession.url,
     });
   } catch (error: any) {
-    console.error('[API] /api/billing/create-portal-session error:', error.message);
+    logger.error('/api/billing/create-portal-session error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
 
     // Handle Stripe API errors
     if (error.type) {

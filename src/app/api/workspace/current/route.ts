@@ -9,6 +9,9 @@
 
 import { authWithProfile } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/workspace/current');
 
 export async function GET() {
   try {
@@ -72,7 +75,7 @@ export async function GET() {
       },
     });
   } catch (error: any) {
-    console.error('[API] /api/workspace/current error:', error.message);
+    logger.error('/api/workspace/current error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
     return Response.json(
       { error: 'INTERNAL_ERROR', message: 'Failed to fetch workspace' },
       { status: 500 }

@@ -7,6 +7,9 @@ import {
   deletePracticeLogAdmin,
 } from '@/lib/firebase/admin-services/practice-logs';
 import { practiceLogUpdateSchema } from '@/lib/validations/practice-log-schema';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/players/[id]/practice-logs/[logId]');
 
 /**
  * GET /api/players/[id]/practice-logs/[logId] - Get single practice log
@@ -49,7 +52,7 @@ export async function GET(
       practiceLog,
     });
   } catch (error) {
-    console.error('Error fetching practice log:', error);
+    logger.error('Error fetching practice log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch practice log' },
       { status: 500 }
@@ -116,7 +119,7 @@ export async function PATCH(
       practiceLog: updatedLog,
     });
   } catch (error) {
-    console.error('Error updating practice log:', error);
+    logger.error('Error updating practice log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to update practice log' },
       { status: 500 }
@@ -168,7 +171,7 @@ export async function DELETE(
       message: 'Practice log deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting practice log:', error);
+    logger.error('Error deleting practice log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to delete practice log' },
       { status: 500 }

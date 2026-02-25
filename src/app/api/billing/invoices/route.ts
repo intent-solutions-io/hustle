@@ -14,6 +14,9 @@ import { authWithProfile } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
 import { listRecentInvoices } from '@/lib/stripe/billing-portal';
 import type { Workspace } from '@/types/firestore';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/billing/invoices');
 
 /**
  * GET handler for invoice list
@@ -109,7 +112,7 @@ export async function GET(request: NextRequest) {
     try {
       invoices = await listRecentInvoices(workspace.id, limit);
     } catch (error: any) {
-      console.error('[API] Invoice list retrieval failed:', error.message);
+      logger.error('Invoice list retrieval failed: ' + error.message, error instanceof Error ? error : new Error(String(error)));
       return NextResponse.json(
         {
           error: 'INVOICE_LIST_FAILED',
@@ -122,7 +125,7 @@ export async function GET(request: NextRequest) {
     // 7. Return success response
     return NextResponse.json({ invoices });
   } catch (error: any) {
-    console.error('[API] /api/billing/invoices error:', error.message);
+    logger.error('/api/billing/invoices error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
 
     // Handle Stripe API errors
     if (error.type) {
