@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import { sendEmail } from '@/lib/email';
 import { emailTemplates } from '@/lib/email-templates';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/auth/resend-verification');
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.error('[api/auth/resend-verification] Failed:', error);
+    logger.error('Failed', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Failed to send verification email. Please try again.' },
       { status: 500 }

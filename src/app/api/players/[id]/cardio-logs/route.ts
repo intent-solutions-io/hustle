@@ -7,6 +7,9 @@ import {
 } from '@/lib/firebase/admin-services/cardio-logs';
 import { cardioLogCreateSchema, cardioLogQuerySchema } from '@/lib/validations/cardio-log-schema';
 import type { CardioActivityType } from '@/types/firestore';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/players/[id]/cardio-logs');
 
 /**
  * GET /api/players/[id]/cardio-logs - List cardio logs
@@ -76,7 +79,7 @@ export async function GET(
       nextCursor,
     });
   } catch (error) {
-    console.error('Error fetching cardio logs:', error);
+    logger.error('Error fetching cardio logs', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch cardio logs' },
       { status: 500 }
@@ -138,7 +141,7 @@ export async function POST(
       cardioLog,
     });
   } catch (error) {
-    console.error('Error creating cardio log:', error);
+    logger.error('Error creating cardio log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to create cardio log' },
       { status: 500 }

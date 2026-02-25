@@ -9,6 +9,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { ensureUserProvisioned } from '@/lib/firebase/server-provisioning';
 import { isE2ETestMode } from '@/lib/e2e';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/auth/set-session');
 
 const SESSION_EXPIRES_MS = 60 * 60 * 24 * 14 * 1000; // 14 days
 
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
     try {
       decodedToken = await adminAuth.verifyIdToken(idToken, true);
     } catch (verifyError: any) {
-      console.error('[set-session] Token verification failed:', verifyError?.message);
+      logger.error('Token verification failed: ' + (verifyError?.message || ''), verifyError instanceof Error ? verifyError : new Error(String(verifyError)));
       return NextResponse.json(
         { success: false, error: 'Invalid or expired token. Please log in again.' },
         { status: 401 }
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
     try {
       sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn: SESSION_EXPIRES_MS });
     } catch (cookieError: any) {
-      console.error('[set-session] Failed to create session cookie:', cookieError?.message);
+      logger.error('Failed to create session cookie: ' + (cookieError?.message || ''), cookieError instanceof Error ? cookieError : new Error(String(cookieError)));
       return NextResponse.json(
         { success: false, error: 'Failed to create session. Please try again.' },
         { status: 500 }
@@ -70,12 +73,12 @@ export async function POST(request: NextRequest) {
 
     // Fire-and-forget: ensure user has Firestore documents (profile + workspace)
     ensureUserProvisioned(decodedToken).catch((err: any) => {
-      console.error('[set-session] Background provisioning failed:', err?.message || err);
+      logger.error('Background provisioning failed: ' + (err?.message || err), err instanceof Error ? err : new Error(String(err)));
     });
 
     return response;
   } catch (error: unknown) {
-    console.error('[set-session] Unexpected error:', (error as Error)?.message);
+    logger.error('Unexpected error: ' + ((error as Error)?.message || ''), error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Failed to set session. Please try again.' },
       { status: 500 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import {
   getAssessmentAdmin,
@@ -8,6 +9,8 @@ import {
   getAssessmentProgressAdmin,
 } from '@/lib/firebase/admin-services/assessments';
 import { fitnessAssessmentUpdateSchema, validateAssessmentValue } from '@/lib/validations/assessment-schema';
+
+const logger = createLogger('api/players/[id]/assessments/[assessmentId]');
 
 /**
  * GET /api/players/[id]/assessments/[assessmentId] - Get single assessment
@@ -71,7 +74,7 @@ export async function GET(
       progress,
     });
   } catch (error) {
-    console.error('Error fetching assessment:', error);
+    logger.error('Error fetching assessment', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch assessment' },
       { status: 500 }
@@ -156,7 +159,7 @@ export async function PUT(
       assessment,
     });
   } catch (error) {
-    console.error('Error updating assessment:', error);
+    logger.error('Error updating assessment', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to update assessment' },
       { status: 500 }
@@ -212,7 +215,7 @@ export async function DELETE(
       message: 'Assessment deleted',
     });
   } catch (error) {
-    console.error('Error deleting assessment:', error);
+    logger.error('Error deleting assessment', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to delete assessment' },
       { status: 500 }

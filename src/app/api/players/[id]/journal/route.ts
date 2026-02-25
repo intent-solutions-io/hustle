@@ -7,6 +7,9 @@ import {
 } from '@/lib/firebase/admin-services/journal';
 import { journalEntryCreateSchema, journalEntryQuerySchema } from '@/lib/validations/journal-schema';
 import type { JournalContext, JournalMoodTag } from '@/types/firestore';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/players/[id]/journal');
 
 /**
  * GET /api/players/[id]/journal - List journal entries
@@ -78,7 +81,7 @@ export async function GET(
       nextCursor,
     });
   } catch (error) {
-    console.error('Error fetching journal entries:', error);
+    logger.error('Error fetching journal entries', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch journal entries' },
       { status: 500 }
@@ -140,7 +143,7 @@ export async function POST(
       entry,
     });
   } catch (error) {
-    console.error('Error creating journal entry:', error);
+    logger.error('Error creating journal entry', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to create journal entry' },
       { status: 500 }

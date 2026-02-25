@@ -7,6 +7,9 @@ import {
 } from '@/lib/firebase/admin-services/practice-logs';
 import { practiceLogCreateSchema, practiceLogQuerySchema } from '@/lib/validations/practice-log-schema';
 import type { PracticeType, PracticeFocusArea } from '@/types/firestore';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/players/[id]/practice-logs');
 
 /**
  * GET /api/players/[id]/practice-logs - List practice logs
@@ -78,7 +81,7 @@ export async function GET(
       nextCursor,
     });
   } catch (error) {
-    console.error('Error fetching practice logs:', error);
+    logger.error('Error fetching practice logs', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch practice logs' },
       { status: 500 }
@@ -140,7 +143,7 @@ export async function POST(
       practiceLog,
     });
   } catch (error) {
-    console.error('Error creating practice log:', error);
+    logger.error('Error creating practice log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to create practice log' },
       { status: 500 }

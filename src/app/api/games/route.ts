@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ games: gamesWithPlayer })
   } catch (error) {
-    console.error('Error fetching games:', error)
+    logger.error('Error fetching games', error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json({
       error: 'GAMES_FETCH_FAILED',
       message: 'Failed to fetch games. Please try again.'
@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
         });
       }
     } catch (notificationError) {
-      console.error('[Game Notification] Failed to send verification email', notificationError);
+      logger.error('Failed to send verification email', notificationError instanceof Error ? notificationError : new Error(String(notificationError)));
       // Non-blocking: continue even if email fails
     }
 
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
       game: gameWithPlayer
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating game:', error);
+    logger.error('Error creating game', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json({
       error: 'GAME_CREATE_FAILED',
       message: 'Failed to create game. Please try again.'

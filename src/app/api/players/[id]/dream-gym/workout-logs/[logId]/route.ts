@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import {
   getWorkoutLogAdmin,
@@ -7,6 +8,8 @@ import {
   deleteWorkoutLogAdmin,
 } from '@/lib/firebase/admin-services/workout-logs';
 import { workoutLogUpdateSchema } from '@/lib/validations/workout-log-schema';
+
+const logger = createLogger('api/players/[id]/dream-gym/workout-logs/[logId]');
 
 /**
  * GET /api/players/[id]/dream-gym/workout-logs/[logId] - Get single workout log
@@ -50,7 +53,7 @@ export async function GET(
       workoutLog,
     });
   } catch (error) {
-    console.error('Error fetching workout log:', error);
+    logger.error('Error fetching workout log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch workout log' },
       { status: 500 }
@@ -118,7 +121,7 @@ export async function PUT(
       workoutLog,
     });
   } catch (error) {
-    console.error('Error updating workout log:', error);
+    logger.error('Error updating workout log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to update workout log' },
       { status: 500 }
@@ -170,7 +173,7 @@ export async function DELETE(
       message: 'Workout log deleted',
     });
   } catch (error) {
-    console.error('Error deleting workout log:', error);
+    logger.error('Error deleting workout log', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to delete workout log' },
       { status: 500 }

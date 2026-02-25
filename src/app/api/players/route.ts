@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { createLogger } from '@/lib/logger'
 import { getPlayersAdmin } from '@/lib/firebase/admin-services/players'
 import { getUnverifiedGamesAdmin } from '@/lib/firebase/admin-services/games'
 import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users'
+
+const logger = createLogger('api/players')
 
 // GET /api/players - Get all players for authenticated user
 export async function GET() {
@@ -42,7 +45,7 @@ export async function GET() {
 
     return NextResponse.json({ players: playersWithPending })
   } catch (error) {
-    console.error('Error fetching players:', error)
+    logger.error('Error fetching players', error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json({
       error: 'Failed to fetch players'
     }, { status: 500 })

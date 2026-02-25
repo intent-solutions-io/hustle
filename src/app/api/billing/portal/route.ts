@@ -14,6 +14,9 @@ import { authWithProfile } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
 import { getOrCreateBillingPortalUrl } from '@/lib/stripe/billing-portal';
 import type { Workspace } from '@/types/firestore';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/billing/portal');
 
 /**
  * POST handler for billing portal session creation
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest) {
     try {
       url = await getOrCreateBillingPortalUrl(workspace.id, returnPath);
     } catch (error: any) {
-      console.error('[API] Billing portal session creation failed:', error.message);
+      logger.error('Billing portal session creation failed: ' + error.message, error instanceof Error ? error : new Error(String(error)));
       return NextResponse.json(
         {
           error: 'BILLING_PORTAL_FAILED',
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
     // 7. Return success response
     return NextResponse.json({ url });
   } catch (error: any) {
-    console.error('[API] /api/billing/portal error:', error.message);
+    logger.error('/api/billing/portal error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
 
     // Handle Stripe API errors
     if (error.type) {

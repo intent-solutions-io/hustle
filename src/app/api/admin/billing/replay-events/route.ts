@@ -31,6 +31,9 @@ import {
 } from '@/lib/firebase/services/workspaces';
 import { enforceWorkspacePlan } from '@/lib/stripe/plan-enforcement';
 import type { Workspace } from '@/types/firestore';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/admin/billing/replay-events');
 
 /** Safely convert Firestore Timestamp to Date with warning on missing data */
 function safeTimestampToDate(
@@ -294,7 +297,7 @@ export async function POST(request: NextRequest) {
             });
         }
       } catch (error: any) {
-        console.error(`[Replay] Error processing event ${event.id}:`, error.message);
+        logger.error(`Error processing event ${event.id}: ` + error.message, error instanceof Error ? error : new Error(String(error)));
         report.skipped.push({
           eventId: event.id,
           type: event.type,
@@ -327,7 +330,7 @@ export async function POST(request: NextRequest) {
     // 11. Return report
     return NextResponse.json(report);
   } catch (error: any) {
-    console.error('[Replay] Error:', error);
+    logger.error('Replay error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'REPLAY_FAILED', message: error.message || 'Event replay failed' },
       { status: 500 }

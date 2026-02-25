@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import { addMentalCheckInAdmin } from '@/lib/firebase/admin-services/dream-gym';
+
+const logger = createLogger('api/players/[id]/dream-gym/check-in');
 
 /**
  * POST /api/players/[id]/dream-gym/check-in - Add a mental check-in
@@ -76,7 +79,7 @@ export async function POST(
       success: true
     });
   } catch (error) {
-    console.error('Error adding check-in:', error);
+    logger.error('Error adding check-in', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to add check-in' },
       { status: 500 }

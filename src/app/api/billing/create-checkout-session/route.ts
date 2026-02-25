@@ -10,6 +10,9 @@ import { getStripeClient } from '@/lib/stripe/client';
 import { auth } from '@/lib/auth';
 import { getWorkspaceById, updateWorkspaceBilling } from '@/lib/firebase/services/workspaces';
 import { z } from 'zod';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/billing/create-checkout-session');
 
 // Request validation schema
 const checkoutRequestSchema = z.object({
@@ -112,7 +115,7 @@ export async function POST(request: NextRequest) {
       sessionId: checkoutSession.id,
     });
   } catch (error: any) {
-    console.error('Stripe checkout session creation error:', error);
+    logger.error('Stripe checkout session creation error', error instanceof Error ? error : new Error(String(error)));
 
     // Handle Stripe-specific errors
     if (error.type === 'StripeCardError') {

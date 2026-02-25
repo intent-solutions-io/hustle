@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import { removeDreamGymEventAdmin } from '@/lib/firebase/admin-services/dream-gym';
+
+const logger = createLogger('api/players/[id]/dream-gym/events/[eventId]');
 
 /**
  * DELETE /api/players/[id]/dream-gym/events/[eventId] - Remove a Dream Gym event
@@ -38,7 +41,7 @@ export async function DELETE(
       success: true
     });
   } catch (error) {
-    console.error('Error removing event:', error);
+    logger.error('Error removing event', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to remove event' },
       { status: 500 }

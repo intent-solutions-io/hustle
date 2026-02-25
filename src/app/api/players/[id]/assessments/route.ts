@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
 import {
   createAssessmentAdmin,
@@ -14,6 +15,8 @@ import {
   validateAssessmentValue,
 } from '@/lib/validations/assessment-schema';
 import type { FitnessTestType } from '@/types/firestore';
+
+const logger = createLogger('api/players/[id]/assessments');
 
 /**
  * GET /api/players/[id]/assessments - List fitness assessments
@@ -102,7 +105,7 @@ export async function GET(
       metadata: includeMetadata ? fitnessTestMetadata : undefined,
     });
   } catch (error) {
-    console.error('Error fetching assessments:', error);
+    logger.error('Error fetching assessments', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch assessments' },
       { status: 500 }
@@ -174,7 +177,7 @@ export async function POST(
       assessment,
     });
   } catch (error) {
-    console.error('Error creating assessment:', error);
+    logger.error('Error creating assessment', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to create assessment' },
       { status: 500 }

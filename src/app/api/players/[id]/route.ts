@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
 import { getPlayerAdmin, updatePlayerAdmin, deletePlayerAdmin } from '@/lib/firebase/admin-services/players';
 import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
 import { getWorkspaceByIdAdmin } from '@/lib/firebase/admin-services/workspaces';
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce';
 import { WorkspaceAccessError } from '@/lib/firebase/access-control';
+
+const logger = createLogger('api/players/[id]');
 
 /**
  * GET /api/players/[id] - Get single athlete
@@ -41,7 +44,7 @@ export async function GET(
       player
     });
   } catch (error) {
-    console.error('Error fetching player:', error);
+    logger.error('Error fetching player', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to fetch player' },
       { status: 500 }
@@ -133,7 +136,7 @@ export async function PUT(
       player: updatedPlayer
     });
   } catch (error) {
-    console.error('Error updating player:', error);
+    logger.error('Error updating player', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to update player' },
       { status: 500 }
@@ -209,7 +212,7 @@ export async function DELETE(
       message: `Player ${existingPlayer.name} deleted successfully`
     });
   } catch (error) {
-    console.error('Error deleting player:', error);
+    logger.error('Error deleting player', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Failed to delete player' },
       { status: 500 }

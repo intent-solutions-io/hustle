@@ -4,6 +4,9 @@ import bcrypt from 'bcrypt'
 import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users'
 import { getGameAdmin, verifyGameAdmin } from '@/lib/firebase/admin-services/games'
 import { getPlayerAdmin } from '@/lib/firebase/admin-services/players'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('api/verify')
 
 // POST /api/verify - Verify a game log
 export async function POST(request: NextRequest) {
@@ -129,9 +132,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack : '';
-    console.error('[Verify API] Error:', errorMessage)
-    console.error('[Verify API] Stack:', errorStack)
+    logger.error('Error: ' + errorMessage, error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json({
       error: `Failed to verify game: ${errorMessage}`
     }, { status: 500 })

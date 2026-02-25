@@ -8,6 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase/admin';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/debug/workout-logs/[playerId]');
 
 export async function GET(
   request: NextRequest,
@@ -51,7 +54,7 @@ export async function GET(
       workoutLogs: logs,
     });
   } catch (error) {
-    console.error('[DEBUG] Error:', error);
+    logger.error('Error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json({
       error: 'Debug check failed',
       details: error instanceof Error ? error.message : 'Unknown error',
