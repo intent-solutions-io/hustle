@@ -40,8 +40,8 @@ export async function GET(
     // Parse query params
     const url = new URL(request.url);
     const queryParams = {
-      context: url.searchParams.get('context') as JournalContext | undefined,
-      moodTag: url.searchParams.get('moodTag') as JournalMoodTag | undefined,
+      context: (url.searchParams.get('context') as JournalContext) || undefined,
+      moodTag: (url.searchParams.get('moodTag') as JournalMoodTag) || undefined,
       startDate: url.searchParams.get('startDate') || undefined,
       endDate: url.searchParams.get('endDate') || undefined,
       limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!) : undefined,
