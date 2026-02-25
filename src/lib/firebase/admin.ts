@@ -32,6 +32,12 @@ function initializeFirebaseAdmin(): App {
     return _app;
   }
 
+  // Priority 0: Firebase Emulators (no credentials needed)
+  if (process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+    _app = initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID || 'hustle-test' });
+    return _app;
+  }
+
   // Priority 1: Full service account JSON (most reliable)
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (serviceAccountJson) {
