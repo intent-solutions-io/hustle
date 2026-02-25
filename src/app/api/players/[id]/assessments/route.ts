@@ -50,7 +50,7 @@ export async function GET(
     const includeMetadata = url.searchParams.get('includeMetadata') === 'true';
 
     const queryParams = {
-      testType: url.searchParams.get('testType') as FitnessTestType | undefined,
+      testType: (url.searchParams.get('testType') as FitnessTestType) || undefined,
       startDate: url.searchParams.get('startDate') || undefined,
       endDate: url.searchParams.get('endDate') || undefined,
       limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
