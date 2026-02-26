@@ -56,12 +56,16 @@ function LoginContent() {
           await new Promise(r => setTimeout(r, backoffDelays[attempt]));
         }
         try {
+          const controller = new AbortController();
+          const timerId = setTimeout(() => controller.abort(), 10000);
           const response = await fetch('/api/auth/set-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ idToken }),
             credentials: 'include',
+            signal: controller.signal,
           });
+          clearTimeout(timerId);
           if (response.ok) {
             sessionSet = true;
             break;
