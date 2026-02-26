@@ -11,6 +11,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { createLogger } from '@/lib/logger';
+import { withTimeout } from '@/lib/utils/timeout';
 
 const logger = createLogger('api/health');
 
@@ -80,8 +81,8 @@ export async function GET() {
     try {
       const firestoreStart = Date.now();
 
-      // Attempt to read health check document
-      await adminDb.collection('_health').doc('ping').get();
+      // Attempt to read health check document (5s timeout prevents hang)
+      await withTimeout(adminDb.collection('_health').doc('ping').get(), 5000, 'Firestore health ping');
 
       const firestoreResponseTime = Date.now() - firestoreStart;
 

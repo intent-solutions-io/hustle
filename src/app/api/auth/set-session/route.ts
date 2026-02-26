@@ -10,6 +10,7 @@ import { adminAuth } from '@/lib/firebase/admin';
 import { ensureUserProvisioned } from '@/lib/firebase/server-provisioning';
 import { isE2ETestMode } from '@/lib/e2e';
 import { createLogger } from '@/lib/logger';
+import { withTimeout } from '@/lib/utils/timeout';
 
 const logger = createLogger('api/auth/set-session');
 
@@ -32,24 +33,26 @@ export async function POST(request: NextRequest) {
     // Verify the ID token
     let decodedToken;
     try {
-      decodedToken = await adminAuth.verifyIdToken(idToken, true);
+      decodedToken = await withTimeout(adminAuth.verifyIdToken(idToken, true), 10000, 'verifyIdToken');
     } catch (verifyError: any) {
+      const isTimeout = verifyError?.message?.includes('timed out');
       logger.error('Token verification failed: ' + (verifyError?.message || ''), verifyError instanceof Error ? verifyError : new Error(String(verifyError)));
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired token. Please log in again.' },
-        { status: 401 }
+        { success: false, error: isTimeout ? 'Server timeout verifying token. Please try again.' : 'Invalid or expired token. Please log in again.' },
+        { status: isTimeout ? 504 : 401 }
       );
     }
 
     // Create session cookie
     let sessionCookie: string;
     try {
-      sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn: SESSION_EXPIRES_MS });
+      sessionCookie = await withTimeout(adminAuth.createSessionCookie(idToken, { expiresIn: SESSION_EXPIRES_MS }), 10000, 'createSessionCookie');
     } catch (cookieError: any) {
+      const isTimeout = cookieError?.message?.includes('timed out');
       logger.error('Failed to create session cookie: ' + (cookieError?.message || ''), cookieError instanceof Error ? cookieError : new Error(String(cookieError)));
       return NextResponse.json(
-        { success: false, error: 'Failed to create session. Please try again.' },
-        { status: 500 }
+        { success: false, error: isTimeout ? 'Server timeout creating session. Please try again.' : 'Failed to create session. Please try again.' },
+        { status: isTimeout ? 504 : 500 }
       );
     }
 
