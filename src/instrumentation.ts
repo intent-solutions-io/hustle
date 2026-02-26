@@ -22,9 +22,11 @@ export async function register() {
       traceExporter,
       instrumentations: [
         getNodeAutoInstrumentations({
-          // Disable instrumentations that interfere with outgoing HTTP calls
-          // (Firebase Admin SDK, Google Auth Library, Cloud Trace exporter itself)
+          // Disable instrumentations that cause deadlocks with Firebase Admin SDK
+          // HTTP instrumentation wraps outgoing REST calls (verifyIdToken, etc.)
+          // and creates circular dependency with Cloud Trace gRPC exporter
           '@opentelemetry/instrumentation-fs': { enabled: false },
+          '@opentelemetry/instrumentation-http': { enabled: false },
           '@opentelemetry/instrumentation-dns': { enabled: false },
           '@opentelemetry/instrumentation-net': { enabled: false },
         }),
