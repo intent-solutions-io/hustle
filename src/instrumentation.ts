@@ -22,7 +22,11 @@ export async function register() {
       traceExporter,
       instrumentations: [
         getNodeAutoInstrumentations({
+          // Disable instrumentations that interfere with outgoing HTTP calls
+          // (Firebase Admin SDK, Google Auth Library, Cloud Trace exporter itself)
           '@opentelemetry/instrumentation-fs': { enabled: false },
+          '@opentelemetry/instrumentation-dns': { enabled: false },
+          '@opentelemetry/instrumentation-net': { enabled: false },
         }),
       ],
       serviceName: 'hustle-app',
