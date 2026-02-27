@@ -14,6 +14,7 @@ export default function AddAthlete() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [showSecondaryPositions, setShowSecondaryPositions] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     birthday: '',
@@ -261,30 +262,43 @@ export default function AddAthlete() {
             {errors.primaryPosition && <p className="text-red-500 text-sm mt-1">{errors.primaryPosition}</p>}
           </div>
 
-          {/* Secondary Positions */}
+          {/* Secondary Positions (collapsible) */}
           <div>
-            <label className="block text-sm font-medium text-zinc-900 mb-2">
-              Secondary Positions (Optional, max 3)
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {Object.entries(POSITION_LABELS)
-                .filter(([code]) => code !== formData.primaryPosition)
-                .map(([code, label]) => (
-                  <label key={code} className="flex items-center gap-2 cursor-pointer p-2 rounded border border-zinc-200 hover:bg-zinc-50">
-                    <input
-                      type="checkbox"
-                      checked={formData.secondaryPositions.includes(code as SoccerPositionCode)}
-                      onChange={() => handleSecondaryPositionToggle(code as SoccerPositionCode)}
-                      disabled={
-                        formData.secondaryPositions.length >= 3 &&
-                        !formData.secondaryPositions.includes(code as SoccerPositionCode)
-                      }
-                      className="w-4 h-4 text-zinc-900 focus:ring-zinc-900 rounded"
-                    />
-                    <span className="text-sm text-zinc-700">{label}</span>
-                  </label>
-                ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowSecondaryPositions(!showSecondaryPositions)}
+              className="flex items-center gap-2 text-sm font-medium text-zinc-900"
+            >
+              <span className={`transition-transform ${showSecondaryPositions ? 'rotate-90' : ''}`}>&#9654;</span>
+              Secondary Positions
+              <span className="font-normal text-zinc-500">(Optional, max 3)</span>
+              {formData.secondaryPositions.length > 0 && (
+                <span className="bg-zinc-900 text-white text-xs px-2 py-0.5 rounded-full">
+                  {formData.secondaryPositions.length}
+                </span>
+              )}
+            </button>
+            {showSecondaryPositions && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
+                {Object.entries(POSITION_LABELS)
+                  .filter(([code]) => code !== formData.primaryPosition)
+                  .map(([code, label]) => (
+                    <label key={code} className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-zinc-200 hover:bg-zinc-50 active:bg-zinc-100 min-h-[44px]">
+                      <input
+                        type="checkbox"
+                        checked={formData.secondaryPositions.includes(code as SoccerPositionCode)}
+                        onChange={() => handleSecondaryPositionToggle(code as SoccerPositionCode)}
+                        disabled={
+                          formData.secondaryPositions.length >= 3 &&
+                          !formData.secondaryPositions.includes(code as SoccerPositionCode)
+                        }
+                        className="w-5 h-5 text-zinc-900 focus:ring-zinc-900 rounded flex-shrink-0"
+                      />
+                      <span className="text-sm text-zinc-700">{label}</span>
+                    </label>
+                  ))}
+              </div>
+            )}
             {errors.secondaryPositions && <p className="text-red-500 text-sm mt-1">{errors.secondaryPositions}</p>}
           </div>
 
