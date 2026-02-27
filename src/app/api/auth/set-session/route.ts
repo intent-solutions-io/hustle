@@ -14,9 +14,14 @@ import { withTimeout } from '@/lib/utils/timeout';
 
 const logger = createLogger('api/auth/set-session');
 
+// Diagnostic: confirm module loads
+console.log('[set-session] module loaded');
+
 const SESSION_EXPIRES_MS = 60 * 60 * 24 * 14 * 1000; // 14 days
 
 export async function POST(request: NextRequest) {
+  const t0 = Date.now();
+  console.log(`[set-session] POST handler entered at ${new Date().toISOString()}`);
   try {
     let body;
     try {
@@ -24,6 +29,7 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 });
     }
+    console.log(`[set-session] body parsed +${Date.now() - t0}ms`);
 
     const { idToken } = body;
     if (!idToken) {
@@ -33,9 +39,12 @@ export async function POST(request: NextRequest) {
     // Verify the ID token
     let decodedToken;
     try {
+      console.log(`[set-session] calling verifyIdToken +${Date.now() - t0}ms`);
       decodedToken = await withTimeout(adminAuth.verifyIdToken(idToken, true), 10000, 'verifyIdToken');
+      console.log(`[set-session] verifyIdToken done +${Date.now() - t0}ms`);
     } catch (verifyError: any) {
       const isTimeout = verifyError?.message?.includes('timed out');
+      console.error(`[set-session] verifyIdToken FAILED +${Date.now() - t0}ms: ${verifyError?.message}`);
       logger.error('Token verification failed: ' + (verifyError?.message || ''), verifyError instanceof Error ? verifyError : new Error(String(verifyError)));
       return NextResponse.json(
         { success: false, error: isTimeout ? 'Server timeout verifying token. Please try again.' : 'Invalid or expired token. Please log in again.' },
@@ -46,9 +55,12 @@ export async function POST(request: NextRequest) {
     // Create session cookie
     let sessionCookie: string;
     try {
+      console.log(`[set-session] calling createSessionCookie +${Date.now() - t0}ms`);
       sessionCookie = await withTimeout(adminAuth.createSessionCookie(idToken, { expiresIn: SESSION_EXPIRES_MS }), 10000, 'createSessionCookie');
+      console.log(`[set-session] createSessionCookie done +${Date.now() - t0}ms`);
     } catch (cookieError: any) {
       const isTimeout = cookieError?.message?.includes('timed out');
+      console.error(`[set-session] createSessionCookie FAILED +${Date.now() - t0}ms: ${cookieError?.message}`);
       logger.error('Failed to create session cookie: ' + (cookieError?.message || ''), cookieError instanceof Error ? cookieError : new Error(String(cookieError)));
       return NextResponse.json(
         { success: false, error: isTimeout ? 'Server timeout creating session. Please try again.' : 'Failed to create session. Please try again.' },
