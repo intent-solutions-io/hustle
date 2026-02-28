@@ -90,10 +90,10 @@ export default function AddAthlete() {
       // Upload photo if selected
       if (photo && player.id) {
         const photoFormData = new FormData();
-        photoFormData.append('photo', photo);
+        photoFormData.append('file', photo);
         photoFormData.append('playerId', player.id);
 
-        const photoResponse = await fetch('/api/players/upload-photo', {
+        const photoResponse = await fetch('/api/storage/upload-player-photo', {
           method: 'POST',
           body: photoFormData,
         });
@@ -251,7 +251,14 @@ export default function AddAthlete() {
             <select
               id="primaryPosition"
               value={formData.primaryPosition}
-              onChange={(e) => setFormData({ ...formData, primaryPosition: e.target.value as SoccerPositionCode })}
+              onChange={(e) => {
+                const nextPrimary = e.target.value as SoccerPositionCode;
+                setFormData((prev) => ({
+                  ...prev,
+                  primaryPosition: nextPrimary,
+                  secondaryPositions: prev.secondaryPositions.filter((p) => p !== nextPrimary),
+                }));
+              }}
               className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
             >
               <option value="">Select Primary Position</option>

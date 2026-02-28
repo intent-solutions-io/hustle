@@ -174,8 +174,10 @@ export async function updatePlayerAdmin(
   playerId: string,
   data: Partial<{
     name: string;
+    birthday: Date;
     gender: PlayerGender;
     primaryPosition: SoccerPositionCode;
+    position: SoccerPositionCode;
     secondaryPositions: SoccerPositionCode[];
     positionNote: string | null;
     leagueCode: LeagueCode;

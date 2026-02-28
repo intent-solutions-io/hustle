@@ -17,53 +17,19 @@ import {
 } from 'firebase/storage';
 import { app } from './config';
 import { createLogger } from '@/lib/logger';
-import type { WorkspacePlan } from '@/types/firestore';
+
+export {
+  STORAGE_LIMITS,
+  ALLOWED_IMAGE_TYPES,
+  validateFile,
+  extractStoragePath,
+  getRemainingStorage,
+  getStorageUsagePercentage,
+} from './storage-utils';
+export type { ValidationResult } from './storage-utils';
 
 const logger = createLogger('firebase/storage');
 const storage = getStorage(app);
-
-/**
- * Storage Limits by Plan
- *
- * Controls maximum file upload size and total workspace storage.
- */
-export const STORAGE_LIMITS: Record<
-  WorkspacePlan,
-  {
-    maxFileSize: number;      // Max single file size in MB
-    totalStorage: number;     // Total storage quota in MB
-  }
-> = {
-  free: {
-    maxFileSize: 2,    // 2 MB per file
-    totalStorage: 50,  // 50 MB total
-  },
-  starter: {
-    maxFileSize: 5,    // 5 MB per file
-    totalStorage: 500, // 500 MB total
-  },
-  plus: {
-    maxFileSize: 10,   // 10 MB per file
-    totalStorage: 2000, // 2 GB total
-  },
-  pro: {
-    maxFileSize: 20,   // 20 MB per file
-    totalStorage: 10000, // 10 GB total
-  },
-};
-
-/**
- * Allowed File Types for Player Photos
- */
-export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-
-/**
- * Validation Result
- */
-export interface ValidationResult {
-  valid: boolean;
-  error?: string;
-}
 
 /**
  * Upload Result
@@ -72,51 +38,6 @@ export interface UploadResult {
   url: string;
   path: string;
   size: number;
-}
-
-/**
- * Validate file before upload
- *
- * @param file - File to validate
- * @param plan - Workspace plan tier
- * @param currentStorageUsedMB - Current storage usage in MB
- * @returns Validation result
- */
-export function validateFile(
-  file: File,
-  plan: WorkspacePlan,
-  currentStorageUsedMB: number
-): ValidationResult {
-  const limits = STORAGE_LIMITS[plan];
-
-  // Check file type
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return {
-      valid: false,
-      error: `Invalid file type. Allowed types: ${ALLOWED_IMAGE_TYPES.join(', ')}`,
-    };
-  }
-
-  // Check file size
-  const fileSizeMB = file.size / (1024 * 1024);
-  if (fileSizeMB > limits.maxFileSize) {
-    return {
-      valid: false,
-      error: `File too large. Maximum size for ${plan} plan: ${limits.maxFileSize} MB`,
-    };
-  }
-
-  // Check total storage quota
-  const newTotalStorage = currentStorageUsedMB + fileSizeMB;
-  if (newTotalStorage > limits.totalStorage) {
-    const remainingMB = limits.totalStorage - currentStorageUsedMB;
-    return {
-      valid: false,
-      error: `Storage quota exceeded. ${remainingMB.toFixed(2)} MB remaining of ${limits.totalStorage} MB total`,
-    };
-  }
-
-  return { valid: true };
 }
 
 /**
@@ -209,55 +130,4 @@ export async function deletePlayerPhoto(storagePath: string): Promise<number> {
     });
     throw new Error(`Failed to delete photo: ${error.message}`);
   }
-}
-
-/**
- * Extract storage path from Firebase Storage URL
- *
- * @param url - Firebase Storage download URL
- * @returns Storage path (e.g., "users/123/players/456/photos/file.jpg")
- */
-export function extractStoragePath(url: string): string | null {
-  try {
-    // Firebase Storage URL format:
-    // https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encodedPath}?...
-    const urlObj = new URL(url);
-    const pathMatch = urlObj.pathname.match(/\/o\/(.+)/);
-
-    if (!pathMatch) return null;
-
-    // Decode the path (e.g., "users%2F123%2Fplayers%2F456%2Fphotos%2Ffile.jpg")
-    const encodedPath = pathMatch[1];
-    return decodeURIComponent(encodedPath);
-  } catch (error) {
-    logger.warn('Failed to extract storage path from URL', { url });
-    return null;
-  }
-}
-
-/**
- * Get remaining storage quota for workspace
- *
- * @param plan - Workspace plan tier
- * @param currentStorageUsedMB - Current storage usage in MB
- * @returns Remaining storage in MB
- */
-export function getRemainingStorage(plan: WorkspacePlan, currentStorageUsedMB: number): number {
-  const limits = STORAGE_LIMITS[plan];
-  return Math.max(0, limits.totalStorage - currentStorageUsedMB);
-}
-
-/**
- * Get storage usage percentage
- *
- * @param plan - Workspace plan tier
- * @param currentStorageUsedMB - Current storage usage in MB
- * @returns Usage percentage (0-100)
- */
-export function getStorageUsagePercentage(
-  plan: WorkspacePlan,
-  currentStorageUsedMB: number
-): number {
-  const limits = STORAGE_LIMITS[plan];
-  return Math.min(100, (currentStorageUsedMB / limits.totalStorage) * 100);
 }

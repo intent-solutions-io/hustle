@@ -22,7 +22,7 @@ const RATE_LIMIT_MAX = 10; // 10 requests per minute
 // GET /api/games?playerId=xxx - Get all games for a player
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
 // POST /api/games - Create a new game log
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(
