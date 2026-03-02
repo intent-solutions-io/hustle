@@ -18,7 +18,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User as FirebaseUser } from 'firebase/auth';
-import { onAuthStateChange } from '@/lib/firebase/auth';
+import { onAuthStateChange, onIdTokenChange } from '@/lib/firebase/auth';
 import { isE2ETestMode } from '@/lib/e2e';
 
 interface ProtectedRouteProps {
@@ -49,6 +49,24 @@ export default function ProtectedRoute({
       unsubscribe();
       clearTimeout(timeoutId);
     };
+  }, []);
+
+  // Keep the firebase-auth-token fallback cookie fresh by refreshing it whenever
+  // Firebase auto-renews the ID token (~every 55 minutes). Without this, the
+  // fallback cookie would expire after 1 hour if the __session POST ever failed.
+  useEffect(() => {
+    const unsubscribe = onIdTokenChange(async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const token = await firebaseUser.getIdToken();
+          const isSecure = window.location.protocol === 'https:';
+          document.cookie = `firebase-auth-token=${token}; path=/; max-age=3600${isSecure ? '; secure' : ''}; samesite=lax`;
+        } catch {
+          // Non-fatal: if token refresh fails, existing cookie remains until expiry
+        }
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
