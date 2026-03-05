@@ -30,24 +30,11 @@ interface LogMetadata {
 }
 
 /**
- * Get active OTel trace context if available.
- * Returns undefined fields when no active span exists.
+ * OTel trace context — disabled.
+ * Auto-instrumentations deadlock Firebase Admin SDK outbound calls.
+ * See src/instrumentation.ts for details.
  */
 function getTraceContext(): { traceId?: string; spanId?: string } {
-  try {
-    // Dynamic import to avoid breaking when OTel isn't initialized
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const api = require('@opentelemetry/api');
-    const span = api.trace.getActiveSpan?.();
-    if (span) {
-      const ctx = span.spanContext();
-      if (ctx?.traceId && ctx.traceId !== '00000000000000000000000000000000') {
-        return { traceId: ctx.traceId, spanId: ctx.spanId };
-      }
-    }
-  } catch {
-    // OTel not available — fine in dev or during build
-  }
   return {};
 }
 
