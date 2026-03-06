@@ -38,6 +38,9 @@ export function UserNav({ user }: UserNavProps) {
       // Clear Firebase client-side auth
       await firebaseSignOut();
 
+      // Clear client-set fallback cookie
+      document.cookie = 'firebase-auth-token=; path=/; max-age=0';
+
       // Clear server-side session cookie
       await fetch('/api/auth/logout', { method: 'POST' });
 
