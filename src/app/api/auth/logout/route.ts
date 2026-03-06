@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
   };
 
   response.cookies.set('__session', '', cookieOptions);
-  response.cookies.set('firebase-auth-token', '', { ...cookieOptions, httpOnly: false });
 
   return response;
 }

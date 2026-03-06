@@ -47,39 +47,51 @@ function LoginContent() {
         'Sign in'
       );
 
-      // Step 2: Get ID token and set cookies
+      // Step 2: Get ID token and set server session cookie
       const idToken = await user.getIdToken();
 
-      // Set client-side fallback cookie FIRST (before any network call or navigation)
-      // max-age=3600 matches Firebase ID token expiry (1 hour)
-      // Middleware reads this cookie as fallback if __session is absent
-      const isSecure = window.location.protocol === 'https:';
-      document.cookie = `firebase-auth-token=${idToken}; path=/; max-age=3600${isSecure ? '; secure' : ''}; samesite=lax`;
-
-      // AWAIT the server-side session cookie POST with a 15s timeout
-      // This sets __session (14-day, httpOnly) — the real long-term auth mechanism
-      // Fallback cookie above guarantees dashboard access even if this times out
+      // Set server-side session cookie (__session, 14-day, httpOnly).
+      // Uses a 30s timeout (cold starts can take 10-20s) with one automatic retry
+      // on transient failures (504/500/network error).
       console.log('[Login] Setting server session cookie...');
-      try {
+      const setSession = async (attempt: number) => {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-        const response = await fetch('/api/auth/set-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        if (!response.ok) {
-          console.error('[Login] Session cookie API error:', response.status);
-        } else {
+        const timer = setTimeout(() => controller.abort(), 30000);
+        try {
+          const response = await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+            credentials: 'include',
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            const err = new Error(body.error || `Server returned ${response.status}`);
+            (err as any).status = response.status;
+            throw err;
+          }
           console.log('[Login] Server session cookie set successfully');
+        } catch (err: any) {
+          clearTimeout(timer);
+          const isRetryable = attempt < 2 && (
+            err.name === 'AbortError' ||
+            err.status === 504 ||
+            err.status === 500 ||
+            err.message?.includes('fetch')
+          );
+          if (isRetryable) {
+            console.warn(`[Login] Session attempt ${attempt} failed (${err.message}), retrying...`);
+            return setSession(attempt + 1);
+          }
+          if (err.name === 'AbortError') {
+            throw new Error('Session request timed out. Please check your connection and try again.');
+          }
+          throw new Error(err.message || 'Unable to establish session. Please try again.');
         }
-      } catch (sessionError: any) {
-        // POST timed out or failed — fallback cookie already set, user still gets in
-        console.warn('[Login] Server session cookie failed (non-fatal):', sessionError?.message);
-      }
+      };
+      await setSession(1);
 
       // Step 3: Redirect to dashboard
       router.push('/dashboard');

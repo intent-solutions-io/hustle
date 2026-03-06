@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     let decodedToken;
     try {
       console.log(`[set-session] calling verifyIdToken +${Date.now() - t0}ms`);
-      decodedToken = await withTimeout(adminAuth.verifyIdToken(idToken, true), 10000, 'verifyIdToken');
+      decodedToken = await withTimeout(adminAuth.verifyIdToken(idToken, true), 25000, 'verifyIdToken');
       console.log(`[set-session] verifyIdToken done +${Date.now() - t0}ms`);
     } catch (verifyError: any) {
       const isTimeout = verifyError?.message?.includes('timed out');
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     let sessionCookie: string;
     try {
       console.log(`[set-session] calling createSessionCookie +${Date.now() - t0}ms`);
-      sessionCookie = await withTimeout(adminAuth.createSessionCookie(idToken, { expiresIn: SESSION_EXPIRES_MS }), 10000, 'createSessionCookie');
+      sessionCookie = await withTimeout(adminAuth.createSessionCookie(idToken, { expiresIn: SESSION_EXPIRES_MS }), 25000, 'createSessionCookie');
       console.log(`[set-session] createSessionCookie done +${Date.now() - t0}ms`);
     } catch (cookieError: any) {
       const isTimeout = cookieError?.message?.includes('timed out');

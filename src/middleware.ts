@@ -69,9 +69,7 @@ function isPublicApiRoute(pathname: string): boolean {
  * Get session cookie from request
  */
 function getSessionCookie(request: NextRequest): string | null {
-  return request.cookies.get('__session')?.value
-    || request.cookies.get('firebase-auth-token')?.value
-    || null;
+  return request.cookies.get('__session')?.value || null;
 }
 
 /**
