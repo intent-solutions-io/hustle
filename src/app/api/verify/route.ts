@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   console.log('[Verify API] Request received')
 
   try {
-    const session = await auth();
+    const session = await auth(request);
     console.log('[Verify API] Session:', session?.user?.id ? 'authenticated' : 'not authenticated')
 
     if (!session?.user?.id) {

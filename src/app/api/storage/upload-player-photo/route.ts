@@ -10,14 +10,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import {
-  uploadPlayerPhoto,
-  validateFile,
-  deletePlayerPhoto,
-  extractStoragePath,
-} from '@/lib/firebase/storage';
-import { getPlayer, updatePlayer } from '@/lib/firebase/services/players';
-import { getWorkspace, updateWorkspaceStorageUsage } from '@/lib/firebase/services/workspaces';
+import { validateFile, extractStoragePath } from '@/lib/firebase/storage-utils';
+import { uploadPlayerPhotoAdmin, deletePlayerPhotoAdmin } from '@/lib/firebase/admin-storage';
+import { getPlayerAdmin, updatePlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getWorkspaceByIdAdmin, updateWorkspaceStorageUsageAdmin } from '@/lib/firebase/admin-services/workspaces';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/storage/upload-player-photo');
@@ -57,7 +53,7 @@ const logger = createLogger('api/storage/upload-player-photo');
 export async function POST(request: NextRequest) {
   try {
     // 1. Check authentication
-    const session = await auth();
+    const session = await auth(request);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -77,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Get player and verify ownership
-    const player = await getPlayer(userId, playerId);
+    const player = await getPlayerAdmin(userId, playerId);
     if (!player) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 });
     }
@@ -86,7 +82,7 @@ export async function POST(request: NextRequest) {
     if (!player.workspaceId) {
       return NextResponse.json({ error: 'Player has no workspace assigned' }, { status: 400 });
     }
-    const workspace = await getWorkspace(player.workspaceId);
+    const workspace = await getWorkspaceByIdAdmin(player.workspaceId);
     if (!workspace) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
     }
@@ -118,7 +114,7 @@ export async function POST(request: NextRequest) {
       const oldPath = extractStoragePath(player.photoUrl);
       if (oldPath) {
         try {
-          oldPhotoSizeMB = await deletePlayerPhoto(oldPath);
+          oldPhotoSizeMB = await deletePlayerPhotoAdmin(oldPath);
           logger.info('Replaced old player photo', {
             userId,
             playerId,
@@ -138,16 +134,16 @@ export async function POST(request: NextRequest) {
     }
 
     // 8. Upload new photo
-    const uploadResult = await uploadPlayerPhoto(file, userId, playerId);
+    const uploadResult = await uploadPlayerPhotoAdmin({ file, userId, playerId });
 
     // 9. Update player photoUrl in Firestore
-    await updatePlayer(userId, playerId, {
+    await updatePlayerAdmin(userId, playerId, {
       photoUrl: uploadResult.url,
     });
 
     // 10. Update workspace storage usage
     const netStorageChange = uploadResult.size - oldPhotoSizeMB;
-    await updateWorkspaceStorageUsage(workspace.id, netStorageChange);
+    await updateWorkspaceStorageUsageAdmin(workspace.id, netStorageChange);
 
     logger.info('Player photo uploaded successfully', {
       userId,

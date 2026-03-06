@@ -40,15 +40,19 @@ npm run ios                    # iOS simulator
 npm run android                # Android emulator
 npx expo prebuild              # Generate native projects
 ```
+Expo SDK 54 + Expo Router (file-based routing) + NativeWind (Tailwind for RN) + React Query + MMKV/SecureStore for storage. Shares `firebase`, `zod`, `react-hook-form`, and `zustand` with web app.
 
 ### Testing
 ```bash
-npm run test:unit              # Vitest unit tests (src/**/*.test.ts)
+npm run test:unit              # Vitest unit tests
 npm run test:watch             # Vitest watch mode
 npm run test:coverage          # Coverage report (V8)
+npm run test:integration       # Integration tests (Firebase emulators required)
+npm run test:integration:emulator  # Spins up emulators + runs integration tests
 npm run test:e2e               # Playwright E2E (03-Tests/e2e/) on port 4000
 npm run test:e2e:ui            # Playwright UI mode (interactive)
 npm run test:e2e:debug         # Debug mode (PWDEBUG=1, headed, Chromium)
+npm run test:security          # npm audit (moderate+ severity)
 npm run qa:e2e:smoke           # Quick smoke tests (login + journey)
 npm run qa:e2e:update-snapshots # Update visual regression baselines
 
@@ -57,7 +61,11 @@ npx vitest run src/lib/billing/plan-limits.test.ts
 npx playwright test 03-Tests/e2e/01-authentication.spec.ts --project=chromium
 ```
 
-**E2E details**: Tests run on port 4000 (not 3000). CI builds production app (standalone) then tests against it. Locally, dev server is used. Global setup (`03-Tests/e2e/global-setup.ts`) creates authenticated storage state reused across tests. Use `test:e2e:debug` to step through with Playwright Inspector.
+**Unit tests**: Both co-located (`src/lib/**/*.test.ts`, `src/middleware.test.ts`) and in `src/__tests__/` (`src/__tests__/lib/`, `src/__tests__/api/`).
+
+**Integration tests** (`*.integration.test.ts`): Separate vitest config (`vitest.integration.config.mts`), run against Firebase emulators in `node` environment with `forks` pool. Found in `src/lib/firebase/admin-services/` and `src/lib/`.
+
+**E2E details**: Tests run on port 4000 (not 3000), overridable via `PLAYWRIGHT_BASE_URL`. CI builds production app (standalone) then tests against it. Locally, dev server is used. Global setup (`03-Tests/e2e/global-setup.ts`) creates authenticated storage state (`03-Tests/e2e/.auth/user.json`) reused across tests. Use `test:e2e:debug` to step through with Playwright Inspector.
 
 ### Firebase & Cloud Functions
 ```bash
@@ -178,7 +186,7 @@ Edge middleware protects `/dashboard/*` and `/api/*` routes:
 - Protected API routes → return 401 JSON if no session
 - Public API routes (no auth required): `/api/health`, `/api/auth/*`, `/api/waitlist`, `/api/webhooks`, `/api/verify`
 
-Debug middleware with `MIDDLEWARE_DEBUG=verbose npm run dev`
+Debug middleware with `npm run dev:debug` (sets `MIDDLEWARE_DEBUG=verbose`)
 
 ### Auth Domain & Email Links
 - `authDomain` in client config (`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`) stays as `hustleapp-production.firebaseapp.com` — internal SDK setting, not user-facing. Changing to `hustlestats.io` would break OAuth.
@@ -216,9 +224,9 @@ Enforcement: server-side in `src/lib/stripe/plan-enforcement.ts` and `src/lib/wo
 
 ## Testing Strategy
 
-- **Unit tests**: Vitest + Testing Library, co-located as `src/**/*.test.ts` (jsdom environment, `@vitejs/plugin-react`)
-- **E2E tests**: Playwright in `03-Tests/e2e/`, numbered sequentially (01-authentication, 02-dashboard, etc.). Snapshots in `03-Tests/snapshots/`.
-- **Firestore tests**: Use Firebase emulators locally
+- **Unit tests**: Vitest + Testing Library (jsdom environment, `@vitejs/plugin-react`). Co-located in `src/lib/` and `src/__tests__/`.
+- **Integration tests**: Vitest in `node` environment against Firebase emulators. Files: `*.integration.test.ts` in `src/lib/firebase/admin-services/` and `src/lib/`. Separate config: `vitest.integration.config.mts`.
+- **E2E tests**: Playwright in `03-Tests/e2e/`, numbered sequentially (01-authentication, 02-dashboard, etc.). Snapshots in `03-Tests/snapshots/`. Sequential execution (single worker) for Firebase stability.
 - **Visual regression**: Playwright screenshot comparison with 0.2% pixel tolerance
 
 ## Environment Variables

@@ -19,7 +19,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string; logId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -73,7 +73,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; logId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -144,7 +144,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; logId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(

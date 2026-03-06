@@ -11,7 +11,7 @@ const logger = createLogger('api/account/pin');
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(
