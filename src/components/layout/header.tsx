@@ -17,7 +17,7 @@ export default function Header({ user }: HeaderProps) {
       <div className='flex items-center gap-2 px-4'>
         <SidebarTrigger className='-ml-1' />
         <Separator orientation='vertical' className='mr-2 h-4' />
-        <h2 className='text-lg font-semibold'>Dashboard</h2>
+        <h2 className='text-lg font-semibold'>Hustle</h2>
       </div>
 
       <div className='flex items-center gap-2 px-4'>

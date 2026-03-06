@@ -2,7 +2,8 @@ import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllGamesAdmin } from '@/lib/firebase/admin-services/games';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, Target, Award, BarChart3, Goal, Shield, Users } from 'lucide-react';
+import { TrendingUp, Target, Award, BarChart3, Goal, Shield, Users, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 // Position category mapping
 const POSITION_CATEGORIES: Record<string, string> = {
@@ -121,6 +122,14 @@ export default async function AnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Link
+        href="/dashboard"
+        className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Dashboard
+      </Link>
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-zinc-900">Analytics</h1>

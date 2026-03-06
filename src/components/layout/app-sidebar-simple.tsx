@@ -74,9 +74,6 @@ export default function AppSidebarSimple() {
       // Clear Firebase client-side auth
       await firebaseSignOut();
 
-      // Clear client-set fallback cookie
-      document.cookie = 'firebase-auth-token=; path=/; max-age=0';
-
       // Clear server-side session cookie
       await fetch('/api/auth/logout', { method: 'POST' });
 
@@ -91,14 +88,7 @@ export default function AppSidebarSimple() {
   return (
     <Sidebar className="bg-zinc-50 border-r border-zinc-200">
       <SidebarHeader className='p-4 border-b border-zinc-200'>
-        <div className='flex items-center gap-3'>
-          <button
-            onClick={toggleSidebar}
-            className='w-8 h-8 bg-zinc-200 hover:bg-zinc-300 rounded-md flex items-center justify-center transition-colors'
-            title='Collapse Sidebar'
-          >
-            <PanelLeftClose className='h-4 w-4 text-zinc-700' />
-          </button>
+        <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
             <div className='w-8 h-8 bg-zinc-900 rounded-md flex items-center justify-center'>
               <span className='text-white font-bold text-sm'>H</span>
@@ -107,6 +97,13 @@ export default function AppSidebarSimple() {
               HUSTLE<sup className="text-[0.5em] align-super">™</sup>
             </span>
           </div>
+          <button
+            onClick={toggleSidebar}
+            className='w-8 h-8 bg-zinc-200 hover:bg-zinc-300 rounded-md flex items-center justify-center transition-colors'
+            title='Collapse Sidebar'
+          >
+            <PanelLeftClose className='h-4 w-4 text-zinc-700' />
+          </button>
         </div>
       </SidebarHeader>
 
