@@ -2,8 +2,9 @@ name: Crawl ADK Documentation
 
 on:
   workflow_dispatch:  # Manual trigger
-  schedule:
-    - cron: '0 0 * * 0'  # Weekly on Sundays at midnight UTC
+  # schedule disabled — burns Actions minutes
+  # schedule:
+  #   - cron: '0 0 * * 0'  # Weekly on Sundays at midnight UTC
 
 permissions:
   contents: read
