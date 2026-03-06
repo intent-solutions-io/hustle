@@ -47,38 +47,29 @@ function LoginContent() {
         'Sign in'
       );
 
-      // Step 2: Get ID token and set cookies
+      // Step 2: Get ID token and set server session cookie
       const idToken = await user.getIdToken();
 
-      // Set client-side fallback cookie FIRST (before any network call or navigation)
-      // max-age=3600 matches Firebase ID token expiry (1 hour)
-      // Middleware reads this cookie as fallback if __session is absent
-      const isSecure = window.location.protocol === 'https:';
-      document.cookie = `firebase-auth-token=${idToken}; path=/; max-age=3600${isSecure ? '; secure' : ''}; samesite=lax`;
-
-      // AWAIT the server-side session cookie POST with a 15s timeout
-      // This sets __session (14-day, httpOnly) — the real long-term auth mechanism
-      // Fallback cookie above guarantees dashboard access even if this times out
+      // AWAIT the server-side session cookie POST — no timeout, let it complete
+      // This sets __session (14-day, httpOnly) — the ONLY auth mechanism.
+      // Must complete BEFORE router.push() to prevent browser aborting in-flight request.
+      // On cold starts this can take 10-20s while Firebase Admin initializes.
       console.log('[Login] Setting server session cookie...');
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
         const response = await fetch('/api/auth/set-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken }),
           credentials: 'include',
-          signal: controller.signal,
         });
-        clearTimeout(timeoutId);
         if (!response.ok) {
-          console.error('[Login] Session cookie API error:', response.status);
-        } else {
-          console.log('[Login] Server session cookie set successfully');
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || `Server returned ${response.status}`);
         }
+        console.log('[Login] Server session cookie set successfully');
       } catch (sessionError: any) {
-        // POST timed out or failed — fallback cookie already set, user still gets in
-        console.warn('[Login] Server session cookie failed (non-fatal):', sessionError?.message);
+        console.error('[Login] Session cookie failed:', sessionError?.message);
+        throw new Error('Unable to establish session. Please try again.');
       }
 
       // Step 3: Redirect to dashboard
