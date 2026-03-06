@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get authenticated user from Firebase session (calls cookies() internally)
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       logger.warn('Unauthorized player creation attempt', {
@@ -83,9 +83,7 @@ export async function POST(request: NextRequest) {
       logger.warn(`User has no workspace, attempting fallback provisioning: ${session.user.id}`);
       try {
         // Get the decoded token claims from the current session
-        const { cookies } = await import('next/headers');
-        const cookieStore = await cookies();
-        const sessionCookie = cookieStore.get('__session')?.value || '';
+        const sessionCookie = request.cookies.get('__session')?.value || '';
         const decodedToken = await adminAuth.verifySessionCookie(sessionCookie);
         const provisionResult = await ensureUserProvisioned(decodedToken);
         logger.info(`Fallback provisioning succeeded: userId=${provisionResult.userId}, workspaceId=${provisionResult.workspaceId}`);

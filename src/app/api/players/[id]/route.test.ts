@@ -73,7 +73,11 @@ const PARAMS = Promise.resolve({ id: 'player-123' });
 const validPutBody = {
   name: 'Alex Smith Updated',
   birthday: '2012-03-10',
-  position: 'ST',
+  gender: 'male',
+  primaryPosition: 'ST',
+  secondaryPositions: ['LW'],
+  positionNote: 'Can also play wing',
+  leagueCode: 'local_travel',
   teamClub: 'New FC',
 };
 
@@ -83,7 +87,7 @@ const validPutBody = {
 
 describe('GET /api/players/[id]', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -142,7 +146,7 @@ describe('GET /api/players/[id]', () => {
 
 describe('PUT /api/players/[id]', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -161,13 +165,13 @@ describe('PUT /api/players/[id]', () => {
 
     const request = createMockRequest({
       method: 'PUT',
-      body: { name: 'Alex' }, // missing birthday, position, teamClub
+      body: { name: 'Alex' }, // missing required profile fields
     });
     const response = await PUT(request, { params: PARAMS });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe('Missing required fields');
+    expect(body.error).toBe('VALIDATION_FAILED');
   });
 
   it('returns 500 when user has no workspace', async () => {
@@ -245,11 +249,22 @@ describe('PUT /api/players/[id]', () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.player.name).toBe('Alex Smith Updated');
-    expect(mocks.updatePlayerAdmin).toHaveBeenCalledWith('user-123', 'player-123', {
-      name: 'Alex Smith Updated',
-      primaryPosition: 'ST',
-      teamClub: 'New FC',
-    });
+    expect(mocks.updatePlayerAdmin).toHaveBeenCalledWith(
+      'user-123',
+      'player-123',
+      expect.objectContaining({
+        name: 'Alex Smith Updated',
+        birthday: expect.any(Date),
+        gender: 'male',
+        primaryPosition: 'ST',
+        position: 'ST',
+        secondaryPositions: ['LW'],
+        positionNote: 'Can also play wing',
+        leagueCode: 'local_travel',
+        leagueOtherName: null,
+        teamClub: 'New FC',
+      })
+    );
   });
 
   it('returns 500 when updatePlayerAdmin throws', async () => {
@@ -275,7 +290,7 @@ describe('PUT /api/players/[id]', () => {
 
 describe('DELETE /api/players/[id]', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('returns 401 when not authenticated', async () => {

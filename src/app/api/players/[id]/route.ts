@@ -6,6 +6,7 @@ import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
 import { getWorkspaceByIdAdmin } from '@/lib/firebase/admin-services/workspaces';
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce';
 import { WorkspaceAccessError } from '@/lib/firebase/access-control';
+import { playerSchema } from '@/lib/validations/player';
 
 const logger = createLogger('api/players/[id]');
 
@@ -18,7 +19,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -61,7 +62,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -71,16 +72,30 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const body = await request.json();
-    const { name, birthday, position, teamClub } = body;
 
-    // Validation
-    if (!name || !birthday || !position || !teamClub) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'INVALID_REQUEST_BODY', message: 'Invalid request body. Please try again.' },
         { status: 400 }
       );
     }
+
+    const validationResult = playerSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: 'VALIDATION_FAILED',
+          message: 'Please check the form fields and try again.',
+          details: validationResult.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const validatedData = validationResult.data;
 
     // Phase 6 Task 5: Enforce workspace status
     const user = await getUserProfileAdmin(session.user.id);
@@ -123,9 +138,18 @@ export async function PUT(
 
     // Update player (Firestore)
     await updatePlayerAdmin(session.user.id, id, {
-      name,
-      primaryPosition: position,
-      teamClub,
+      name: validatedData.name,
+      birthday: new Date(validatedData.birthday),
+      gender: validatedData.gender,
+      primaryPosition: validatedData.primaryPosition,
+      position: validatedData.primaryPosition, // Legacy field for backward compatibility
+      secondaryPositions: validatedData.secondaryPositions ?? [],
+      positionNote: validatedData.positionNote?.trim() ? validatedData.positionNote.trim() : null,
+      leagueCode: validatedData.leagueCode,
+      leagueOtherName: validatedData.leagueCode === 'other' && validatedData.leagueOtherName?.trim()
+        ? validatedData.leagueOtherName.trim()
+        : null,
+      teamClub: validatedData.teamClub,
     });
 
     // Get updated player for response
@@ -154,7 +178,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(

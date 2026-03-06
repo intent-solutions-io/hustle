@@ -10,9 +10,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { deletePlayerPhoto, extractStoragePath } from '@/lib/firebase/storage';
-import { getPlayer, updatePlayer } from '@/lib/firebase/services/players';
-import { updateWorkspaceStorageUsage } from '@/lib/firebase/services/workspaces';
+import { extractStoragePath } from '@/lib/firebase/storage-utils';
+import { deletePlayerPhotoAdmin } from '@/lib/firebase/admin-storage';
+import { getPlayerAdmin, updatePlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { updateWorkspaceStorageUsageAdmin } from '@/lib/firebase/admin-services/workspaces';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/storage/delete-player-photo');
@@ -36,7 +37,7 @@ const logger = createLogger('api/storage/delete-player-photo');
 export async function DELETE(request: NextRequest) {
   try {
     // 1. Check authentication
-    const session = await auth();
+    const session = await auth(request);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -52,7 +53,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 3. Get player and verify ownership
-    const player = await getPlayer(userId, playerId);
+    const player = await getPlayerAdmin(userId, playerId);
     if (!player) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 });
     }
@@ -69,16 +70,16 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 6. Delete photo from Firebase Storage
-    const sizeFreed = await deletePlayerPhoto(storagePath);
+    const sizeFreed = await deletePlayerPhotoAdmin(storagePath);
 
     // 7. Update player photoUrl in Firestore
-    await updatePlayer(userId, playerId, {
+    await updatePlayerAdmin(userId, playerId, {
       photoUrl: null,
     });
 
     // 8. Update workspace storage usage (negative delta)
     if (player.workspaceId) {
-      await updateWorkspaceStorageUsage(player.workspaceId, -sizeFreed);
+      await updateWorkspaceStorageUsageAdmin(player.workspaceId, -sizeFreed);
     }
 
     logger.info('Player photo deleted successfully', {

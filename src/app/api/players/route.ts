@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { createLogger } from '@/lib/logger'
 import { getPlayersAdmin } from '@/lib/firebase/admin-services/players'
@@ -8,9 +8,9 @@ import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users'
 const logger = createLogger('api/players')
 
 // GET /api/players - Get all players for authenticated user
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await auth(request);
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -33,9 +33,15 @@ export async function GET() {
           id: player.id,
           name: player.name,
           birthday: player.birthday,
-          // Use primaryPosition (SoccerPositionCode like "GK", "CB") for position detection
+          gender: player.gender,
+          primaryPosition: player.primaryPosition,
+          secondaryPositions: player.secondaryPositions ?? [],
+          positionNote: player.positionNote ?? null,
+          // Legacy field (backward compatibility)
           position: player.primaryPosition ?? player.position,
           teamClub: player.teamClub,
+          leagueCode: player.leagueCode,
+          leagueOtherName: player.leagueOtherName ?? null,
           photoUrl: player.photoUrl,
           pendingGames: unverifiedGames.length,
           parentEmail: parentUser?.email ?? null

@@ -9,9 +9,12 @@
  */
 
 import { cookies } from 'next/headers';
+import type { NextRequest } from 'next/server';
 import { adminAuth, adminDb } from './firebase/admin';
 import type { User } from '@/types/firestore';
 import { isE2ETestMode } from '@/lib/e2e';
+import { ensureUserProvisioned } from '@/lib/firebase/server-provisioning';
+import { withTimeout } from '@/lib/utils/timeout';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,9 +40,23 @@ export interface DashboardUser {
 // Core helpers
 // ---------------------------------------------------------------------------
 
-async function getSessionCookie(): Promise<string | null> {
+const SESSION_COOKIE_NAME = '__session';
+const VERIFY_SESSION_COOKIE_TIMEOUT_MS = 10_000;
+const USER_PROFILE_READ_TIMEOUT_MS = 10_000;
+const PROVISIONING_TIMEOUT_MS = 15_000;
+
+function getSessionCookieFromRequest(request: NextRequest): string | null {
+  return request.cookies.get(SESSION_COOKIE_NAME)?.value || null;
+}
+
+async function getSessionCookieFromHeaders(): Promise<string | null> {
   const cookieStore = await cookies();
-  return cookieStore.get('__session')?.value || null;
+  return cookieStore.get(SESSION_COOKIE_NAME)?.value || null;
+}
+
+async function getSessionCookie(request?: NextRequest): Promise<string | null> {
+  if (request) return getSessionCookieFromRequest(request);
+  return getSessionCookieFromHeaders();
 }
 
 // ---------------------------------------------------------------------------
@@ -49,12 +66,16 @@ async function getSessionCookie(): Promise<string | null> {
 /**
  * Lightweight session check for API routes (no Firestore hit).
  */
-export async function auth(): Promise<Session | null> {
+export async function auth(request?: NextRequest): Promise<Session | null> {
   try {
-    const sessionCookie = await getSessionCookie();
+    const sessionCookie = await getSessionCookie(request);
     if (!sessionCookie) return null;
 
-    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie);
+    const decodedToken = await withTimeout(
+      adminAuth.verifySessionCookie(sessionCookie),
+      VERIFY_SESSION_COOKIE_TIMEOUT_MS,
+      'verifySessionCookie'
+    );
 
     return {
       user: {
@@ -73,17 +94,44 @@ export async function auth(): Promise<Session | null> {
  * Session check + Firestore user profile for dashboard pages.
  * Returns null if not authenticated.
  */
-export async function authWithProfile(): Promise<DashboardUser | null> {
+export async function authWithProfile(request?: NextRequest): Promise<DashboardUser | null> {
   try {
-    const sessionCookie = await getSessionCookie();
+    const sessionCookie = await getSessionCookie(request);
     if (!sessionCookie) return null;
 
-    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
+    const decodedToken = await withTimeout(
+      adminAuth.verifySessionCookie(sessionCookie, true),
+      VERIFY_SESSION_COOKIE_TIMEOUT_MS,
+      'verifySessionCookie'
+    );
 
-    const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
+    let userDoc = await withTimeout(
+      adminDb.collection('users').doc(decodedToken.uid).get(),
+      USER_PROFILE_READ_TIMEOUT_MS,
+      'getUserProfile'
+    );
+
     if (!userDoc.exists) {
-      console.error(`User document not found for UID: ${decodedToken.uid}`);
-      return null;
+      try {
+        await withTimeout(
+          ensureUserProvisioned(decodedToken),
+          PROVISIONING_TIMEOUT_MS,
+          'ensureUserProvisioned'
+        );
+
+        userDoc = await withTimeout(
+          adminDb.collection('users').doc(decodedToken.uid).get(),
+          USER_PROFILE_READ_TIMEOUT_MS,
+          'getUserProfile'
+        );
+      } catch (provisionError: any) {
+        console.error('User provisioning failed:', provisionError?.message || provisionError);
+      }
+
+      if (!userDoc.exists) {
+        console.error(`User document not found for UID: ${decodedToken.uid}`);
+        return null;
+      }
     }
 
     const userData = userDoc.data() as User;

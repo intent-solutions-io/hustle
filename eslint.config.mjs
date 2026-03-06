@@ -37,8 +37,15 @@ const eslintConfig = [
       "functions/**",
       // Mobile app (separate Expo project)
       "mobile/**",
+      // Local Python env / agent tooling (not production JS/TS)
+      "vertex-agents/**",
       // Test utility scripts
       "03-Tests/scripts/**/*.js",
+      // Generated Playwright artifacts / reports
+      "03-Tests/playwright-report/**",
+      "03-Tests/results/**",
+      "03-Tests/test-results.json",
+      "test-results/**",
     ],
   },
 ];
