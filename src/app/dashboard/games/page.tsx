@@ -2,8 +2,8 @@ import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllGamesAdmin } from '@/lib/firebase/admin-services/games';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { BackToDashboard } from '@/components/ui/back-to-dashboard';
 import {
   formatGameDate,
   getResultBadgeClasses,
@@ -42,13 +42,7 @@ export default async function GamesHistoryPage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Dashboard
-      </Link>
+      <BackToDashboard />
 
       {/* PAGE HEADER */}
       <div>

@@ -3,8 +3,9 @@ import { redirect } from 'next/navigation';
 import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Link from 'next/link';
+import { BackToDashboard } from '@/components/ui/back-to-dashboard';
 import { calculateAge, getInitials, getAvatarColor } from '@/lib/player-utils';
 import type { Player } from '@/types/firestore';
 
@@ -48,13 +49,7 @@ export default async function AthletesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Dashboard
-      </Link>
+      <BackToDashboard />
 
       {/* Header Section */}
       <div className="flex items-start justify-between flex-wrap gap-4">

@@ -4,7 +4,8 @@ import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PinSettingsForm } from './pin-settings-form';
 import Link from 'next/link';
-import { CreditCard, ArrowLeft } from 'lucide-react';
+import { CreditCard } from 'lucide-react';
+import { BackToDashboard } from '@/components/ui/back-to-dashboard';
 
 export default async function SettingsPage() {
   // Firebase Admin auth check
@@ -22,13 +23,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Dashboard
-      </Link>
+      <BackToDashboard />
 
       <div>
         <h1 className="text-3xl font-bold text-zinc-900">Settings</h1>

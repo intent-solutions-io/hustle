@@ -50,27 +50,48 @@ function LoginContent() {
       // Step 2: Get ID token and set server session cookie
       const idToken = await user.getIdToken();
 
-      // AWAIT the server-side session cookie POST — no timeout, let it complete
-      // This sets __session (14-day, httpOnly) — the ONLY auth mechanism.
-      // Must complete BEFORE router.push() to prevent browser aborting in-flight request.
-      // On cold starts this can take 10-20s while Firebase Admin initializes.
+      // Set server-side session cookie (__session, 14-day, httpOnly).
+      // Uses a 30s timeout (cold starts can take 10-20s) with one automatic retry
+      // on transient failures (504/500/network error).
       console.log('[Login] Setting server session cookie...');
-      try {
-        const response = await fetch('/api/auth/set-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-          credentials: 'include',
-        });
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body.error || `Server returned ${response.status}`);
+      const setSession = async (attempt: number) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 30000);
+        try {
+          const response = await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+            credentials: 'include',
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            const err = new Error(body.error || `Server returned ${response.status}`);
+            (err as any).status = response.status;
+            throw err;
+          }
+          console.log('[Login] Server session cookie set successfully');
+        } catch (err: any) {
+          clearTimeout(timer);
+          const isRetryable = attempt < 2 && (
+            err.name === 'AbortError' ||
+            err.status === 504 ||
+            err.status === 500 ||
+            err.message?.includes('fetch')
+          );
+          if (isRetryable) {
+            console.warn(`[Login] Session attempt ${attempt} failed (${err.message}), retrying...`);
+            return setSession(attempt + 1);
+          }
+          if (err.name === 'AbortError') {
+            throw new Error('Session request timed out. Please check your connection and try again.');
+          }
+          throw new Error(err.message || 'Unable to establish session. Please try again.');
         }
-        console.log('[Login] Server session cookie set successfully');
-      } catch (sessionError: any) {
-        console.error('[Login] Session cookie failed:', sessionError?.message);
-        throw new Error('Unable to establish session. Please try again.');
-      }
+      };
+      await setSession(1);
 
       // Step 3: Redirect to dashboard
       router.push('/dashboard');
