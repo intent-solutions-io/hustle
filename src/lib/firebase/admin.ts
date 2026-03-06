@@ -140,6 +140,19 @@ export const adminAuth = {
   createSessionCookie: (...args: Parameters<Auth['createSessionCookie']>) => getAdminAuth().createSessionCookie(...args),
 };
 
+// Eager initialization: avoid blocking the first request on cold start.
+// Firebase Admin cert() + crypto setup can take seconds; doing it at module
+// load keeps the critical login POST path fast.
+if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
+  const t0 = Date.now();
+  try {
+    initializeFirebaseAdmin();
+    console.log(`[Firebase Admin] Initialized in ${Date.now() - t0}ms`);
+  } catch (e) {
+    console.error('[Firebase Admin] Eager init failed:', e);
+  }
+}
+
 export const adminDb = {
   collection: (...args: Parameters<Firestore['collection']>) => getAdminDb().collection(...args),
   collectionGroup: (...args: Parameters<Firestore['collectionGroup']>) => getAdminDb().collectionGroup(...args),
