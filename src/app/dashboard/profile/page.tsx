@@ -4,6 +4,7 @@ import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
 import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { BackToDashboard } from '@/components/ui/back-to-dashboard';
 
 export default async function ProfilePage() {
   // Firebase Admin auth check
@@ -24,6 +25,8 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-6">
+      <BackToDashboard />
+
       <div>
         <h1 className="text-3xl font-bold text-zinc-900">Profile</h1>
         <p className="text-zinc-600 mt-2">

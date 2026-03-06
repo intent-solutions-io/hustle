@@ -2,8 +2,8 @@ import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllGamesAdmin } from '@/lib/firebase/admin-services/games';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
+import { BackToDashboard } from '@/components/ui/back-to-dashboard';
 import {
   formatGameDate,
   getResultBadgeClasses,
@@ -42,21 +42,14 @@ export default async function GamesHistoryPage() {
 
   return (
     <div className="space-y-6">
+      <BackToDashboard />
+
       {/* PAGE HEADER */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-zinc-900">Games History</h1>
-          <p className="text-zinc-600 mt-2">
-            Complete history of all logged games across all athletes
-          </p>
-        </div>
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 text-base text-zinc-700 hover:text-zinc-900 transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Dashboard
-        </Link>
+      <div>
+        <h1 className="text-3xl font-bold text-zinc-900">Games History</h1>
+        <p className="text-zinc-600 mt-2">
+          Complete history of all logged games across all athletes
+        </p>
       </div>
 
       {/* SUMMARY STATS */}

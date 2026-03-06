@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
+import { BackToDashboard } from '@/components/ui/back-to-dashboard';
 import { calculateAge, getInitials, getAvatarColor } from '@/lib/player-utils';
 import type { Player } from '@/types/firestore';
 
@@ -48,6 +49,8 @@ export default async function AthletesPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <BackToDashboard />
+
       {/* Header Section */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
