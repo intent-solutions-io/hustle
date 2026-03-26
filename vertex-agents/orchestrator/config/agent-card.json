@@ -1,0 +1,254 @@
+{
+  "$schema": "https://google.github.io/adk-docs/schemas/agent-card-v1.json",
+  "name": "hustle-operations-manager",
+  "version": "1.0.0",
+  "description": "Team manager orchestrating all Hustle youth sports operations",
+  "author": "Hustle Development Team",
+  "license": "proprietary",
+
+  "capabilities": {
+    "code_execution": false,
+    "memory_bank": true,
+    "async_tasks": true,
+    "multi_agent": true
+  },
+
+  "model": {
+    "provider": "google",
+    "name": "gemini-2.0-flash-001",
+    "version": "001"
+  },
+
+  "tools": [
+    {
+      "name": "call_validation_agent",
+      "description": "Validate user input, check for duplicates, ensure data integrity",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": ["user_registration", "player_creation", "game_logging"]
+          },
+          "data": {
+            "type": "object",
+            "description": "Data to validate"
+          }
+        },
+        "required": ["intent", "data"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "valid": {"type": "boolean"},
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {"type": "string"},
+                "code": {"type": "string"},
+                "message": {"type": "string"}
+              }
+            }
+          },
+          "duration_ms": {"type": "number"}
+        }
+      }
+    },
+    {
+      "name": "call_user_creation_agent",
+      "description": "Create user accounts, player profiles, or game records in Firestore",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": ["user_registration", "player_creation", "game_logging"]
+          },
+          "data": {
+            "type": "object",
+            "description": "Data to create"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Parent user ID (for player/game creation)"
+          }
+        },
+        "required": ["intent", "data"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "description": "Created resource ID"},
+          "created": {"type": "boolean"},
+          "duration_ms": {"type": "number"}
+        }
+      }
+    },
+    {
+      "name": "call_onboarding_agent",
+      "description": "Send welcome emails, verification tokens, onboarding flows",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "userId": {"type": "string"},
+          "email": {"type": "string"},
+          "firstName": {"type": "string"}
+        },
+        "required": ["userId", "email"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "emailSent": {"type": "boolean"},
+          "tokenId": {"type": "string"},
+          "duration_ms": {"type": "number"}
+        }
+      }
+    },
+    {
+      "name": "call_analytics_agent",
+      "description": "Track metrics, update dashboards, log events",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "event": {"type": "string"},
+          "userId": {"type": "string"},
+          "metadata": {"type": "object"}
+        },
+        "required": ["event"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "tracked": {"type": "boolean"},
+          "duration_ms": {"type": "number"}
+        }
+      }
+    }
+  ],
+
+  "intents": [
+    {
+      "name": "user_registration",
+      "description": "Handle new user account creation with email verification",
+      "examples": [
+        "register new user",
+        "create account for john@example.com",
+        "sign up with email and password"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "firstName": {"type": "string", "minLength": 1, "maxLength": 50},
+          "lastName": {"type": "string", "minLength": 1, "maxLength": 50},
+          "email": {"type": "string", "format": "email"},
+          "phone": {"type": "string", "pattern": "^\\+?[1-9]\\d{1,14}$"},
+          "password": {"type": "string", "minLength": 8, "maxLength": 100}
+        },
+        "required": ["firstName", "lastName", "email", "password"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "data": {
+            "type": "object",
+            "properties": {
+              "userId": {"type": "string"},
+              "email": {"type": "string"},
+              "emailVerificationSent": {"type": "boolean"}
+            }
+          },
+          "message": {"type": "string"},
+          "agent_execution": {"type": "object"}
+        }
+      }
+    },
+    {
+      "name": "player_creation",
+      "description": "Create youth player profile linked to parent account",
+      "examples": [
+        "add player profile",
+        "create athlete",
+        "add child player"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 100},
+          "birthday": {"type": "string", "format": "date"},
+          "position": {"type": "string", "enum": ["Forward", "Midfielder", "Defender", "Goalkeeper"]},
+          "teamClub": {"type": "string", "minLength": 1, "maxLength": 100},
+          "photoUrl": {"type": "string", "format": "uri"}
+        },
+        "required": ["name", "birthday", "position", "teamClub"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "data": {
+            "type": "object",
+            "properties": {
+              "playerId": {"type": "string"},
+              "name": {"type": "string"}
+            }
+          },
+          "agent_execution": {"type": "object"}
+        }
+      }
+    },
+    {
+      "name": "game_logging",
+      "description": "Record game statistics for a player",
+      "examples": [
+        "log game stats",
+        "record match data",
+        "save game statistics"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "playerId": {"type": "string"},
+          "date": {"type": "string", "format": "date"},
+          "opponent": {"type": "string"},
+          "result": {"type": "string", "enum": ["Win", "Loss", "Draw"]},
+          "finalScore": {"type": "string", "pattern": "^\\d+-\\d+$"},
+          "minutesPlayed": {"type": "number", "minimum": 0, "maximum": 120},
+          "goals": {"type": "number", "minimum": 0},
+          "assists": {"type": "number", "minimum": 0},
+          "tackles": {"type": "number", "minimum": 0},
+          "saves": {"type": "number", "minimum": 0}
+        },
+        "required": ["playerId", "date", "opponent", "result", "finalScore", "minutesPlayed"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "data": {
+            "type": "object",
+            "properties": {
+              "gameId": {"type": "string"},
+              "playerId": {"type": "string"}
+            }
+          },
+          "agent_execution": {"type": "object"}
+        }
+      }
+    }
+  ],
+
+  "contact": {
+    "email": "support@hustleapp.io",
+    "website": "https://hustleapp.io"
+  },
+
+  "deployment": {
+    "platform": "vertex-ai-agent-engine",
+    "region": "us-central1",
+    "endpoint": "https://us-central1-aiplatform.googleapis.com/v1/projects/hustleapp-production/locations/us-central1/agents/hustle-operations-manager"
+  }
+}

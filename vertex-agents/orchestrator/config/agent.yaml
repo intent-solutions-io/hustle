@@ -1,0 +1,157 @@
+# Hustle Operations Manager - Orchestrator Agent Configuration
+# Vertex AI Agent Engine (ADK) Configuration
+
+agent:
+  name: hustle-operations-manager
+  display_name: "Hustle Operations Manager"
+  description: "Team manager orchestrating all Hustle operations via A2A protocol"
+
+  # Model Configuration
+  model:
+    name: "gemini-2.0-flash-001"
+    temperature: 0.3
+    top_p: 0.95
+    top_k: 40
+    max_output_tokens: 2048
+
+  # Deployment Configuration
+  deployment:
+    project_id: "hustleapp-production"
+    region: "us-central1"
+    service_account: "hustle-agent-sa@hustleapp-production.iam.gserviceaccount.com"
+
+  # A2A Protocol Configuration
+  a2a:
+    enabled: true
+    session_management:
+      enabled: true
+      memory_bank: true
+      session_ttl: 3600  # 1 hour
+
+    # Sub-agent endpoints
+    sub_agents:
+      - name: validation
+        endpoint: "https://us-central1-aiplatform.googleapis.com/v1/projects/hustleapp-production/locations/us-central1/agents/hustle-validation-agent"
+        timeout: 10
+        retries: 3
+
+      - name: user_creation
+        endpoint: "https://us-central1-aiplatform.googleapis.com/v1/projects/hustleapp-production/locations/us-central1/agents/hustle-user-creation-agent"
+        timeout: 15
+        retries: 3
+
+      - name: onboarding
+        endpoint: "https://us-central1-aiplatform.googleapis.com/v1/projects/hustleapp-production/locations/us-central1/agents/hustle-onboarding-agent"
+        timeout: 20
+        retries: 2
+
+      - name: analytics
+        endpoint: "https://us-central1-aiplatform.googleapis.com/v1/projects/hustleapp-production/locations/us-central1/agents/hustle-analytics-agent"
+        timeout: 10
+        retries: 2
+
+  # Tools Configuration
+  tools:
+    - name: firestore_query
+      type: function
+      description: "Query Firestore database"
+      parameters:
+        collection: string
+        query: object
+
+    - name: firestore_write
+      type: function
+      description: "Write to Firestore database"
+      parameters:
+        collection: string
+        document_id: string
+        data: object
+
+    - name: call_sub_agent
+      type: function
+      description: "Call sub-agent via A2A protocol"
+      parameters:
+        agent_name: string
+        message: string
+        context: object
+        session_id: string
+
+    - name: send_email
+      type: function
+      description: "Send email via Resend"
+      parameters:
+        to: string
+        subject: string
+        body: string
+
+  # Intent Configuration
+  intents:
+    - name: user_registration
+      training_phrases:
+        - "register new user"
+        - "create account"
+        - "sign up"
+        - "new user registration"
+      workflow:
+        - agent: validation
+          parallel: false
+        - agent: user_creation
+          parallel: false
+        - agent: onboarding
+          parallel: true
+        - agent: analytics
+          parallel: true
+
+    - name: player_creation
+      training_phrases:
+        - "add player"
+        - "create athlete profile"
+        - "new player"
+        - "add child profile"
+      workflow:
+        - agent: validation
+          parallel: false
+        - agent: user_creation
+          parallel: false
+        - agent: analytics
+          parallel: true
+
+    - name: game_logging
+      training_phrases:
+        - "log game"
+        - "record stats"
+        - "add game data"
+        - "save game statistics"
+      workflow:
+        - agent: validation
+          parallel: false
+        - agent: user_creation
+          parallel: false
+        - agent: analytics
+          parallel: true
+
+  # Performance Configuration
+  performance:
+    max_concurrent_tasks: 10
+    execution_timeout: 30
+    retry_policy:
+      max_attempts: 3
+      backoff_multiplier: 2
+      initial_delay_ms: 1000
+
+  # Monitoring Configuration
+  monitoring:
+    cloud_logging: true
+    cloud_trace: true
+    metrics:
+      - execution_time
+      - success_rate
+      - error_rate
+      - agent_calls
+    alerts:
+      - type: error_rate
+        threshold: 0.05
+        window: 300
+      - type: execution_time
+        threshold: 5000
+        percentile: 95

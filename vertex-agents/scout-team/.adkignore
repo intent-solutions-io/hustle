@@ -1,0 +1,27 @@
+# ADK deployment ignore file
+# Similar to .gitignore, excludes files from deployment
+
+# Virtual environment (567MB - too large)
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Test files (not needed in production)
+test_*.py
+deploy.py
+
+# Backup files
+*_backup.py
+*_fixed.py
+
+# Documentation
+README.md
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
