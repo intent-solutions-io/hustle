@@ -1,0 +1,25 @@
+{
+  "submissionId": "H-2024-0008",
+  "customer": {
+    "email": "erika.sosa@example.com",
+    "name": "Erika Sosa"
+  },
+  "equipment": {
+    "type": "vehicle",
+    "make": "Subaru",
+    "model": "Outback",
+    "year": 2013
+  },
+  "symptoms": [
+    "Engine stalls when stopping after long commute",
+    "Idle hunts between 500-1200 RPM",
+    "AC compressor audibly clicks off prior to stall"
+  ],
+  "codes": [
+    {
+      "code": "P0506",
+      "description": "Idle air control system RPM lower than expected"
+    }
+  ],
+  "notes": "Customer spent several paragraphs describing the issue: after driving for an hour on the freeway, the vehicle stalls at the first few stoplights unless the rpm is kept above 1k with the accelerator. She notes that the cooling fans sound louder than usual, that she recently had the transmission fluid changed, and that an independent shop cleaned the throttle body but the problem returned within a week. She also explained lengthy travel plans that require reliability next month and is very anxious about being stranded while traveling alone."
+}

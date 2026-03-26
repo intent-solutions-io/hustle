@@ -1,0 +1,230 @@
+name: Synthetic QA (Fake Humans)
+
+on:
+  workflow_dispatch: {}  # Manual trigger
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    name: E2E Tests (Synthetic QA)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    env:
+      # Playwright configuration
+      PLAYWRIGHT_BASE_URL: http://localhost:4000
+
+      # Debug & Logging (CRITICAL for troubleshooting)
+      MIDDLEWARE_DEBUG: errors  # Log auth failures in middleware
+      DEBUG: pw:api,pw:browser  # Playwright debug output
+      NEXT_DEBUG: true          # Next.js verbose logging
+
+      # E2E Test Mode
+      NEXT_PUBLIC_E2E_TEST_MODE: "true"
+
+      # Firebase configuration (public - safe to expose)
+      NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "hustleapp-production.firebaseapp.com"
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: "hustleapp-production"
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "hustleapp-production.firebasestorage.app"
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "335713777643"
+      NEXT_PUBLIC_FIREBASE_APP_ID: "1:335713777643:web:209e728afd5aee07c80bae"
+
+      # Firebase Admin (private - from secrets)
+      # Priority 1: Full service account JSON (most reliable for CI)
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+      # Priority 2: Individual credentials (fallback)
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+      FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # ============================================
+      # DEBUG: Pre-flight environment validation
+      # ============================================
+      - name: "🔍 Debug: Validate environment"
+        run: |
+          echo "=== ENVIRONMENT VALIDATION ==="
+          echo "Node version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          echo "E2E Test Mode: $NEXT_PUBLIC_E2E_TEST_MODE"
+          echo "Middleware Debug: $MIDDLEWARE_DEBUG"
+          echo "Firebase Project: $NEXT_PUBLIC_FIREBASE_PROJECT_ID"
+          echo ""
+          echo "=== FIREBASE ADMIN CREDENTIALS CHECK ==="
+          if [ -n "$FIREBASE_PROJECT_ID" ]; then
+            echo "✓ FIREBASE_PROJECT_ID is set"
+          else
+            echo "✗ FIREBASE_PROJECT_ID is MISSING"
+          fi
+          if [ -n "$FIREBASE_CLIENT_EMAIL" ]; then
+            echo "✓ FIREBASE_CLIENT_EMAIL is set (length: ${#FIREBASE_CLIENT_EMAIL})"
+          else
+            echo "✗ FIREBASE_CLIENT_EMAIL is MISSING"
+          fi
+          if [ -n "$FIREBASE_PRIVATE_KEY" ]; then
+            echo "✓ FIREBASE_PRIVATE_KEY is set (length: ${#FIREBASE_PRIVATE_KEY})"
+          else
+            echo "✗ FIREBASE_PRIVATE_KEY is MISSING"
+          fi
+          echo ""
+          echo "=== MIDDLEWARE FILE CHECK ==="
+          if [ -f "src/middleware.ts" ]; then
+            echo "✓ src/middleware.ts exists"
+            head -20 src/middleware.ts
+          else
+            echo "✗ src/middleware.ts is MISSING"
+          fi
+          if [ -f "middleware.ts" ]; then
+            echo "⚠ Root middleware.ts exists (may cause conflicts)"
+          else
+            echo "✓ No conflicting root middleware.ts"
+          fi
+
+      - name: Seed staging environment
+        run: npm run qa:seed:staging
+        continue-on-error: true  # Don't block if seeding fails (may already be seeded)
+
+      # ============================================
+      # Run E2E Tests with enhanced logging
+      # ============================================
+      - name: Run smoke suite (critical journeys)
+        id: e2e-tests
+        run: |
+          echo "=== STARTING E2E TESTS ==="
+          echo "Capturing server logs in background..."
+
+          # Run tests and capture exit code
+          npm run qa:e2e:smoke 2>&1 | tee e2e-output.log
+          exit_code=${PIPESTATUS[0]}
+
+          echo ""
+          echo "=== E2E TEST SUMMARY ==="
+          echo "Exit code: $exit_code"
+
+          # Extract and display any middleware logs
+          echo ""
+          echo "=== MIDDLEWARE LOGS (from server) ==="
+          grep -i "middleware" e2e-output.log || echo "No middleware logs captured"
+
+          # Extract auth-related logs
+          echo ""
+          echo "=== AUTH-RELATED LOGS ==="
+          grep -iE "(session|cookie|auth|login|redirect)" e2e-output.log | head -50 || echo "No auth logs captured"
+
+          exit $exit_code
+        timeout-minutes: 10
+
+      # ============================================
+      # Debug: Capture detailed failure context
+      # ============================================
+      - name: "🔍 Debug: Capture failure context"
+        if: failure()
+        run: |
+          echo "=== FAILURE ANALYSIS ==="
+
+          echo ""
+          echo "=== LAST 100 LINES OF SERVER OUTPUT ==="
+          tail -100 e2e-output.log || echo "No output log found"
+
+          echo ""
+          echo "=== ERROR CONTEXT FILES ==="
+          find 03-Tests/test-results -name "error-context.md" -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null || echo "No error context files"
+
+          echo ""
+          echo "=== CONSOLE ERRORS FROM TESTS ==="
+          find 03-Tests/test-results -name "*.log" -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null || echo "No console logs"
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: 03-Tests/playwright-report/
+          retention-days: 30
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: 03-Tests/test-results/
+          retention-days: 30
+
+      - name: Upload server logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: e2e-output.log
+          retention-days: 7
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ **Synthetic QA Failed!**
+
+              Fake humans are unhappy. Check artifacts for screenshots/traces:
+              - [Playwright Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+              **Debug artifacts available:**
+              - \`playwright-report\`: Full HTML test report
+              - \`playwright-screenshots\`: Failure screenshots & videos
+              - \`server-logs\`: Next.js server output with middleware logs
+
+              Critical user journeys are broken. Please fix before merging.`
+            })
+
+      - name: Comment PR with success
+        if: github.event_name == 'pull_request' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ **Synthetic QA Passed!**
+
+              Fake humans are happy. All critical user journeys working:
+              - Parent login
+              - Create player
+              - View dashboard
+
+              Safe to merge.`
+            })

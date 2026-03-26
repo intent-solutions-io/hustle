@@ -1,0 +1,128 @@
+[
+  {
+    "name": "player_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique player identifier"
+  },
+  {
+    "name": "date",
+    "type": "DATE",
+    "mode": "REQUIRED",
+    "description": "Game date"
+  },
+  {
+    "name": "game_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique game identifier"
+  },
+  {
+    "name": "opponent",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Opponent team name"
+  },
+  {
+    "name": "result",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Game result (W/L/D)"
+  },
+  {
+    "name": "final_score",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Final score"
+  },
+  {
+    "name": "minutes_played",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Minutes played in game"
+  },
+  {
+    "name": "goals",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Goals scored"
+  },
+  {
+    "name": "assists",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Assists made"
+  },
+  {
+    "name": "tackles",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Tackles made"
+  },
+  {
+    "name": "interceptions",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Interceptions made"
+  },
+  {
+    "name": "clearances",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Clearances made"
+  },
+  {
+    "name": "blocks",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Blocks made"
+  },
+  {
+    "name": "aerial_duels_won",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Aerial duels won"
+  },
+  {
+    "name": "saves",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Saves made (goalkeeper)"
+  },
+  {
+    "name": "goals_against",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Goals conceded (goalkeeper)"
+  },
+  {
+    "name": "clean_sheet",
+    "type": "BOOLEAN",
+    "mode": "NULLABLE",
+    "description": "Clean sheet indicator (goalkeeper)"
+  },
+  {
+    "name": "verified",
+    "type": "BOOLEAN",
+    "mode": "REQUIRED",
+    "description": "Whether stats are verified"
+  },
+  {
+    "name": "verified_at",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "Verification timestamp"
+  },
+  {
+    "name": "created_at",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Record creation timestamp"
+  },
+  {
+    "name": "updated_at",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "Record update timestamp"
+  }
+]

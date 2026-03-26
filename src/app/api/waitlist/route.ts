@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { isOnWaitlistAdmin, addToWaitlistAdmin } from '@/lib/firebase/admin-services/waitlist';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/waitlist');
+
+// Validation schema
+const waitlistSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  firstName: z.string().min(1, 'First name is required').optional(),
+  lastName: z.string().min(1, 'Last name is required').optional(),
+  source: z.string().optional(),
+});
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+
+    // Validate input
+    const validatedData = waitlistSchema.parse(body);
+
+    // Check if email already exists (Admin SDK)
+    const exists = await isOnWaitlistAdmin(validatedData.email);
+
+    if (exists) {
+      return NextResponse.json(
+        { error: 'This email is already on the waitlist' },
+        { status: 409 }
+      );
+    }
+
+    // Create waitlist entry (Admin SDK)
+    await addToWaitlistAdmin({
+      email: validatedData.email,
+      firstName: validatedData.firstName,
+      lastName: validatedData.lastName,
+      source: validatedData.source || 'landing_page',
+    });
+
+    return NextResponse.json(
+      {
+        message: 'Successfully joined the waitlist!',
+        id: validatedData.email // Use email as ID in Firestore
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    logger.error('Waitlist submission error', error instanceof Error ? error : new Error(String(error)));
+    return NextResponse.json(
+      { error: 'Failed to join waitlist. Please try again.' },
+      { status: 500 }
+    );
+  }
+}

@@ -1,0 +1,123 @@
+/**
+ * Stripe Customer Portal Session API
+ *
+ * POST /api/billing/create-portal-session
+ *
+ * Phase 7 Task 1: Customer Portal Integration
+ *
+ * Creates a Stripe Customer Portal session for self-service billing management.
+ * Users can update payment methods, view invoices, and cancel subscriptions.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { authWithProfile } from '@/lib/auth';
+import { adminDb } from '@/lib/firebase/admin';
+import {
+  createCustomerPortalSession,
+  getDefaultReturnUrl,
+  isValidStripeCustomerId,
+} from '@/lib/stripe/customer-portal';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api/billing/create-portal-session');
+
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Authenticate user
+    const dashboardUser = await authWithProfile();
+
+    if (!dashboardUser) {
+      return NextResponse.json(
+        { error: 'UNAUTHORIZED', message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // 2. Get user's default workspace
+    const userDoc = await adminDb.collection('users').doc(dashboardUser.uid).get();
+
+    if (!userDoc.exists) {
+      return NextResponse.json(
+        { error: 'USER_NOT_FOUND', message: 'User document not found' },
+        { status: 404 }
+      );
+    }
+
+    const userData = userDoc.data();
+    const workspaceId = userData?.defaultWorkspaceId;
+
+    if (!workspaceId) {
+      return NextResponse.json(
+        { error: 'NO_WORKSPACE', message: 'User has no default workspace' },
+        { status: 404 }
+      );
+    }
+
+    // 3. Get workspace with Stripe customer ID
+    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
+
+    if (!workspaceDoc.exists) {
+      return NextResponse.json(
+        { error: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found' },
+        { status: 404 }
+      );
+    }
+
+    const workspaceData = workspaceDoc.data();
+    const stripeCustomerId = workspaceData?.billing?.stripeCustomerId;
+
+    if (!stripeCustomerId) {
+      return NextResponse.json(
+        {
+          error: 'NO_STRIPE_CUSTOMER',
+          message: 'No Stripe customer found. Please upgrade to a paid plan first.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 4. Validate customer ID format
+    if (!isValidStripeCustomerId(stripeCustomerId)) {
+      logger.error('Invalid Stripe customer ID: ' + stripeCustomerId);
+      return NextResponse.json(
+        { error: 'INVALID_CUSTOMER_ID', message: 'Invalid customer ID format' },
+        { status: 500 }
+      );
+    }
+
+    // 5. Get return URL from request body or use default
+    const body = await request.json().catch(() => ({}));
+    const returnUrl = body.returnUrl || getDefaultReturnUrl();
+
+    // 6. Create Stripe Customer Portal session
+    const portalSession = await createCustomerPortalSession(
+      stripeCustomerId,
+      returnUrl
+    );
+
+    // 7. Return portal URL
+    return NextResponse.json({
+      success: true,
+      url: portalSession.url,
+    });
+  } catch (error: any) {
+    logger.error('/api/billing/create-portal-session error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+
+    // Handle Stripe API errors
+    if (error.type) {
+      return NextResponse.json(
+        {
+          error: 'STRIPE_ERROR',
+          message: error.message || 'Failed to create portal session',
+          type: error.type,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'INTERNAL_ERROR', message: 'Failed to create portal session' },
+      { status: 500 }
+    );
+  }
+}

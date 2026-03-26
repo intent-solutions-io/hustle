@@ -1,0 +1,29 @@
+{
+  "submissionId": "E-2024-0005",
+  "customer": {
+    "email": "tyrone.harris@example.com",
+    "name": "Tyrone Harris"
+  },
+  "equipment": {
+    "type": "vehicle",
+    "make": "Chevrolet",
+    "model": "Bolt EV",
+    "year": 2020
+  },
+  "symptoms": [
+    "Multiple warning lights after rainstorm",
+    "Burnt plastic odor inside cabin",
+    "12V system intermittently resets infotainment"
+  ],
+  "codes": [
+    {
+      "code": "U0126",
+      "description": "Lost communication with steering angle sensor module"
+    },
+    {
+      "code": "P0AA6",
+      "description": "Hybrid/EV battery voltage system isolation fault"
+    }
+  ],
+  "notes": "Customer witnessed brief smoke near passenger footwell; vehicle currently parked and unplugged. Safety concern flagged."
+}

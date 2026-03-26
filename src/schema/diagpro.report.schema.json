@@ -1,0 +1,732 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://diagnostic-pro.example/schema/diagpro.report.schema.json",
+  "title": "DIAGPRO_REPORT",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "REPORT_ID",
+    "SUMMARY",
+    "CONFIDENCE",
+    "READINESS",
+    "SAFETY_FLAGS",
+    "FINDINGS",
+    "MOST_LIKELY_CAUSE",
+    "ROOT_CAUSE_HYPOTHESES",
+    "DIFFERENTIAL_DIAGNOSIS",
+    "DIAGNOSTIC_VERIFICATION",
+    "SHOP_INTERROGATION",
+    "CONVERSATION_SCRIPTING",
+    "COST_BREAKDOWN",
+    "RIPOFF_DETECTION",
+    "AUTHORIZATION_GUIDE",
+    "TECHNICAL_EDUCATION",
+    "OEM_PARTS_STRATEGY",
+    "NEGOTIATION_TACTICS",
+    "LIKELY_CAUSES_RANKED",
+    "RECOMMENDATIONS",
+    "UPLIFT",
+    "SOURCE_VERIFICATION",
+    "CUSTOMER_READINESS_CHECK"
+  ],
+  "properties": {
+    "REPORT_ID": {
+      "type": "string",
+      "pattern": "^DP-[A-Z0-9\\-]+$"
+    },
+    "SUMMARY": {
+      "type": "string",
+      "minLength": 1
+    },
+    "CONFIDENCE": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "READINESS": {
+      "type": "string",
+      "enum": [
+        "READY",
+        "FOLLOW_UP_REQUIRED",
+        "NOT_READY"
+      ]
+    },
+    "SAFETY_FLAGS": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "LEVEL",
+          "DESCRIPTION",
+          "ACTION"
+        ],
+        "properties": {
+          "LEVEL": {
+            "type": "string",
+            "enum": [
+              "CRITICAL",
+              "WARNING",
+              "NOTICE"
+            ]
+          },
+          "DESCRIPTION": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ACTION": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "FINDINGS": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "TITLE",
+          "DETAIL",
+          "CONFIDENCE"
+        ],
+        "properties": {
+          "TITLE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "DETAIL": {
+            "type": "string",
+            "minLength": 1
+          },
+          "CONFIDENCE": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    "MOST_LIKELY_CAUSE": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "TITLE",
+        "DESCRIPTION",
+        "CONFIDENCE",
+        "SUPPORTING_CODES"
+      ],
+      "properties": {
+        "TITLE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "DESCRIPTION": {
+          "type": "string",
+          "minLength": 1
+        },
+        "CONFIDENCE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "SUPPORTING_CODES": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "ROOT_CAUSE_HYPOTHESES": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "HYPOTHESIS",
+          "RATIONALE",
+          "CONFIDENCE"
+        ],
+        "properties": {
+          "HYPOTHESIS": {
+            "type": "string",
+            "minLength": 1
+          },
+          "RATIONALE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "CONFIDENCE": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    "DIFFERENTIAL_DIAGNOSIS": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "TITLE",
+          "RANK",
+          "CONFIDENCE",
+          "RATIONALE"
+        ],
+        "properties": {
+          "TITLE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "RANK": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "CONFIDENCE": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "RATIONALE": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "DIAGNOSTIC_VERIFICATION": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "TITLE",
+          "OBJECTIVE",
+          "TOOLS",
+          "STEPS",
+          "EXPECTED_RESULT"
+        ],
+        "properties": {
+          "TITLE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "OBJECTIVE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "TOOLS": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "STEPS": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "EXPECTED_RESULT": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "SHOP_INTERROGATION": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "QUESTION",
+          "INTENT",
+          "EXPECTED_RESPONSE",
+          "WATCH_FOR"
+        ],
+        "properties": {
+          "QUESTION": {
+            "type": "string",
+            "minLength": 1
+          },
+          "INTENT": {
+            "type": "string",
+            "minLength": 1
+          },
+          "EXPECTED_RESPONSE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "WATCH_FOR": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "CONVERSATION_SCRIPTING": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "OPENING",
+        "PHRASING",
+        "EXAMPLE_DIALOGUE",
+        "BODY_LANGUAGE",
+        "RESPONSE_HANDLING",
+        "EXIT_STRATEGY",
+        "NEVER_SAY",
+        "ALWAYS_SAY"
+      ],
+      "properties": {
+        "OPENING": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "PHRASING": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "EXAMPLE_DIALOGUE": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "BODY_LANGUAGE": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "RESPONSE_HANDLING": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "EXIT_STRATEGY": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "NEVER_SAY": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "ALWAYS_SAY": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "COST_BREAKDOWN": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "PARTS_ANALYSIS",
+        "LABOR_HOURS",
+        "TOTAL_RANGE_USD",
+        "OVERCHARGE_SIGNS"
+      ],
+      "properties": {
+        "PARTS_ANALYSIS": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "LABOR_HOURS": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "MIN",
+            "MAX"
+          ],
+          "properties": {
+            "MIN": {
+              "type": "number",
+              "minimum": 0
+            },
+            "MAX": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "TOTAL_RANGE_USD": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "MIN",
+            "MAX"
+          ],
+          "properties": {
+            "MIN": {
+              "type": "number",
+              "minimum": 0
+            },
+            "MAX": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "OVERCHARGE_SIGNS": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "RIPOFF_DETECTION": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "SIGNAL",
+          "IMPACT",
+          "MITIGATION"
+        ],
+        "properties": {
+          "SIGNAL": {
+            "type": "string",
+            "minLength": 1
+          },
+          "IMPACT": {
+            "type": "string",
+            "minLength": 1
+          },
+          "MITIGATION": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "AUTHORIZATION_GUIDE": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "APPROVE",
+        "REJECT",
+        "SECOND_OPINION"
+      ],
+      "properties": {
+        "APPROVE": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "TITLE",
+              "RATIONALE"
+            ],
+            "properties": {
+              "TITLE": {
+                "type": "string",
+                "minLength": 1
+              },
+              "RATIONALE": {
+                "type": "string",
+                "minLength": 1
+              },
+              "CONDITIONS": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "REJECT": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "TITLE",
+              "RATIONALE"
+            ],
+            "properties": {
+              "TITLE": {
+                "type": "string",
+                "minLength": 1
+              },
+              "RATIONALE": {
+                "type": "string",
+                "minLength": 1
+              },
+              "CONDITIONS": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "SECOND_OPINION": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "TITLE",
+              "RATIONALE"
+            ],
+            "properties": {
+              "TITLE": {
+                "type": "string",
+                "minLength": 1
+              },
+              "RATIONALE": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "TECHNICAL_EDUCATION": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "OEM_PARTS_STRATEGY": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "COMPONENT",
+          "WHY_OEM",
+          "ALTERNATIVES"
+        ],
+        "properties": {
+          "COMPONENT": {
+            "type": "string",
+            "minLength": 1
+          },
+          "WHY_OEM": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ALTERNATIVES": {
+            "type": "string",
+            "minLength": 1
+          },
+          "REFERENCES": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "NEGOTIATION_TACTICS": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "TACTIC",
+          "USAGE",
+          "EXPECTED_OUTCOME"
+        ],
+        "properties": {
+          "TACTIC": {
+            "type": "string",
+            "minLength": 1
+          },
+          "USAGE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "EXPECTED_OUTCOME": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "LIKELY_CAUSES_RANKED": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "TITLE",
+          "CONFIDENCE",
+          "RATIONALE"
+        ],
+        "properties": {
+          "TITLE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "CONFIDENCE": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "RATIONALE": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "RECOMMENDATIONS": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "TITLE",
+          "STEPS",
+          "READINESS"
+        ],
+        "properties": {
+          "TITLE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "STEPS": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "READINESS": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "PROFESSIONAL",
+              "SCHEDULE"
+            ]
+          }
+        }
+      }
+    },
+    "UPLIFT": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "SOURCE_VERIFICATION": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "TITLE",
+          "URL",
+          "TYPE"
+        ],
+        "properties": {
+          "TITLE": {
+            "type": "string",
+            "minLength": 1
+          },
+          "URL": {
+            "type": "string",
+            "minLength": 1
+          },
+          "TYPE": {
+            "type": "string",
+            "enum": [
+              "OEM_TSB",
+              "NHTSA",
+              "INDUSTRY_PUBLICATION",
+              "FORUM",
+              "OTHER"
+            ]
+          },
+          "NOTE": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "CUSTOMER_READINESS_CHECK": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "VERDICT",
+        "SHORT_REASON"
+      ],
+      "properties": {
+        "VERDICT": {
+          "type": "string",
+          "enum": [
+            "READY",
+            "NOT_READY",
+            "FOLLOW_UP"
+          ]
+        },
+        "SHORT_REASON": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280
+        }
+      }
+    },
+    "META": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "CONFIDENCE_THRESHOLD": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "FOURTEEN_POINT_LAYOUT": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

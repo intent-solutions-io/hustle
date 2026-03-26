@@ -1,0 +1,64 @@
+// ============================================================================
+// FUTURE OPTIMIZATION: Game.date Index (Prisma Schema Update)
+// ============================================================================
+//
+// This file shows the Prisma schema change needed when date index becomes
+// necessary. DO NOT APPLY until threshold is met (500+ games per user).
+//
+// To apply:
+// 1. Add the @@index([date]) line to Game model in prisma/schema.prisma
+// 2. Run: npx prisma migrate dev --name add-game-date-index
+// 3. Run: npx prisma generate
+// 4. Test performance with production data in staging
+// 5. Deploy to production: npx prisma migrate deploy
+//
+// ============================================================================
+
+model Game {
+  id            String    @id @default(cuid())
+  playerId      String
+  date          DateTime  @default(now())
+  opponent      String
+  result        String    // "Win", "Loss", "Tie"
+  finalScore    String    // e.g., "3-2"
+  minutesPlayed Int
+
+  // Universal stats
+  goals         Int       @default(0)
+  assists       Int       @default(0)
+
+  // Goalkeeper stats (null if not goalkeeper)
+  saves         Int?
+  goalsAgainst  Int?
+  cleanSheet    Boolean?
+
+  // Verification
+  verified      Boolean   @default(false)
+  verifiedAt    DateTime?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  player        Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  // EXISTING INDEXES (from Task 41)
+  @@index([playerId])
+  @@index([verified])
+
+  // FUTURE OPTIMIZATION (add when scaling past 500 games/user)
+  @@index([date])  // 👈 ADD THIS LINE when needed
+}
+
+// Alternative: Composite index (if you want to optimize both playerId join + date filter)
+// This is OVERKILL for current scale but may be useful at 1000+ games/user
+//
+// model Game {
+//   ...
+//   @@index([playerId, date])  // Composite index for season queries
+// }
+//
+// Trade-offs:
+// - Pros: Single index covers both join and date filter (faster season query)
+// - Cons: Larger index size, slower writes, only helps season query (not other date queries)
+//
+// Recommendation: Start with simple @@index([date]) and add composite later if needed

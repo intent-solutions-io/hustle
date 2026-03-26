@@ -1,0 +1,11 @@
+# Terraform Development Environment Configuration
+
+This directory is intentionally empty and reserved for future Terraform configuration files specific to the development environment.
+
+When terraform configurations are added, this directory will contain:
+- Environment-specific variables (`terraform.tfvars`)
+- State backend configuration
+- Provider overrides for development
+- Development-specific resource configurations
+
+Do not remove this directory.

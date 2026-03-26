@@ -1,0 +1,122 @@
+[
+  {
+    "name": "player_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique player identifier"
+  },
+  {
+    "name": "season",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Season identifier (e.g., '2024-2025')"
+  },
+  {
+    "name": "games_played",
+    "type": "INTEGER",
+    "mode": "REQUIRED",
+    "description": "Total games played"
+  },
+  {
+    "name": "total_minutes",
+    "type": "INTEGER",
+    "mode": "REQUIRED",
+    "description": "Total minutes played"
+  },
+  {
+    "name": "total_goals",
+    "type": "INTEGER",
+    "mode": "REQUIRED",
+    "description": "Total goals scored"
+  },
+  {
+    "name": "total_assists",
+    "type": "INTEGER",
+    "mode": "REQUIRED",
+    "description": "Total assists made"
+  },
+  {
+    "name": "total_tackles",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Total tackles made"
+  },
+  {
+    "name": "total_interceptions",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Total interceptions made"
+  },
+  {
+    "name": "total_clearances",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Total clearances made"
+  },
+  {
+    "name": "total_blocks",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Total blocks made"
+  },
+  {
+    "name": "total_aerial_duels_won",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Total aerial duels won"
+  },
+  {
+    "name": "total_saves",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Total saves made (goalkeeper)"
+  },
+  {
+    "name": "total_goals_against",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Total goals conceded (goalkeeper)"
+  },
+  {
+    "name": "clean_sheets",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Total clean sheets (goalkeeper)"
+  },
+  {
+    "name": "avg_goals_per_game",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Average goals per game"
+  },
+  {
+    "name": "avg_assists_per_game",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Average assists per game"
+  },
+  {
+    "name": "avg_minutes_per_game",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Average minutes per game"
+  },
+  {
+    "name": "win_rate",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Win rate percentage"
+  },
+  {
+    "name": "created_at",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Record creation timestamp"
+  },
+  {
+    "name": "updated_at",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "Record update timestamp"
+  }
+]

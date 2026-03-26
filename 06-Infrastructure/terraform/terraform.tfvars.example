@@ -1,0 +1,54 @@
+# ==============================================================================
+# Terraform Variables - EXAMPLE FILE
+# Copy to terraform.tfvars and fill in your values
+# ==============================================================================
+
+# GCP Organization & Billing
+organization_id = "YOUR_ORG_ID_HERE"           # Get with: gcloud organizations list
+billing_account = "YOUR_BILLING_ACCOUNT_HERE"  # Get with: gcloud billing accounts list
+
+# Project Configuration
+project_prefix = "hustleapp"
+environment    = "prod"
+
+# Regional Configuration
+region                    = "us-central1"
+firebase_location         = "us-central"
+bigquery_dataset_location = "US"
+vertex_ai_region          = "us-central1"
+
+# Database Configuration
+postgres_version = "POSTGRES_15"
+postgres_tier    = "db-g1-small"  # or db-f1-micro for dev
+
+# AI Configuration
+gemini_model = "gemini-2.0-flash-001"
+
+# Agent Configurations
+agents = {
+  performance_coach = {
+    name         = "performance-coach"
+    display_name = "Performance Coach Agent"
+    tools_count  = 3
+  }
+  stats_analyst = {
+    name         = "stats-analyst"
+    display_name = "Stats Analyst Agent"
+    tools_count  = 4
+  }
+  game_logger = {
+    name         = "game-logger"
+    display_name = "Game Logger Agent"
+    tools_count  = 5
+  }
+  scout_report = {
+    name         = "scout-report"
+    display_name = "Scout Report Agent"
+    tools_count  = 3
+  }
+  verification = {
+    name         = "verification"
+    display_name = "Verification Agent"
+    tools_count  = 2
+  }
+}

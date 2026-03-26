@@ -1,0 +1,20 @@
+{
+  "submissionId": "G-2024-0007",
+  "customer": {
+    "email": "nina.morris@example.com",
+    "name": "Nina Morris"
+  },
+  "equipment": {
+    "type": "equipment",
+    "make": "Atlas",
+    "model": "HydroLift 2000",
+    "year": 2014
+  },
+  "symptoms": [
+    "Operator reports 'acting weird'",
+    "Occasional vibration under load",
+    "Warning buzzer chirps randomly"
+  ],
+  "codes": [],
+  "notes": "No diagnostic display available; maintenance logs missing for last 18 months."
+}

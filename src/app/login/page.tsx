@@ -1,0 +1,286 @@
+'use client';
+
+import { useState, useEffect, Suspense } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { signIn as firebaseSignIn } from '@/lib/firebase/auth';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { withTimeout } from '@/lib/utils/timeout';
+
+function LoginContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+
+  // Show contextual messages based on query params
+  useEffect(() => {
+    if (searchParams.get('registered') === 'true') {
+      setSuccessMessage('Account created! Please check your email and click the verification link before logging in.');
+    } else if (searchParams.get('reset') === 'success') {
+      setSuccessMessage('Password reset successfully! You can now log in with your new password.');
+    } else if (searchParams.get('verified') === 'true') {
+      setSuccessMessage('Email verified! You can now log in.');
+    }
+  }, [searchParams]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      // Step 1: Firebase Auth sign in
+      const user = await withTimeout(
+        firebaseSignIn(formData.email, formData.password),
+        30000,
+        'Sign in'
+      );
+
+      // Step 2: Get ID token and set server session cookie
+      const idToken = await user.getIdToken();
+
+      // Set server-side session cookie (__session, 14-day, httpOnly).
+      // Uses a 30s timeout (cold starts can take 10-20s) with one automatic retry
+      // on transient failures (504/500/network error).
+      console.log('[Login] Setting server session cookie...');
+      const setSession = async (attempt: number) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 30000);
+        try {
+          const response = await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+            credentials: 'include',
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            const err = new Error(body.error || `Server returned ${response.status}`);
+            (err as any).status = response.status;
+            throw err;
+          }
+          console.log('[Login] Server session cookie set successfully');
+        } catch (err: any) {
+          clearTimeout(timer);
+          const isRetryable = attempt < 2 && (
+            err.name === 'AbortError' ||
+            err.status === 504 ||
+            err.status === 500 ||
+            err.message?.includes('fetch')
+          );
+          if (isRetryable) {
+            console.warn(`[Login] Session attempt ${attempt} failed (${err.message}), retrying...`);
+            return setSession(attempt + 1);
+          }
+          if (err.name === 'AbortError') {
+            throw new Error('Session request timed out. Please check your connection and try again.');
+          }
+          throw new Error(err.message || 'Unable to establish session. Please try again.');
+        }
+      };
+      await setSession(1);
+
+      // Step 3: Redirect to dashboard
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('[Login] Error:', error?.code || error?.message);
+
+      const errorCode = error?.code || '';
+      const errorMessage = error?.message || '';
+
+      if (errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
+        setError('Incorrect email or password. Please try again.');
+      } else if (errorCode === 'auth/user-not-found') {
+        setError('No account found with this email. Please check your email or create an account.');
+      } else if (errorCode === 'auth/too-many-requests') {
+        setError('Too many login attempts. Please wait a few minutes and try again.');
+      } else if (errorCode === 'auth/network-request-failed') {
+        setError('Network error. Please check your internet connection and try again.');
+      } else if (errorCode === 'auth/invalid-api-key') {
+        setError('Configuration error. Please contact support.');
+        console.error('[Login] CRITICAL: Invalid Firebase API key!');
+      } else if (errorMessage.includes('verify your email')) {
+        setError(errorMessage);
+      } else if (errorMessage) {
+        setError(errorMessage);
+      } else {
+        setError('An error occurred. Please try again.');
+      }
+    } finally {
+      console.log('[Login] Setting isLoading to false');
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="min-h-screen relative flex flex-col"
+      style={{
+        backgroundImage: 'url(/images/tracks.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Dark Overlay */}
+      <div className="absolute inset-0 bg-black/60" />
+
+      {/* Header */}
+      <header className="relative z-10 bg-transparent">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex items-center gap-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="gap-2 text-white hover:text-white/80">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
+              <span className="text-zinc-900 font-bold text-xs">H</span>
+            </div>
+            <span className="text-lg font-semibold text-white">
+              HUSTLE<sup className="text-[0.5em] align-super">™</sup>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 flex-1 flex items-center justify-center px-6 py-24">
+        <Card className="w-full max-w-md border-zinc-200 shadow-xl bg-white/95 backdrop-blur-sm">
+          <CardHeader className="space-y-2 pb-6">
+            <CardTitle className="text-2xl font-semibold text-zinc-900">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-zinc-600">
+              Sign in to access your performance dashboard
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Success Message (registration, password reset) */}
+              {successMessage && !error && (
+                <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                  <p className="text-sm text-green-700">{successMessage}</p>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                  {error.includes('verify your email') && (
+                    <p className="text-sm text-red-600 ml-6">
+                      <Link href="/resend-verification" className="underline font-medium hover:text-red-700">
+                        Resend verification email
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Email */}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-zinc-700 font-medium">
+                  Email Address
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="jordan@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                  className="h-11"
+                  autoComplete="email"
+                  disabled={isLoading}
+                />
+              </div>
+
+              {/* Password */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-zinc-700 font-medium">
+                    Password
+                  </Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-zinc-600 hover:text-zinc-900 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
+                    className="h-11 pr-10"
+                    autoComplete="current-password"
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 transition-colors"
+                    disabled={isLoading}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                className="w-full h-11 bg-zinc-900 hover:bg-zinc-800 text-white font-medium"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Signing In...' : 'Sign In'}
+              </Button>
+
+              {/* Register Link */}
+              <p className="text-center text-sm text-zinc-600">
+                Don&apos;t have an account?{' '}
+                <Link href="/register" className="text-zinc-900 font-medium hover:underline">
+                  Create Account
+                </Link>
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900"></div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
+  );
+}

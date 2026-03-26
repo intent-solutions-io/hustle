@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SurveyResponse {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  phone             String?
+
+  // Demographics - extracted for easy querying
+  numAthletes       Int?
+  grades            Json?    // Array of grades
+  sports            Json?    // Array of sports
+  hoursPerWeek      String?
+  recruitmentStatus String?
+  location          String?
+
+  // All 68 responses stored as structured JSON
+  responses         Json     @default("{}")
+
+  // Progress tracking
+  currentSection    Int      @default(1)
+  completed         Boolean  @default(false)
+
+  // AI Analysis (populated after completion via Groq API)
+  aiScore           Float?    // 0-100 beta fit score
+  aiSummary         String?   @db.Text // 2-3 sentence profile
+  aiSegment         String?   // "Power Parent", "Casual User", "Recruiter-Focused", "Multi-Sport Manager"
+  betaPriority      String?   // "HIGH", "MEDIUM", "LOW"
+  aiStrengths       Json?     // Array of strengths as beta tester
+  aiConcerns        Json?     // Array of concerns/red flags
+  aiRecommendations Json?     // Array of onboarding suggestions
+
+  // Timestamps
+  submittedAt       DateTime?
+  analyzedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([email])
+  @@index([completed])
+  @@index([betaPriority])
+  @@map("survey_responses")
+}
