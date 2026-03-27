@@ -1,4 +1,4 @@
-import { App, initializeApp, getApps, cert } from 'firebase-admin/app';
+import { App, initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
 import { Auth, getAuth } from 'firebase-admin/auth';
 import { Firestore, getFirestore } from 'firebase-admin/firestore';
 import { Storage, getStorage } from 'firebase-admin/storage';
@@ -7,6 +7,24 @@ let _app: App | null = null;
 let _adminAuth: Auth | null = null;
 let _adminDb: Firestore | null = null;
 let _adminStorage: Storage | null = null;
+
+function buildCredential() {
+  // Option 1: full service account JSON (production Cloud Run)
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    return cert(sa);
+  }
+  // Option 2: individual env vars (CI / local dev)
+  if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+    return cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    });
+  }
+  // Option 3: Application Default Credentials (GCP environments with attached service account)
+  return applicationDefault();
+}
 
 export function getAdminApp(): App {
   if (_app) return _app;
@@ -17,13 +35,7 @@ export function getAdminApp(): App {
     return _app;
   }
 
-  _app = initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
+  _app = initializeApp({ credential: buildCredential() });
 
   return _app;
 }
