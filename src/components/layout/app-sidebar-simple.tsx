@@ -16,7 +16,8 @@ import {
 import { Home, Users, Calendar, BarChart3, Settings, LogOut, Dumbbell, PanelLeftClose } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { signOut as firebaseSignOut } from '@/lib/firebase/auth';
+import { signOut as firebaseSignOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase/client';
 
 const navItems = [
   {
@@ -72,7 +73,7 @@ export default function AppSidebarSimple() {
       }
 
       // Clear Firebase client-side auth
-      await firebaseSignOut();
+      await firebaseSignOut(auth);
 
       // Clear server-side session cookie
       await fetch('/api/auth/logout', { method: 'POST' });

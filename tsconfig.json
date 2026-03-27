@@ -24,11 +24,28 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "src/**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "03-Tests",
+    "05-Scripts",
+    "99-Archive",
+    "vertex-agents",
+    "mobile",
+    "playwright.config.ts",
+    "vitest.setup.ts",
+    "vitest.integration.setup.ts",
+    "src/test-utils",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/**/*.integration.test.ts",
+    "vitest.config.mts"
+  ]
 }

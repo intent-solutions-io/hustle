@@ -249,7 +249,7 @@ export function ExerciseProgressChart({
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                 }}
-                formatter={(value: number) => [
+                formatter={(value: unknown) => [
                   `${value} ${currentMetric.unit}`,
                   currentMetric.label,
                 ]}

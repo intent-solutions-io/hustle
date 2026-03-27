@@ -1,13 +1,15 @@
+import React from 'react';
 import { cn } from '@/lib/utils';
 
 // Base shimmer primitive
-export function Skeleton({ className }: { className?: string }) {
+export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
         'animate-pulse rounded-lg bg-zinc-200/80',
         className
       )}
+      {...props}
     />
   );
 }

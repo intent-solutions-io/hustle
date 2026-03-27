@@ -143,7 +143,7 @@ export function WorkoutProgressChart({
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                 }}
-                formatter={(value: number) => [`${value.toLocaleString()} lbs`, 'Volume']}
+                formatter={(value: unknown) => [`${Number(value).toLocaleString()} lbs`, 'Volume']}
               />
               <Area
                 type="monotone"
@@ -179,7 +179,7 @@ export function WorkoutProgressChart({
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                 }}
-                formatter={(value: number) => [value, 'Workouts']}
+                formatter={(value: unknown) => [String(value), 'Workouts']}
               />
               <Bar dataKey="workouts" fill="#10b981" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -209,7 +209,7 @@ export function WorkoutProgressChart({
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                 }}
-                formatter={(value: number) => [`${value} min`, 'Duration']}
+                formatter={(value: unknown) => [`${value} min`, 'Duration']}
               />
               <Line
                 type="monotone"
