@@ -4,8 +4,9 @@ on:
   workflow_dispatch: {}  # Manual trigger
   pull_request:
     branches: [ main ]
-  push:
-    branches: [ main ]
+  # push trigger disabled — v2 rebuild doesn't have qa:e2e:smoke scripts yet
+  # push:
+  #   branches: [ main ]
 
 jobs:
   e2e:

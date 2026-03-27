@@ -15,6 +15,8 @@ const publicRoutes = [
 
 const publicPrefixes = [
   '/api/auth/',
+  '/api/healthcheck',
+  '/api/health',
   '/_next/',
   '/favicon',
   '/images/',
