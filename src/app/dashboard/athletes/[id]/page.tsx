@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -15,15 +15,39 @@ import {
   Shield,
   AlertTriangle,
   Trophy,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ResultBadge } from '@/components/ui/result-badge';
 import { PositionBadge } from '@/components/ui/position-badge';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { staggerContainer, staggerItem } from '@/lib/animation';
-import { mockAthletes, mockGames } from '@/lib/mock-data';
 import { getInitials, getAvatarColor, calculateAge } from '@/lib/player-utils';
 import { cn } from '@/lib/utils';
+
+interface PlayerData {
+  id: string;
+  name: string;
+  birthday: string;
+  gender: string;
+  position: string;
+  primaryPosition?: string;
+  teamClub?: string;
+  leagueCode?: string;
+  photoUrl?: string | null;
+}
+
+interface GameData {
+  id: string;
+  date: string;
+  opponent: string;
+  result: 'win' | 'loss' | 'draw';
+  finalScore?: string;
+  goals: number;
+  assists: number;
+  minutesPlayed: number;
+  player?: { name: string; position: string };
+}
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -32,8 +56,44 @@ interface PageProps {
 export default function AthleteDetailPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const [athlete, setAthlete] = useState<PlayerData | null>(null);
+  const [games, setGames] = useState<GameData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
-  const athlete = mockAthletes.find((a) => a.id === id);
+  useEffect(() => {
+    async function loadData() {
+      try {
+        // Fetch all players and find this one
+        const pRes = await fetch('/api/players');
+        if (!pRes.ok) throw new Error('Failed to fetch players');
+        const pData = await pRes.json();
+        const found = (pData.players ?? []).find((p: PlayerData) => p.id === id);
+        setAthlete(found ?? null);
+
+        if (found) {
+          const gRes = await fetch(`/api/games?playerId=${id}`);
+          if (gRes.ok) {
+            const gData = await gRes.json();
+            setGames(gData.games ?? []);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load athlete:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
 
   if (!athlete) {
     return (
@@ -49,15 +109,31 @@ export default function AthleteDetailPage({ params }: PageProps) {
     );
   }
 
-  const athleteGames = mockGames.filter((g) => g.athleteId === athlete.id);
-  const wins = athleteGames.filter((g) => g.result === 'win').length;
-  const winRate = athleteGames.length > 0 ? wins / athleteGames.length : 0;
-  const totalMinutes = athleteGames.reduce((s, g) => s + g.minutesPlayed, 0);
+  const posCode = athlete.primaryPosition ?? athlete.position;
+  const wins = games.filter((g) => g.result === 'win').length;
+  const winRate = games.length > 0 ? wins / games.length : 0;
+  const totalGoals = games.reduce((s, g) => s + g.goals, 0);
+  const totalAssists = games.reduce((s, g) => s + g.assists, 0);
+  const totalMinutes = games.reduce((s, g) => s + g.minutesPlayed, 0);
 
-  const handleDelete = () => {
-    // TODO: wire to Firestore delete
-    if (confirm(`Remove ${athlete.name} from your athletes?`)) {
-      router.push('/dashboard/athletes');
+  const sortedGames = [...games].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  const handleDelete = async () => {
+    if (!confirm(`Remove ${athlete.name} from your athletes?`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/players/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        router.push('/dashboard/athletes');
+      } else {
+        alert('Failed to delete athlete. Please try again.');
+        setDeleting(false);
+      }
+    } catch {
+      alert('Failed to delete athlete. Please try again.');
+      setDeleting(false);
     }
   };
 
@@ -100,20 +176,15 @@ export default function AthleteDetailPage({ params }: PageProps) {
                 {athlete.name}
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                <PositionBadge position={athlete.positionShort} />
-                {athlete.jerseyNumber && (
-                  <span className="px-2 py-0.5 bg-zinc-100 text-zinc-600 text-xs font-body font-medium rounded-full">
-                    #{athlete.jerseyNumber}
-                  </span>
-                )}
+                <PositionBadge position={posCode} />
                 <span className="font-body text-sm text-zinc-500">
-                  Age {calculateAge(athlete.dateOfBirth)}
+                  Age {calculateAge(new Date(athlete.birthday))}
                 </span>
               </div>
               <p className="font-body text-sm text-zinc-500 mt-1">
-                {athlete.teamName}
-                {athlete.league && (
-                  <span className="text-zinc-400"> · {athlete.league}</span>
+                {athlete.teamClub ?? ''}
+                {athlete.leagueCode && (
+                  <span className="text-zinc-400"> · {athlete.leagueCode}</span>
                 )}
               </p>
             </div>
@@ -135,10 +206,11 @@ export default function AthleteDetailPage({ params }: PageProps) {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleDelete}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-body text-sm font-medium transition-colors"
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-body text-sm font-medium transition-colors disabled:opacity-50"
             >
               <Trash2 size={14} />
-              Delete
+              {deleting ? 'Deleting...' : 'Delete'}
             </motion.button>
           </div>
         </div>
@@ -148,12 +220,12 @@ export default function AthleteDetailPage({ params }: PageProps) {
           <div className="flex items-center gap-1.5 text-zinc-500">
             <Calendar size={14} />
             <span className="font-body text-sm">
-              Born {format(athlete.dateOfBirth, 'MMM d, yyyy')}
+              Born {format(new Date(athlete.birthday), 'MMM d, yyyy')}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-zinc-500">
             <Trophy size={14} />
-            <span className="font-body text-sm">{athlete.position}</span>
+            <span className="font-body text-sm">{posCode}</span>
           </div>
         </div>
       </motion.div>
@@ -166,9 +238,9 @@ export default function AthleteDetailPage({ params }: PageProps) {
         className="grid grid-cols-2 sm:grid-cols-4 gap-4"
       >
         {[
-          { label: 'Games', value: athlete.stats.games, icon: Trophy, color: 'text-amber-500' },
-          { label: 'Goals', value: athlete.stats.goals, icon: Target, color: 'text-green-500' },
-          { label: 'Assists', value: athlete.stats.assists, icon: Handshake, color: 'text-blue-500' },
+          { label: 'Games', value: games.length, icon: Trophy, color: 'text-amber-500' },
+          { label: 'Goals', value: totalGoals, icon: Target, color: 'text-green-500' },
+          { label: 'Assists', value: totalAssists, icon: Handshake, color: 'text-blue-500' },
           { label: 'Minutes', value: totalMinutes, icon: Clock, color: 'text-purple-500' },
         ].map(({ label, value, icon: Icon, color }) => (
           <motion.div
@@ -185,95 +257,50 @@ export default function AthleteDetailPage({ params }: PageProps) {
         ))}
       </motion.div>
 
-      {/* Win rate + discipline row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Win rate */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.15 }}
-          className="bg-white rounded-2xl p-5 shadow-sm flex items-center gap-5"
-        >
-          <ProgressRing
-            progress={winRate}
-            size={80}
-            strokeWidth={8}
-            label="Win Rate"
-            color="amber"
-          />
-          <div>
-            <p className="font-display text-base font-semibold text-zinc-900 mb-2">
-              Season Record
-            </p>
-            <div className="flex gap-3 text-sm">
-              {[
-                { label: 'W', count: wins, color: 'text-green-600' },
-                {
-                  label: 'D',
-                  count: athleteGames.filter((g) => g.result === 'draw').length,
-                  color: 'text-zinc-500',
-                },
-                {
-                  label: 'L',
-                  count: athleteGames.filter((g) => g.result === 'loss').length,
-                  color: 'text-red-500',
-                },
-              ].map(({ label, count, color }) => (
-                <div key={label} className="text-center">
-                  <p className={cn('font-display text-xl font-semibold', color)}>{count}</p>
-                  <p className="font-body text-xs text-zinc-400">{label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Discipline */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.18 }}
-          className="bg-white rounded-2xl p-5 shadow-sm"
-        >
-          <p className="font-display text-base font-semibold text-zinc-900 mb-4">
-            Discipline
-          </p>
-          <div className="flex gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-8 bg-yellow-400 rounded-sm shadow-sm" />
-              <div>
-                <p className="font-display text-2xl font-semibold text-zinc-900">
-                  {athlete.stats.yellowCards}
-                </p>
-                <p className="font-body text-xs text-zinc-400">Yellow</p>
+      {/* Win rate row */}
+      {games.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.15 }}
+            className="bg-white rounded-2xl p-5 shadow-sm flex items-center gap-5"
+          >
+            <ProgressRing
+              progress={winRate}
+              size={80}
+              strokeWidth={8}
+              label="Win Rate"
+              color="amber"
+            />
+            <div>
+              <p className="font-display text-base font-semibold text-zinc-900 mb-2">
+                Season Record
+              </p>
+              <div className="flex gap-3 text-sm">
+                {[
+                  { label: 'W', count: wins, color: 'text-green-600' },
+                  {
+                    label: 'D',
+                    count: games.filter((g) => g.result === 'draw').length,
+                    color: 'text-zinc-500',
+                  },
+                  {
+                    label: 'L',
+                    count: games.filter((g) => g.result === 'loss').length,
+                    color: 'text-red-500',
+                  },
+                ].map(({ label, count, color }) => (
+                  <div key={label} className="text-center">
+                    <p className={cn('font-display text-xl font-semibold', color)}>{count}</p>
+                    <p className="font-body text-xs text-zinc-400">{label}</p>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-8 bg-red-500 rounded-sm shadow-sm" />
-              <div>
-                <p className="font-display text-2xl font-semibold text-zinc-900">
-                  {athlete.stats.redCards}
-                </p>
-                <p className="font-body text-xs text-zinc-400">Red</p>
-              </div>
-            </div>
-            {athlete.stats.yellowCards === 0 && athlete.stats.redCards === 0 && (
-              <div className="flex items-center gap-2 text-green-600">
-                <Shield size={18} />
-                <span className="font-body text-sm font-medium">Clean record</span>
-              </div>
-            )}
-            {athlete.stats.yellowCards > 0 && (
-              <div className="flex items-center gap-1.5 text-yellow-600 ml-auto">
-                <AlertTriangle size={14} />
-                <span className="font-body text-xs">
-                  {athlete.stats.yellowCards >= 5 ? 'Suspension risk' : 'Caution'}
-                </span>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Recent games */}
       <motion.div
@@ -294,7 +321,7 @@ export default function AthleteDetailPage({ params }: PageProps) {
           </Link>
         </div>
 
-        {athleteGames.length === 0 ? (
+        {sortedGames.length === 0 ? (
           <div className="text-center py-10">
             <p className="font-body text-sm text-zinc-500">
               No games logged yet.{' '}
@@ -305,47 +332,48 @@ export default function AthleteDetailPage({ params }: PageProps) {
           </div>
         ) : (
           <div className="space-y-2">
-            {athleteGames.map((game, i) => (
-              <motion.div
-                key={game.id}
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.22, delay: 0.22 + i * 0.05 }}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-zinc-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-11 text-center shrink-0">
-                    <p className="font-body text-xs font-medium text-zinc-700">
-                      {format(game.date, 'MMM d')}
-                    </p>
-                    <p className="font-body text-xs text-zinc-400">
-                      {format(game.date, 'yyyy')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-body text-sm font-medium text-zinc-900">
-                      vs {game.opponent}
-                    </p>
-                    {game.notes && (
-                      <p className="font-body text-xs text-zinc-400 truncate max-w-[180px]">
-                        {game.notes}
+            {sortedGames.map((game, i) => {
+              const scoreparts = game.finalScore?.split('-') ?? [];
+              const homeScore = scoreparts[0] ?? '0';
+              const awayScore = scoreparts[1] ?? '0';
+
+              return (
+                <motion.div
+                  key={game.id}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.22, delay: 0.22 + i * 0.05 }}
+                  className="flex items-center justify-between p-3 rounded-xl hover:bg-zinc-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 text-center shrink-0">
+                      <p className="font-body text-xs font-medium text-zinc-700">
+                        {format(new Date(game.date), 'MMM d')}
                       </p>
-                    )}
+                      <p className="font-body text-xs text-zinc-400">
+                        {format(new Date(game.date), 'yyyy')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-body text-sm font-medium text-zinc-900">
+                        vs {game.opponent}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <ResultBadge result={game.result} size="sm" />
-                  <span className="font-display text-sm font-semibold text-zinc-900 w-10 text-center">
-                    {game.score.home}–{game.score.away}
-                  </span>
-                  <div className="hidden sm:flex items-center gap-2 text-xs font-body text-zinc-500">
-                    <span><strong className="text-zinc-700">{game.goals}</strong>G</span>
-                    <span><strong className="text-zinc-700">{game.assists}</strong>A</span>
-                    <span><strong className="text-zinc-700">{game.minutesPlayed}</strong>min</span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <ResultBadge result={game.result} size="sm" />
+                    <span className="font-display text-sm font-semibold text-zinc-900 w-10 text-center">
+                      {homeScore}–{awayScore}
+                    </span>
+                    <div className="hidden sm:flex items-center gap-2 text-xs font-body text-zinc-500">
+                      <span><strong className="text-zinc-700">{game.goals}</strong>G</span>
+                      <span><strong className="text-zinc-700">{game.assists}</strong>A</span>
+                      <span><strong className="text-zinc-700">{game.minutesPlayed}</strong>min</span>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </motion.div>

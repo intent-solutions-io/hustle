@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { Camera, Loader2, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
-import { POSITIONS, LEAGUES } from '@/lib/mock-data';
+import { POSITIONS, LEAGUES } from '@/lib/constants';
 import { getInitials, getAvatarColor } from '@/lib/player-utils';
 import { cn } from '@/lib/utils';
 

@@ -60,9 +60,17 @@ export default async function ProfilePage() {
                   Verified
                 </Badge>
               ) : (
-                <Badge variant="destructive">
-                  Not Verified
-                </Badge>
+                <>
+                  <Badge variant="destructive">
+                    Not Verified
+                  </Badge>
+                  <a
+                    href="/resend-verification"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 hover:underline underline-offset-4 transition-colors"
+                  >
+                    Verify now
+                  </a>
+                </>
               )}
             </div>
           </div>

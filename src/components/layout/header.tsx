@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Overview',
@@ -34,15 +35,8 @@ interface Notification {
   read: boolean;
 }
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: '1', message: 'New game logged for Marcus O.', time: '2m ago', read: false },
-  { id: '2', message: 'Workout completed — Strength Training', time: '1h ago', read: false },
-  { id: '3', message: 'Assessment saved for Jamie K.', time: '3h ago', read: true },
-  { id: '4', message: 'Marcus O. reached 30 goals this season', time: 'Yesterday', read: true },
-];
+const MOCK_NOTIFICATIONS: Notification[] = [];
 
-// Mock user — will be replaced with real auth data
-const mockUser = { name: 'Parent User', email: 'parent@example.com' };
 
 // ─── Notification bell ────────────────────────────────────────
 function NotificationDropdown() {
@@ -140,8 +134,11 @@ function NotificationDropdown() {
 // ─── User avatar menu ─────────────────────────────────────────
 function UserMenu() {
   const router = useRouter();
-  const initials = getInitials(mockUser.name);
-  const avatarColor = getAvatarColor(mockUser.name);
+  const { user } = useAuth();
+  const displayName = user?.displayName || user?.email?.split('@')[0] || 'User';
+  const displayEmail = user?.email || '';
+  const initials = getInitials(displayName);
+  const avatarColor = getAvatarColor(displayName);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -165,10 +162,10 @@ function UserMenu() {
         <DropdownMenuGroup>
           <DropdownMenuLabel className="px-3 py-2 pb-2">
             <p className="font-display text-sm font-semibold text-zinc-900 truncate leading-tight">
-              {mockUser.name}
+              {displayName}
             </p>
             <p className="font-body text-xs font-normal text-zinc-400 truncate mt-0.5">
-              {mockUser.email}
+              {displayEmail}
             </p>
           </DropdownMenuLabel>
         </DropdownMenuGroup>

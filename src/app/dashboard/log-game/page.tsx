@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,8 +8,14 @@ import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronDown, Loader2, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { mockAthletes, POSITIONS } from '@/lib/mock-data';
+import { POSITIONS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+
+interface PlayerData {
+  id: string;
+  name: string;
+  teamClub?: string;
+}
 
 // ─── Schema ──────────────────────────────────────────────────
 const num = (min: number, max: number, msg?: string) =>
@@ -108,6 +114,9 @@ function Stepper({
 export default function LogGamePage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [players, setPlayers] = useState<PlayerData[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Stepper state (controlled separately for UX)
   const [goals, setGoals] = useState(0);
@@ -117,6 +126,23 @@ export default function LogGamePage() {
   const [redCards, setRedCards] = useState(0);
 
   const today = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    async function loadPlayers() {
+      try {
+        const res = await fetch('/api/players');
+        if (res.ok) {
+          const data = await res.json();
+          setPlayers(data.players ?? []);
+        }
+      } catch (err) {
+        console.error('Failed to load players:', err);
+      } finally {
+        setLoadingPlayers(false);
+      }
+    }
+    loadPlayers();
+  }, []);
 
   const {
     register,
@@ -149,11 +175,51 @@ export default function LogGamePage() {
 
   const onSubmit = async (data: GameFormValues) => {
     setSubmitting(true);
-    // Merge stepper values
+    setSubmitError(null);
+
     const finalData = { ...data, goals, assists, shots, yellowCards, redCards };
-    console.log('Log game:', finalData);
-    await new Promise((r) => setTimeout(r, 700));
-    router.push('/dashboard/games');
+
+    // Determine result from scores
+    let result: 'win' | 'loss' | 'draw' = 'draw';
+    if (finalData.teamScore > finalData.opponentScore) result = 'win';
+    else if (finalData.teamScore < finalData.opponentScore) result = 'loss';
+
+    try {
+      const res = await fetch('/api/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId: finalData.athleteId,
+          date: finalData.date,
+          opponent: finalData.opponent,
+          result,
+          yourScore: finalData.teamScore,
+          opponentScore: finalData.opponentScore,
+          minutesPlayed: finalData.minutesPlayed,
+          goals: finalData.goals,
+          assists: finalData.assists,
+          tackles: 0,
+          interceptions: 0,
+          clearances: 0,
+          blocks: 0,
+          aerialDuelsWon: 0,
+          saves: 0,
+          goalsAgainst: 0,
+          cleanSheet: false,
+        }),
+      });
+
+      if (res.ok) {
+        router.push('/dashboard/games');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setSubmitError(errData.message ?? 'Failed to save game. Please try again.');
+        setSubmitting(false);
+      }
+    } catch {
+      setSubmitError('Failed to save game. Please try again.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -199,17 +265,28 @@ export default function LogGamePage() {
               <select
                 {...register('athleteId')}
                 className={cn(selectCls, errors.athleteId && 'border-red-300')}
+                disabled={loadingPlayers}
               >
-                <option value="">Select athlete</option>
-                {mockAthletes.map((a) => (
+                <option value="">
+                  {loadingPlayers ? 'Loading athletes...' : 'Select athlete'}
+                </option>
+                {players.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.name} — {a.teamName}
+                    {a.name}{a.teamClub ? ` — ${a.teamClub}` : ''}
                   </option>
                 ))}
               </select>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
             </div>
             <FieldError msg={errors.athleteId?.message} />
+            {!loadingPlayers && players.length === 0 && (
+              <p className="font-body text-xs text-amber-600 mt-1">
+                No athletes found.{' '}
+                <Link href="/dashboard/add-athlete" className="underline">
+                  Add one first
+                </Link>.
+              </p>
+            )}
           </div>
 
           <div>
@@ -393,11 +470,18 @@ export default function LogGamePage() {
           <textarea
             {...register('notes')}
             rows={3}
-            placeholder="Any observations about the game, coaching notes, areas to improve…"
+            placeholder="Any observations about the game, coaching notes, areas to improve..."
             className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-white font-body text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 placeholder:text-zinc-400 resize-none transition-colors"
           />
           <FieldError msg={errors.notes?.message} />
         </motion.div>
+
+        {/* Error */}
+        {submitError && (
+          <div className="bg-red-50 text-red-600 font-body text-sm p-3 rounded-xl">
+            {submitError}
+          </div>
+        )}
 
         {/* Submit */}
         <motion.div

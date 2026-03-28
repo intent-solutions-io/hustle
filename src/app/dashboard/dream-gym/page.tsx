@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { staggerContainer, staggerItem } from '@/lib/animation';
-import { mockDreamGymProgress } from '@/lib/mock-data';
 
 const modules = [
   {
@@ -95,19 +94,7 @@ const modules = [
   },
 ];
 
-const weekProgress = [
-  { day: 'Mon', done: true },
-  { day: 'Tue', done: true },
-  { day: 'Wed', done: false },
-  { day: 'Thu', done: false },
-  { day: 'Fri', done: false },
-  { day: 'Sat', done: true },
-  { day: 'Sun', done: false },
-];
-
 export default function DreamGymPage() {
-  const dg = mockDreamGymProgress;
-
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -141,34 +128,12 @@ export default function DreamGymPage() {
           </div>
           <div className="hidden md:block shrink-0">
             <ProgressRing
-              progress={dg.workoutsCompleted / dg.workoutsGoal}
+              progress={0}
               size={90}
               strokeWidth={8}
               label="This week"
               color="amber"
             />
-          </div>
-        </div>
-
-        {/* Week tracker */}
-        <div className="relative z-10 mt-6">
-          <p className="font-body text-xs text-zinc-400 mb-2 uppercase tracking-wider">
-            This week
-          </p>
-          <div className="flex gap-2">
-            {weekProgress.map(({ day, done }) => (
-              <div
-                key={day}
-                className="flex flex-col items-center gap-1 flex-1"
-              >
-                <span className="font-body text-xs text-zinc-500">{day}</span>
-                <div
-                  className={`w-full h-1.5 rounded-full ${
-                    done ? 'bg-amber-500' : 'bg-zinc-700'
-                  }`}
-                />
-              </div>
-            ))}
           </div>
         </div>
       </motion.div>

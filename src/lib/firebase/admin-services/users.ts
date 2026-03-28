@@ -12,37 +12,36 @@ import type { User, UserDocument } from '@/types/firestore';
  * Convert Firestore UserDocument to User type
  */
 function toUser(uid: string, doc: UserDocument): User {
+  const convertTimestamp = (ts: unknown): Date => {
+    if (ts instanceof Date) return ts;
+    if (ts && typeof (ts as { toDate?: () => Date }).toDate === 'function') {
+      return (ts as { toDate: () => Date }).toDate();
+    }
+    return new Date();
+  };
+
+  const convertNullableTimestamp = (ts: unknown): Date | null => {
+    if (ts === null || ts === undefined) return null;
+    return convertTimestamp(ts);
+  };
+
   return {
     id: uid,
-    // Workspace Ownership (Phase 5)
     defaultWorkspaceId: doc.defaultWorkspaceId ?? null,
     ownedWorkspaces: doc.ownedWorkspaces ?? [],
-    // Profile
-    firstName: doc.firstName,
-    lastName: doc.lastName,
-    email: doc.email,
+    firstName: doc.firstName ?? '',
+    lastName: doc.lastName ?? '',
+    email: doc.email ?? '',
     phone: doc.phone,
-    emailVerified: doc.emailVerified,
-    agreedToTerms: doc.agreedToTerms,
-    agreedToPrivacy: doc.agreedToPrivacy,
-    isParentGuardian: doc.isParentGuardian,
+    emailVerified: doc.emailVerified ?? false,
+    agreedToTerms: doc.agreedToTerms ?? false,
+    agreedToPrivacy: doc.agreedToPrivacy ?? false,
+    isParentGuardian: doc.isParentGuardian ?? false,
     verificationPinHash: doc.verificationPinHash,
-    termsAgreedAt: doc.termsAgreedAt instanceof Date
-      ? doc.termsAgreedAt
-      : doc.termsAgreedAt
-      ? (doc.termsAgreedAt as any).toDate()
-      : null,
-    privacyAgreedAt: doc.privacyAgreedAt instanceof Date
-      ? doc.privacyAgreedAt
-      : doc.privacyAgreedAt
-      ? (doc.privacyAgreedAt as any).toDate()
-      : null,
-    createdAt: doc.createdAt instanceof Date
-      ? doc.createdAt
-      : (doc.createdAt as any).toDate(),
-    updatedAt: doc.updatedAt instanceof Date
-      ? doc.updatedAt
-      : (doc.updatedAt as any).toDate(),
+    termsAgreedAt: convertNullableTimestamp(doc.termsAgreedAt),
+    privacyAgreedAt: convertNullableTimestamp(doc.privacyAgreedAt),
+    createdAt: convertTimestamp(doc.createdAt),
+    updatedAt: convertTimestamp(doc.updatedAt),
   };
 }
 
