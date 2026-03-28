@@ -59,6 +59,45 @@ export async function uploadPlayerPhotoAdmin(params: {
   };
 }
 
+export async function uploadUserPhotoAdmin(params: {
+  file: File;
+  userId: string;
+}): Promise<AdminUploadResult> {
+  const { file, userId } = params;
+
+  const extension = file.name.split('.').pop() || 'jpg';
+  const timestamp = Date.now();
+  const filename = `user-${userId}-${timestamp}.${extension}`;
+  const objectPath = `users/${userId}/profile/${filename}`;
+
+  const bucket = getAdminStorageBucket();
+  const gcsFile = bucket.file(objectPath);
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const token = randomUUID();
+
+  await gcsFile.save(buffer, {
+    resumable: false,
+    contentType: file.type,
+    metadata: {
+      metadata: {
+        firebaseStorageDownloadTokens: token,
+        userId,
+        originalName: file.name,
+        uploadedAt: new Date().toISOString(),
+      },
+    },
+  });
+
+  const fileSizeMB = file.size / (1024 * 1024);
+
+  return {
+    url: getFirebaseDownloadUrl(bucket.name, objectPath, token),
+    path: objectPath,
+    size: fileSizeMB,
+  };
+}
+
 export async function deletePlayerPhotoAdmin(storagePath: string): Promise<number> {
   const bucket = getAdminStorageBucket();
   const gcsFile = bucket.file(storagePath);

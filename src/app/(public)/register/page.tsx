@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   createUserWithEmailAndPassword,
   updateProfile,
-  signInWithPopup,
   sendEmailVerification,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from '@/lib/firebase/client';
+import { signInWithGoogle, checkRedirectResult } from '@/lib/firebase/google-auth';
 
 interface RegisterForm {
   firstName: string;
@@ -31,6 +31,38 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Handle redirect result (when returning from signInWithRedirect on mobile)
+  useEffect(() => {
+    checkRedirectResult(auth).then(async (result) => {
+      if (result) {
+        setLoading(true);
+        try {
+          const idToken = await result.user.getIdToken();
+          await setDoc(doc(db, 'users', result.user.uid), {
+            email: result.user.email,
+            firstName: result.user.displayName?.split(' ')[0] ?? '',
+            lastName: result.user.displayName?.split(' ').slice(1).join(' ') ?? '',
+            isParentGuardian: true,
+            plan: 'free',
+            createdAt: serverTimestamp(),
+          });
+          const response = await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+          });
+          if (!response.ok) throw new Error('Failed to create session');
+          router.push('/dashboard');
+        } catch (err) {
+          console.error('Redirect sign-up error:', err);
+          setError('Failed to sign up with Google. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  }, [router]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -40,10 +72,9 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithGoogle(auth, googleProvider);
       const idToken = await result.user.getIdToken();
 
-      // Create Firestore profile
       await setDoc(doc(db, 'users', result.user.uid), {
         email: result.user.email,
         firstName: result.user.displayName?.split(' ')[0] ?? '',
@@ -62,7 +93,9 @@ export default function RegisterPage() {
       if (!response.ok) throw new Error('Failed to create session');
 
       router.push('/dashboard');
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg === 'REDIRECT_STARTED') return;
       console.error('Google sign-up error:', err);
       setError('Failed to sign up with Google. Please try again.');
     } finally {

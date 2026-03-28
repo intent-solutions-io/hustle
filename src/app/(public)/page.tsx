@@ -23,7 +23,7 @@ function Hero() {
   const words = ['Track.', 'Train.', 'Dominate.'];
 
   return (
-    <section className="relative h-screen min-h-[600px] overflow-hidden">
+    <section className="relative h-dvh min-h-[600px] overflow-hidden">
       {/* Video bg */}
       <video
         autoPlay
@@ -179,7 +179,7 @@ const features = [
 
 function FeaturesSection() {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: '-80px' });
+  const isInView = useInView(ref, { once: true, margin: '0px' });
 
   return (
     <section id="features" className="py-24 px-6 bg-gradient-to-br from-[#F5EEDD] to-[#EADBB8]">
@@ -284,7 +284,7 @@ const plans = [
 
 function PricingSection() {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: '-80px' });
+  const isInView = useInView(ref, { once: true, margin: '0px' });
 
   return (
     <section className="py-24 px-6 bg-white">
@@ -399,7 +399,7 @@ function PricingSection() {
 // ─────────────────────────────────────────────
 function CTASection() {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: '-80px' });
+  const isInView = useInView(ref, { once: true, margin: '0px' });
 
   return (
     <section

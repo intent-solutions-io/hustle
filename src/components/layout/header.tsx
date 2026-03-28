@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -148,13 +149,22 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className={cn(
-          'w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-display font-semibold cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2',
-          avatarColor
-        )}
+        className="rounded-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
         aria-label="User menu"
       >
-        {initials}
+        <Avatar className="w-9 h-9">
+          {user?.photoURL && (
+            <AvatarImage src={user.photoURL} alt={displayName} />
+          )}
+          <AvatarFallback
+            className={cn(
+              'text-white text-sm font-display font-semibold',
+              avatarColor
+            )}
+          >
+            {initials}
+          </AvatarFallback>
+        </Avatar>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-52">

@@ -132,6 +132,7 @@ export interface UserDocument {
   lastName: string;
   email: string;
   phone?: string | null;
+  photoUrl?: string | null;
 
   // Email verification (managed by Firebase Auth)
   emailVerified: boolean;

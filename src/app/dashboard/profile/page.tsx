@@ -2,9 +2,11 @@ import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
 import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
+import { getWorkspaceByIdAdmin } from '@/lib/firebase/admin-services/workspaces';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BackToDashboard } from '@/components/ui/back-to-dashboard';
+import { UserProfilePhotoUpload } from '@/components/UserProfilePhotoUpload';
 
 export default async function ProfilePage() {
   // Firebase Admin auth check
@@ -23,6 +25,11 @@ export default async function ProfilePage() {
   // Fetch user's players
   const players = await getPlayersAdmin(authUser.uid);
 
+  // Fetch workspace for plan info
+  const workspace = user.defaultWorkspaceId
+    ? await getWorkspaceByIdAdmin(user.defaultWorkspaceId)
+    : null;
+
   return (
     <div className="space-y-6">
       <BackToDashboard />
@@ -40,6 +47,15 @@ export default async function ProfilePage() {
           <CardTitle>Personal Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Profile Photo */}
+          <div className="flex justify-center pb-2">
+            <UserProfilePhotoUpload
+              currentPhotoUrl={user.photoUrl}
+              userName={`${user.firstName} ${user.lastName}`}
+              plan={workspace?.plan ?? 'free'}
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-zinc-700">First Name</label>

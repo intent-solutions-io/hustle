@@ -37,6 +37,7 @@ function toUser(uid: string, doc: UserDocument): User {
     agreedToTerms: doc.agreedToTerms ?? false,
     agreedToPrivacy: doc.agreedToPrivacy ?? false,
     isParentGuardian: doc.isParentGuardian ?? false,
+    photoUrl: doc.photoUrl ?? null,
     verificationPinHash: doc.verificationPinHash,
     termsAgreedAt: convertNullableTimestamp(doc.termsAgreedAt),
     privacyAgreedAt: convertNullableTimestamp(doc.privacyAgreedAt),

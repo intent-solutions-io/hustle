@@ -28,7 +28,19 @@ export function useAuth(): AuthState {
       }
     );
 
-    return () => unsubscribe();
+    // Listen for profile photo updates (custom event from UserProfilePhotoUpload)
+    const handlePhotoUpdate = () => {
+      const user = auth.currentUser;
+      if (user) {
+        setState((prev) => ({ ...prev, user: { ...user } }));
+      }
+    };
+    window.addEventListener('user-photo-updated', handlePhotoUpdate);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('user-photo-updated', handlePhotoUpdate);
+    };
   }, []);
 
   return state;
