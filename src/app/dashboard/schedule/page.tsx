@@ -256,9 +256,6 @@ function EventForm({ players, initial, onSave, onClose, saving }: EventFormProps
                   </button>
                 ))}
               </div>
-              {selectedPlayerIds.length === 0 && (
-                <p className="mt-1 font-body text-xs text-red-500">Select at least one athlete</p>
-              )}
             </div>
           )}
 
@@ -284,7 +281,7 @@ function EventForm({ players, initial, onSave, onClose, saving }: EventFormProps
             </button>
             <button
               type="submit"
-              disabled={saving || selectedPlayerIds.length === 0}
+              disabled={saving || (players.length > 0 && selectedPlayerIds.length === 0)}
               className="flex-1 py-2.5 rounded-full bg-zinc-900 text-white font-display font-semibold text-sm hover:bg-zinc-800 transition-colors disabled:opacity-50"
             >
               {saving ? (

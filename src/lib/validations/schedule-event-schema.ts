@@ -17,9 +17,7 @@ export const scheduleEventTypes = [
 ] as const;
 
 export const scheduleEventCreateSchema = z.object({
-  playerIds: z
-    .array(z.string().min(1))
-    .min(1, 'At least one player is required'),
+  playerIds: z.array(z.string().min(1)).default([]),
   type: z.enum(scheduleEventTypes, { message: 'Invalid event type' }),
   title: z.string().min(1, 'Title is required').max(100, 'Title too long'),
   date: z.string().min(1, 'Date is required'),
