@@ -180,9 +180,9 @@ export default function LogGamePage() {
     const finalData = { ...data, goals, assists, shots, yellowCards, redCards };
 
     // Determine result from scores
-    let result: 'win' | 'loss' | 'draw' = 'draw';
-    if (finalData.teamScore > finalData.opponentScore) result = 'win';
-    else if (finalData.teamScore < finalData.opponentScore) result = 'loss';
+    let result: 'Win' | 'Loss' | 'Draw' = 'Draw';
+    if (finalData.teamScore > finalData.opponentScore) result = 'Win';
+    else if (finalData.teamScore < finalData.opponentScore) result = 'Loss';
 
     try {
       const res = await fetch('/api/games', {
