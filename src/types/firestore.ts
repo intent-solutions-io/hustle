@@ -836,6 +836,59 @@ export interface CardioLog extends Omit<CardioLogDocument, 'date' | 'createdAt' 
 }
 
 // ============================================================================
+// SEASON SCHEDULE TYPES
+// ============================================================================
+
+/**
+ * Schedule Event Types
+ */
+export type ScheduleEventType =
+  | 'game'         // Competitive match
+  | 'practice'     // Team or individual practice
+  | 'tournament'   // Multi-game tournament
+  | 'tryout'       // Team tryout
+  | 'camp'         // Soccer camp / clinic
+  | 'training'     // Personal training / workout
+  | 'other';       // Other event
+
+/**
+ * Schedule Event Document
+ * Subcollection: /users/{userId}/scheduleEvents/{eventId}
+ *
+ * Stored at user level because a family's athletes share a team schedule.
+ */
+export interface ScheduleEventDocument {
+  // Who this event involves
+  playerIds: string[];           // Players attending (can be multiple)
+
+  // Event details
+  type: ScheduleEventType;
+  title: string;                 // e.g. "Fall Classic Tournament"
+  date: Timestamp;               // Start date/time
+  endDate?: Timestamp | null;    // End date/time (for multi-day events)
+  location?: string | null;      // Venue / address
+  opponent?: string | null;      // Opponent team name (for games)
+  notes?: string | null;         // Additional notes
+
+  // For linking to a logged game after it's played
+  linkedGameId?: string | null;       // Game doc ID
+  linkedGamePlayerId?: string | null; // Player ID that owns the linked game
+
+  // Timestamps
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Schedule Event client-side type
+export interface ScheduleEvent extends Omit<ScheduleEventDocument, 'date' | 'endDate' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  endDate: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ============================================================================
 // PRACTICE LOG TYPES (Training Session Tracking)
 // ============================================================================
 

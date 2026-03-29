@@ -528,12 +528,21 @@ function StepDots({ total, current }: { total: number; current: number }) {
 }
 
 // ─── Page ─────────────────────────────────────────────────────
+interface PlayerOption {
+  id: string;
+  name: string;
+}
+
 export default function PracticesPage() {
   // Browse state
   const [activeFocus, setActiveFocus]   = useState('Passing');
   const [completedDrills, setCompleted] = useState<Set<string>>(new Set());
   const [totalXP, setTotalXP]           = useState(0);
   const [soundEnabled, setSound]        = useState(true);
+
+  // Player selection for logging
+  const [players, setPlayers]           = useState<PlayerOption[]>([]);
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
 
   // Drill session state
   const [activeDrill, setActiveDrill] = useState<DrillWithSteps | null>(null);
@@ -542,6 +551,18 @@ export default function PracticesPage() {
   const [stepIndex,   setStepIndex]   = useState(0);
   const [elapsed,     setElapsed]     = useState(0);
   const [showConfetti, setConfetti]   = useState(false);
+
+  // Fetch players once on mount
+  useEffect(() => {
+    fetch('/api/players')
+      .then((r) => r.json())
+      .then((d) => {
+        const list: PlayerOption[] = d.players ?? [];
+        setPlayers(list);
+        if (list.length === 1) setSelectedPlayerId(list[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   // Keep sound ref in sync so effects and timers always see fresh value
   const soundRef = useRef(soundEnabled);
@@ -610,6 +631,28 @@ export default function PracticesPage() {
     if (soundRef.current) playSound('xp');
     setTotalXP((p) => p + activeDrill.xp);
     setCompleted((p) => new Set([...p, activeDrill.id]));
+
+    // Save practice log to API if a player is selected
+    if (selectedPlayerId) {
+      const focusAreaKey = activeDrill.focusArea.toLowerCase().replace(/\s+/g, '_');
+      const validFocusAreas = ['passing','shooting','dribbling','defending','heading','first_touch','positioning','set_pieces','goalkeeping','fitness','scrimmage','tactics','other'];
+      const mappedFocus = validFocusAreas.includes(focusAreaKey) ? focusAreaKey : 'other';
+
+      fetch('/api/practice-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId: selectedPlayerId,
+          date: new Date().toISOString(),
+          practiceType: 'individual',
+          durationMinutes: Math.max(5, Math.round(activeDrill.durationSeconds / 60)),
+          focusAreas: [mappedFocus],
+          drillsCompleted: [activeDrill.name],
+          notes: activeDrill.description,
+        }),
+      }).catch(() => {}); // Non-blocking
+    }
+
     setTimeout(() => { setActiveDrill(null); setPhase('intro'); }, 350);
   };
 
@@ -941,6 +984,35 @@ export default function PracticesPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Athlete selector for logging */}
+      {players.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.03 }}
+          className="flex items-center gap-2 flex-wrap"
+        >
+          <span className="font-body text-xs text-zinc-400">Logging for:</span>
+          {players.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setSelectedPlayerId(p.id)}
+              className={cn(
+                'px-3 py-1 rounded-full font-body text-xs font-medium transition-colors',
+                selectedPlayerId === p.id
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-white text-zinc-500 hover:bg-zinc-100 border border-zinc-200'
+              )}
+            >
+              {p.name}
+            </button>
+          ))}
+          {!selectedPlayerId && (
+            <span className="font-body text-xs text-amber-600">← pick an athlete to save drills</span>
+          )}
+        </motion.div>
+      )}
 
       {/* Focus area tabs */}
       <motion.div

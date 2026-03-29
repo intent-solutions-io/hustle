@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   Zap,
+  CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/athletes', label: 'Athletes', icon: Users },
   { href: '/dashboard/games', label: 'Games', icon: Trophy },
+  { href: '/dashboard/schedule', label: 'Schedule', icon: CalendarDays },
   { href: '/dashboard/dream-gym', label: 'Dream Gym', icon: Dumbbell },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
 ];

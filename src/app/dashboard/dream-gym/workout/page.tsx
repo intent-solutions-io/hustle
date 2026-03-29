@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -11,10 +11,16 @@ import {
   Clock,
   Dumbbell,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 import { workoutTemplates, type WorkoutTemplate } from '@/lib/dream-gym/workout-templates';
 import { getWorkoutAnimation } from '@/lib/dream-gym/exercise-animations';
 import { cn } from '@/lib/utils';
+
+interface PlayerOption {
+  id: string;
+  name: string;
+}
 
 const categoryColors: Record<string, string> = {
   strength: 'text-orange-600 bg-orange-50',
@@ -88,11 +94,70 @@ function TemplatePicker({ onSelect }: { onSelect: (t: WorkoutTemplate) => void }
 // ─── Completion Screen ────────────────────────────────────────
 function CompletionScreen({
   template,
+  durationMinutes,
   onReset,
 }: {
   template: WorkoutTemplate;
+  durationMinutes: number;
   onReset: () => void;
 }) {
+  const [players, setPlayers] = useState<PlayerOption[]>([]);
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/players')
+      .then((r) => r.json())
+      .then((d) => {
+        const list: PlayerOption[] = d.players ?? [];
+        setPlayers(list);
+        if (list.length === 1) setSelectedPlayerId(list[0].id);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = async () => {
+    if (!selectedPlayerId) return;
+    setSaving(true);
+    try {
+      const exercises = template.exercises.map((ex) => ({
+        exerciseId: ex.name.toLowerCase().replace(/\s+/g, '_'),
+        exerciseName: ex.name,
+        targetSets: ex.sets,
+        targetReps: ex.reps,
+        sets: Array.from({ length: ex.sets }, (_, i) => ({
+          setNumber: i + 1,
+          reps: typeof ex.reps === 'string' && ex.reps.includes('s') ? 0 : parseInt(ex.reps) || 0,
+          weight: null,
+          completed: true,
+        })),
+      }));
+
+      await fetch('/api/workout-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId: selectedPlayerId,
+          date: new Date().toISOString(),
+          type: template.id === 'strength' ? 'strength'
+            : template.id === 'conditioning' ? 'conditioning'
+            : template.id === 'core' ? 'core'
+            : template.id === 'recovery' ? 'recovery'
+            : 'custom',
+          title: template.name,
+          duration: durationMinutes,
+          exercises,
+        }),
+      });
+      setSaved(true);
+    } catch (err) {
+      console.error('Failed to save workout log:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-6 max-w-md mx-auto flex flex-col items-center justify-center min-h-[60vh]">
       <motion.div
@@ -117,6 +182,48 @@ function CompletionScreen({
           {template.exercises.length} exercises · {template.duration}
         </p>
 
+        {/* Save to log */}
+        {!saved && players.length > 0 && (
+          <div className="mb-5 text-left">
+            <p className="font-body text-sm font-medium text-zinc-700 mb-2">Log for athlete:</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {players.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPlayerId(p.id)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full font-body text-sm transition-colors',
+                    selectedPlayerId === p.id
+                      ? 'bg-zinc-900 text-white'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  )}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={!selectedPlayerId || saving}
+              className="w-full py-2.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-display font-semibold text-sm transition-colors disabled:opacity-50"
+            >
+              {saving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 size={14} className="animate-spin" /> Saving…
+                </span>
+              ) : (
+                'Save to Training Log'
+              )}
+            </button>
+          </div>
+        )}
+
+        {saved && (
+          <div className="mb-5 bg-green-50 rounded-xl py-2.5 text-center">
+            <p className="font-body text-sm text-green-700 font-medium">✓ Saved to training log</p>
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button
             onClick={onReset}
@@ -140,17 +247,20 @@ export default function WorkoutPage() {
   const [template, setTemplate] = useState<WorkoutTemplate | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [completed, setCompleted] = useState<Set<number>>(new Set());
+  const [startedAt, setStartedAt] = useState<Date | null>(null);
 
   const selectTemplate = (t: WorkoutTemplate) => {
     setTemplate(t);
     setActiveIdx(0);
     setCompleted(new Set());
+    setStartedAt(new Date());
   };
 
   const resetAll = () => {
     setTemplate(null);
     setActiveIdx(0);
     setCompleted(new Set());
+    setStartedAt(null);
   };
 
   const completeExercise = () => {
@@ -166,7 +276,11 @@ export default function WorkoutPage() {
   if (!template) return <TemplatePicker onSelect={selectTemplate} />;
 
   const isFinished = completed.size === template.exercises.length;
-  if (isFinished) return <CompletionScreen template={template} onReset={resetAll} />;
+  const durationMinutes = startedAt
+    ? Math.max(1, Math.round((Date.now() - startedAt.getTime()) / 60000))
+    : parseInt(template.duration) || 30;
+
+  if (isFinished) return <CompletionScreen template={template} durationMinutes={durationMinutes} onReset={resetAll} />;
 
   const exercise = template.exercises[activeIdx];
   const videoSrc = getWorkoutAnimation(exercise.name);
