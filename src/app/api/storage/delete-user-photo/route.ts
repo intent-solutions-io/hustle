@@ -34,8 +34,8 @@ export async function DELETE(request: NextRequest) {
     // Clear Firestore
     await updateUserProfileAdmin(userId, { photoUrl: null });
 
-    // Clear Firebase Auth photoURL
-    await getAdminAuth().updateUser(userId, { photoURL: '' });
+    // Clear Firebase Auth photoURL (must be null, not empty string)
+    await getAdminAuth().updateUser(userId, { photoURL: null });
 
     // Update workspace storage
     if (user.defaultWorkspaceId) {
