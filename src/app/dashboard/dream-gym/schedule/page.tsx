@@ -62,7 +62,9 @@ export default function SchedulePage() {
   const scheduleRef = useRef<WeekSchedule>({});
 
   // Keep ref in sync with state for use in debounced save
-  scheduleRef.current = schedule;
+  useEffect(() => {
+    scheduleRef.current = schedule;
+  });
 
   // Load players on mount
   useEffect(() => {

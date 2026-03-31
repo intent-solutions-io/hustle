@@ -8,7 +8,7 @@
  */
 
 import { adminDb } from '../admin';
-import { Timestamp } from 'firebase-admin/firestore';
+
 import type {
   DreamGym,
   DreamGymDocument,
@@ -62,7 +62,6 @@ function toDreamGym(id: string, data: DreamGymDocument): DreamGym {
 export async function getDreamGymAdmin(
   userId: string,
   playerId: string
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<(DreamGym & { weeklyGrid?: Record<string, Record<string, string | null>> }) | null> {
   const docRef = adminDb.doc(`users/${userId}/players/${playerId}/dreamGym/${DREAM_GYM_DOC_ID}`);
   const docSnap = await docRef.get();
