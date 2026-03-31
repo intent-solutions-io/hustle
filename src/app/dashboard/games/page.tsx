@@ -27,7 +27,7 @@ interface GameData {
   id: string;
   date: string;
   opponent: string;
-  result: 'win' | 'loss' | 'draw';
+  result: 'Win' | 'Loss' | 'Draw';
   finalScore?: string;
   goals: number;
   assists: number;
@@ -36,7 +36,7 @@ interface GameData {
   player?: { name: string; position: string };
 }
 
-type FilterResult = 'all' | 'win' | 'loss' | 'draw';
+type FilterResult = 'all' | 'Win' | 'Loss' | 'Draw';
 type FilterAthlete = 'all' | string;
 
 export default function GamesPage() {
@@ -81,9 +81,9 @@ export default function GamesPage() {
     return true;
   });
 
-  const wins = allGames.filter((g) => g.result === 'win').length;
-  const losses = allGames.filter((g) => g.result === 'loss').length;
-  const draws = allGames.filter((g) => g.result === 'draw').length;
+  const wins = allGames.filter((g) => g.result === 'Win').length;
+  const losses = allGames.filter((g) => g.result === 'Loss').length;
+  const draws = allGames.filter((g) => g.result === 'Draw').length;
   const totalGoals = allGames.reduce((s, g) => s + g.goals, 0);
   const winRate = allGames.length > 0 ? Math.round((wins / allGames.length) * 100) : 0;
 
@@ -171,7 +171,7 @@ export default function GamesPage() {
 
           {/* Result filter */}
           <div className="flex items-center gap-1.5">
-            {(['all', 'win', 'loss', 'draw'] as FilterResult[]).map((r) => (
+            {(['all', 'Win', 'Loss', 'Draw'] as FilterResult[]).map((r) => (
               <button
                 key={r}
                 onClick={() => setResultFilter(r)}
@@ -182,7 +182,7 @@ export default function GamesPage() {
                     : 'bg-white text-zinc-600 hover:bg-zinc-100'
                 )}
               >
-                {r === 'all' ? 'All' : r.charAt(0).toUpperCase() + r.slice(1) + 's'}
+                {r === 'all' ? 'All' : r + 's'}
               </button>
             ))}
           </div>

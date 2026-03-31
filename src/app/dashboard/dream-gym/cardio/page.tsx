@@ -5,6 +5,12 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Play, Pause, RotateCcw, Timer, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getInitials, getAvatarColor } from '@/lib/player-utils';
+
+interface PlayerOption {
+  id: string;
+  name: string;
+}
 
 // ─── Data ─────────────────────────────────────────────────────
 const cardioTypes = [
@@ -50,13 +56,27 @@ function formatTime(seconds: number): string {
 
 // ─── Page ─────────────────────────────────────────────────────
 export default function CardioPage() {
+  const [players, setPlayers] = useState<PlayerOption[]>([]);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState(cardioTypes[0]);
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [distance, setDistance] = useState('');
   const [notes, setNotes] = useState('');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    fetch('/api/players')
+      .then((r) => r.json())
+      .then((data) => {
+        const list: PlayerOption[] = data.players ?? [];
+        setPlayers(list);
+        if (list.length === 1) setSelectedPlayerId(list[0].id);
+      })
+      .catch(() => null);
+  }, []);
 
   useEffect(() => {
     if (running) {
@@ -82,12 +102,31 @@ export default function CardioPage() {
     setNotes('');
   };
 
-  const handleSave = () => {
-    if (elapsed === 0) return;
+  const handleSave = async () => {
+    if (elapsed === 0 || !distance || !selectedPlayerId) return;
     setRunning(false);
-    console.log('Log cardio:', { type: activeType.id, elapsed, distance, notes });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setSaving(true);
+    try {
+      const distKm = parseFloat(distance);
+      const distMiles = distKm * 0.621371;
+      await fetch(`/api/players/${selectedPlayerId}/cardio-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: new Date().toISOString(),
+          activityType: activeType.id,
+          durationMinutes: Math.max(1, Math.round(elapsed / 60)),
+          distanceMiles: Math.max(0.01, parseFloat(distMiles.toFixed(2))),
+          notes: notes.trim() || null,
+        }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      // non-blocking
+    } finally {
+      setSaving(false);
+    }
   };
 
   const targetSeconds = activeType.targetMin * 60;
@@ -116,6 +155,35 @@ export default function CardioPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Player selector */}
+      {players.length > 1 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04 }}
+          className="flex items-center gap-2 flex-wrap"
+        >
+          <span className="font-body text-xs text-zinc-500">Logging for:</span>
+          {players.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setSelectedPlayerId(p.id)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full font-body text-xs font-medium transition-colors',
+                selectedPlayerId === p.id
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+              )}
+            >
+              <div className={cn('w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold', getAvatarColor(p.name))}>
+                {getInitials(p.name).charAt(0)}
+              </div>
+              {p.name}
+            </button>
+          ))}
+        </motion.div>
+      )}
 
       {/* Type selector */}
       <motion.div
@@ -263,12 +331,12 @@ export default function CardioPage() {
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleSave}
-          disabled={elapsed === 0}
+          disabled={elapsed === 0 || !distance || !selectedPlayerId || saving}
           className={cn(
             'w-full py-3 rounded-full font-display font-semibold text-sm transition-colors flex items-center justify-center gap-2',
             saved
               ? 'bg-green-500 text-white'
-              : elapsed > 0
+              : elapsed > 0 && distance && selectedPlayerId
               ? 'bg-zinc-900 text-white hover:bg-zinc-800'
               : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
           )}
@@ -277,6 +345,8 @@ export default function CardioPage() {
             <>
               <Check size={16} /> Saved!
             </>
+          ) : saving ? (
+            'Saving…'
           ) : (
             'Save Session'
           )}

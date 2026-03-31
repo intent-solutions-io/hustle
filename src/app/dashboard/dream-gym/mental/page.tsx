@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Brain, Check, ChevronDown } from 'lucide-react';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-
-// Load Lottie client-side only (uses browser APIs)
-const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
+import { getInitials, getAvatarColor } from '@/lib/player-utils';
 
 // ─── Types ────────────────────────────────────────────────────
 type BreathPhase = 'inhale' | 'hold' | 'exhale';
@@ -58,31 +56,70 @@ const prompts = [
   },
 ];
 
+interface PlayerOption {
+  id: string;
+  name: string;
+}
+
+interface CheckIn {
+  date: string | Date;
+  mood: number;
+}
+
+interface JournalEntry {
+  id: string;
+  date: string;
+  content: string;
+}
+
 // ─── Breathing Section ────────────────────────────────────────
 function BreathingSection() {
   const [active, setActive] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [animData, setAnimData] = useState<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const lottieRef = useRef<any>(null);
+  const [phase, setPhase] = useState<BreathPhase>('inhale');
+  const [countdown, setCountdown] = useState(PHASES.inhale.duration);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const phaseIndexRef = useRef(0);
+  const countdownRef = useRef(PHASES.inhale.duration);
 
-  // Load Lottie JSON (filename has a space, use fetch)
+  // Cleanup on unmount
   useEffect(() => {
-    fetch('/animations/recovery/meditate v2.json')
-      .then((r) => r.json())
-      .then(setAnimData)
-      .catch(() => null);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
   const toggle = () => {
-    if (!lottieRef.current) return;
     if (active) {
-      lottieRef.current.pause();
+      // Stop
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      phaseIndexRef.current = 0;
+      countdownRef.current = PHASES.inhale.duration;
+      setPhase('inhale');
+      setCountdown(PHASES.inhale.duration);
+      setActive(false);
     } else {
-      lottieRef.current.play();
+      // Start
+      phaseIndexRef.current = 0;
+      countdownRef.current = PHASES.inhale.duration;
+      setPhase('inhale');
+      setCountdown(PHASES.inhale.duration);
+      setActive(true);
+
+      intervalRef.current = setInterval(() => {
+        countdownRef.current -= 1;
+        if (countdownRef.current <= 0) {
+          // Advance to next phase
+          phaseIndexRef.current = (phaseIndexRef.current + 1) % PHASE_ORDER.length;
+          const nextPhase = PHASE_ORDER[phaseIndexRef.current];
+          countdownRef.current = PHASES[nextPhase].duration;
+          setPhase(nextPhase);
+        }
+        setCountdown(countdownRef.current);
+      }, 1000);
     }
-    setActive((a) => !a);
   };
+
+  const phaseConfig = PHASES[phase];
+  const scaleConfig = SCALE[phase];
 
   return (
     <div className="bg-zinc-900 rounded-2xl p-6 text-white overflow-hidden relative">
@@ -93,25 +130,72 @@ function BreathingSection() {
       </div>
 
       <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-purple-400" />
           <h3 className="font-display text-base font-semibold">Mindful Breathing</h3>
           <span className="font-body text-xs text-zinc-400 ml-auto">4-4-6 technique</span>
         </div>
 
         <div className="flex flex-col items-center">
-          {/* Lottie animation — play/pause controlled via ref */}
-          <div className="w-64 h-64">
-            {animData ? (
-              <Lottie
-                lottieRef={lottieRef}
-                animationData={animData}
-                loop
-                autoplay={false}
-              />
-            ) : (
-              <div className="w-full h-full rounded-full bg-white/5 animate-pulse" />
-            )}
+          {/* Animated breathing circle */}
+          <div className="relative flex items-center justify-center my-4" style={{ width: 200, height: 200 }}>
+            {/* Outer glow */}
+            <motion.div
+              className="absolute rounded-full"
+              style={{
+                width: 200,
+                height: 200,
+                background: 'radial-gradient(circle, rgba(139,92,246,0.2) 0%, transparent 70%)',
+              }}
+              animate={{ scale: active ? scaleConfig.target * 1.3 : 1 }}
+              transition={{
+                duration: active ? phaseConfig.duration : 0.5,
+                ease: phase === 'hold' ? 'linear' : 'easeInOut',
+              }}
+            />
+            {/* Main circle */}
+            <motion.div
+              className="rounded-full"
+              style={{
+                width: 140,
+                height: 140,
+                background: 'linear-gradient(135deg, #a855f7 0%, #3b82f6 100%)',
+                opacity: 0.85,
+              }}
+              animate={{ scale: active ? scaleConfig.target : scaleConfig.initial }}
+              transition={{
+                duration: active ? phaseConfig.duration : 0.5,
+                ease: phase === 'hold' ? 'linear' : 'easeInOut',
+              }}
+            />
+            {/* Center content */}
+            <div className="absolute flex flex-col items-center">
+              {active ? (
+                <span className="font-display text-4xl font-bold text-white leading-none">
+                  {countdown}
+                </span>
+              ) : (
+                <Brain className="w-8 h-8 text-white/50" />
+              )}
+            </div>
+          </div>
+
+          {/* Phase label */}
+          <div className="h-8 flex items-center justify-center mb-2">
+            <AnimatePresence mode="wait">
+              {active && (
+                <motion.p
+                  key={phase}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.25 }}
+                  className={cn('font-display text-base font-semibold', phaseConfig.color)}
+                >
+                  {phaseConfig.label}
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Start / Stop button */}
@@ -119,7 +203,7 @@ function BreathingSection() {
             whileTap={{ scale: 0.96 }}
             onClick={toggle}
             className={cn(
-              'mt-4 px-8 py-3 rounded-full font-display font-semibold text-sm transition-colors',
+              'px-8 py-3 rounded-full font-display font-semibold text-sm transition-colors',
               active
                 ? 'bg-zinc-700 text-white hover:bg-zinc-600'
                 : 'bg-amber-500 text-white hover:bg-amber-600'
@@ -134,20 +218,47 @@ function BreathingSection() {
 }
 
 // ─── Mood Section ─────────────────────────────────────────────
-function MoodSection() {
+function MoodSection({
+  playerId,
+  history,
+  onSaved,
+}: {
+  playerId: string | null;
+  history: CheckIn[];
+  onSaved: () => void;
+}) {
   const [selected, setSelected] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleSelect = (score: number) => {
     setSelected(score);
     setSaved(false);
   };
 
-  const handleSave = () => {
-    if (selected === null) return;
-    console.log('Log mood:', { score: selected });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  const handleSave = async () => {
+    if (selected === null || !playerId) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/players/${playerId}/dream-gym/check-in`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mood: selected,
+          energy: 'ok',
+          soreness: 'low',
+          stress: 'low',
+        }),
+      });
+      setSaved(true);
+      setSelected(null);
+      onSaved();
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      // non-blocking
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -194,29 +305,78 @@ function MoodSection() {
             exit={{ opacity: 0, height: 0 }}
             whileTap={{ scale: 0.97 }}
             onClick={handleSave}
+            disabled={saving || !playerId}
             className={cn(
               'w-full py-2.5 rounded-full font-display font-semibold text-sm transition-colors flex items-center justify-center gap-2',
-              saved ? 'bg-green-500 text-white' : 'bg-zinc-900 text-white hover:bg-zinc-800'
+              saved ? 'bg-green-500 text-white' : 'bg-zinc-900 text-white hover:bg-zinc-800',
+              (saving || !playerId) && 'opacity-60 cursor-not-allowed'
             )}
           >
-            {saved ? <><Check size={14} /> Logged</> : 'Log Mood'}
+            {saved ? <><Check size={14} /> Logged</> : saving ? 'Saving…' : 'Log Mood'}
           </motion.button>
         )}
       </AnimatePresence>
+
+      {/* Mood history */}
+      {history.length > 0 && (
+        <div className="mt-4 border-t border-zinc-100 pt-4 space-y-2">
+          <p className="font-body text-xs text-zinc-400 font-medium uppercase tracking-wider mb-2">Recent Check-ins</p>
+          {history.map((c, i) => {
+            const mood = moods.find((m) => m.score === c.mood);
+            return (
+              <div key={i} className="flex items-center justify-between py-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{mood?.emoji ?? '😐'}</span>
+                  <span className="font-body text-sm text-zinc-700">{mood?.label ?? 'Neutral'}</span>
+                </div>
+                <span className="font-body text-xs text-zinc-400">
+                  {format(new Date(c.date), 'MMM d, h:mm a')}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Journal Section ──────────────────────────────────────────
-function JournalSection() {
+function JournalSection({
+  playerId,
+  history,
+  onSaved,
+}: {
+  playerId: string | null;
+  history: JournalEntry[];
+  onSaved: () => void;
+}) {
   const [entry, setEntry] = useState('');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    if (!entry.trim()) return;
-    console.log('Log journal:', { entry });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  const handleSave = async () => {
+    if (!entry.trim() || !playerId) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/players/${playerId}/journal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: new Date().toISOString(),
+          content: entry.trim(),
+          context: 'daily_journal',
+        }),
+      });
+      setSaved(true);
+      setEntry('');
+      onSaved();
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      // non-blocking
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -240,18 +400,35 @@ function JournalSection() {
       <motion.button
         whileTap={{ scale: 0.97 }}
         onClick={handleSave}
-        disabled={!entry.trim()}
+        disabled={!entry.trim() || saving || !playerId}
         className={cn(
           'w-full py-2.5 rounded-full font-display font-semibold text-sm transition-colors flex items-center justify-center gap-2',
           saved
             ? 'bg-green-500 text-white'
-            : entry.trim()
+            : entry.trim() && playerId
             ? 'bg-zinc-900 text-white hover:bg-zinc-800'
             : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
         )}
       >
-        {saved ? <><Check size={14} /> Saved</> : 'Save Entry'}
+        {saved ? <><Check size={14} /> Saved</> : saving ? 'Saving…' : 'Save Entry'}
       </motion.button>
+
+      {/* Journal history */}
+      {history.length > 0 && (
+        <div className="mt-4 border-t border-zinc-100 pt-4 space-y-3">
+          <p className="font-body text-xs text-zinc-400 font-medium uppercase tracking-wider mb-2">Past Entries</p>
+          {history.map((e) => (
+            <div key={e.id} className="rounded-xl bg-zinc-50 px-4 py-3">
+              <p className="font-body text-xs text-zinc-400 mb-1">
+                {format(new Date(e.date), 'MMM d, yyyy · h:mm a')}
+              </p>
+              <p className="font-body text-sm text-zinc-700 leading-snug">
+                {e.content.length > 80 ? e.content.slice(0, 80) + '…' : e.content}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -313,6 +490,48 @@ function VisualizationSection() {
 
 // ─── Page ─────────────────────────────────────────────────────
 export default function MentalPage() {
+  const [players, setPlayers] = useState<PlayerOption[]>([]);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [moodHistory, setMoodHistory] = useState<CheckIn[]>([]);
+  const [journalHistory, setJournalHistory] = useState<JournalEntry[]>([]);
+
+  useEffect(() => {
+    fetch('/api/players')
+      .then((r) => r.json())
+      .then((data) => {
+        const list: PlayerOption[] = data.players ?? [];
+        setPlayers(list);
+        if (list.length === 1) setSelectedPlayerId(list[0].id);
+      })
+      .catch(() => null);
+  }, []);
+
+  const loadHistory = async (playerId: string) => {
+    const [dgRes, jRes] = await Promise.all([
+      fetch(`/api/players/${playerId}/dream-gym`),
+      fetch(`/api/players/${playerId}/journal?limit=5`),
+    ]);
+    if (dgRes.ok) {
+      const dgData = await dgRes.json();
+      const checkIns: CheckIn[] = dgData.dreamGym?.mental?.checkIns ?? [];
+      // Most recent first, cap at 5
+      const sorted = [...checkIns].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      setMoodHistory(sorted.slice(0, 5));
+    }
+    if (jRes.ok) {
+      const jData = await jRes.json();
+      setJournalHistory(jData.entries ?? []);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedPlayerId) loadHistory(selectedPlayerId);
+    else { setMoodHistory([]); setJournalHistory([]); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlayerId]);
+
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-2xl mx-auto">
       {/* Header */}
@@ -335,6 +554,35 @@ export default function MentalPage() {
         </div>
       </motion.div>
 
+      {/* Player selector */}
+      {players.length > 1 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04 }}
+          className="flex items-center gap-2 flex-wrap"
+        >
+          <span className="font-body text-xs text-zinc-500">Logging for:</span>
+          {players.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setSelectedPlayerId(p.id)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full font-body text-xs font-medium transition-colors',
+                selectedPlayerId === p.id
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+              )}
+            >
+              <div className={cn('w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold', getAvatarColor(p.name))}>
+                {getInitials(p.name).charAt(0)}
+              </div>
+              {p.name}
+            </button>
+          ))}
+        </motion.div>
+      )}
+
       {/* Sections */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -349,7 +597,11 @@ export default function MentalPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <MoodSection />
+        <MoodSection
+          playerId={selectedPlayerId}
+          history={moodHistory}
+          onSaved={() => { if (selectedPlayerId) loadHistory(selectedPlayerId); }}
+        />
       </motion.div>
 
       <motion.div
@@ -357,7 +609,11 @@ export default function MentalPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.14 }}
       >
-        <JournalSection />
+        <JournalSection
+          playerId={selectedPlayerId}
+          history={journalHistory}
+          onSaved={() => { if (selectedPlayerId) loadHistory(selectedPlayerId); }}
+        />
       </motion.div>
 
       <motion.div

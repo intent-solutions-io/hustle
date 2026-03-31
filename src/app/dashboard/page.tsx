@@ -36,7 +36,7 @@ interface GameData {
   id: string;
   date: string;
   opponent: string;
-  result: 'win' | 'loss' | 'draw';
+  result: 'Win' | 'Loss' | 'Draw';
   finalScore?: string;
   goals: number;
   assists: number;
@@ -47,6 +47,7 @@ interface GameData {
 export default function DashboardPage() {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [allGames, setAllGames] = useState<GameData[]>([]);
+  const [dreamGymStats, setDreamGymStats] = useState({ workouts: 0, practices: 0, mental: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -67,6 +68,35 @@ export default function DashboardPage() {
         });
         const gamesArrays = await Promise.all(gamesPromises);
         setAllGames(gamesArrays.flat());
+
+        // Fetch Dream Gym stats (all-time) for each player
+        if (fetchedPlayers.length > 0) {
+          const dreamGymPromises = fetchedPlayers.map(async (p) => {
+            const [wRes, pRes, dgRes] = await Promise.all([
+              fetch(`/api/workout-logs?playerId=${p.id}`),
+              fetch(`/api/practice-logs?playerId=${p.id}`),
+              fetch(`/api/players/${p.id}/dream-gym`),
+            ]);
+            const wData = wRes.ok ? await wRes.json() : { logs: [] };
+            const pData = pRes.ok ? await pRes.json() : { logs: [] };
+            const dgData = dgRes.ok ? await dgRes.json() : { dreamGym: null };
+
+            const checkIns: { date: string | Date }[] = dgData.dreamGym?.mental?.checkIns ?? [];
+
+            return {
+              workouts: (wData.logs ?? []).length,
+              practices: (pData.logs ?? []).length,
+              mental: checkIns.length,
+            };
+          });
+
+          const results = await Promise.all(dreamGymPromises);
+          setDreamGymStats({
+            workouts: results.reduce((s, r) => s + r.workouts, 0),
+            practices: results.reduce((s, r) => s + r.practices, 0),
+            mental: results.reduce((s, r) => s + r.mental, 0),
+          });
+        }
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
       } finally {
@@ -80,7 +110,7 @@ export default function DashboardPage() {
   const totalGoals = allGames.reduce((s, g) => s + g.goals, 0);
   const totalAssists = allGames.reduce((s, g) => s + g.assists, 0);
   const gamesPlayed = allGames.length;
-  const wins = allGames.filter((g) => g.result === 'win').length;
+  const wins = allGames.filter((g) => g.result === 'Win').length;
   const winRate = gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0;
 
   // This month stats
@@ -270,7 +300,7 @@ export default function DashboardPage() {
           )}
         </motion.div>
 
-        {/* Dream Gym Progress - placeholder until Dream Gym has real data */}
+        {/* Dream Gym Progress - all-time totals */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -290,7 +320,7 @@ export default function DashboardPage() {
 
           <div className="flex flex-col items-center py-4 space-y-6">
             <ProgressRing
-              progress={0}
+              progress={dreamGymStats.workouts > 0 ? Math.min(100, Math.round((dreamGymStats.workouts / Math.max(dreamGymStats.workouts, 20)) * 100)) : 0}
               size={100}
               strokeWidth={10}
               label="Workouts"
@@ -303,7 +333,7 @@ export default function DashboardPage() {
                   <span className="font-body text-sm text-zinc-600">Workouts</span>
                 </div>
                 <span className="font-display text-sm font-semibold text-zinc-900">
-                  0/0
+                  {dreamGymStats.workouts}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -312,7 +342,7 @@ export default function DashboardPage() {
                   <span className="font-body text-sm text-zinc-600">Practices</span>
                 </div>
                 <span className="font-display text-sm font-semibold text-zinc-900">
-                  0/0
+                  {dreamGymStats.practices}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -321,7 +351,7 @@ export default function DashboardPage() {
                   <span className="font-body text-sm text-zinc-600">Mental</span>
                 </div>
                 <span className="font-display text-sm font-semibold text-zinc-900">
-                  0/0
+                  {dreamGymStats.mental}
                 </span>
               </div>
             </div>

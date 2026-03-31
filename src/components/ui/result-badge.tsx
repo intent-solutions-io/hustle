@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 
-type GameResult = 'win' | 'loss' | 'draw';
+type GameResult = 'win' | 'loss' | 'draw' | 'Win' | 'Loss' | 'Draw';
 
 interface ResultBadgeProps {
   result: GameResult;
@@ -28,15 +28,16 @@ export function ResultBadge({
   size = 'md',
   showLabel = false,
 }: ResultBadgeProps) {
+  const normalized = result.toLowerCase() as 'win' | 'loss' | 'draw';
   if (showLabel) {
     return (
       <span
         className={cn(
           'inline-flex items-center px-3 py-1 rounded-full font-body font-semibold text-sm',
-          resultClasses[result]
+          resultClasses[normalized]
         )}
       >
-        {fullLabels[result]}
+        {fullLabels[normalized]}
       </span>
     );
   }
@@ -46,10 +47,10 @@ export function ResultBadge({
       className={cn(
         'inline-flex items-center justify-center rounded-full font-display font-semibold',
         sizeClasses[size],
-        resultClasses[result]
+        resultClasses[normalized]
       )}
     >
-      {labels[result]}
+      {labels[normalized]}
     </span>
   );
 }

@@ -39,20 +39,20 @@ function toDreamGym(id: string, data: DreamGymDocument): DreamGym {
     playerId: data.playerId,
     profile: data.profile,
     schedule: data.schedule,
-    events: data.events.map((event: DreamGymEvent): DreamGymEventClient => ({
+    events: (data.events ?? []).map((event: DreamGymEvent): DreamGymEventClient => ({
       ...event,
       date: toDate(event.date),
     })),
     mental: {
-      checkIns: data.mental.checkIns.map((checkIn: DreamGymMentalCheckIn): DreamGymMentalCheckInClient => ({
+      checkIns: (data.mental?.checkIns ?? []).map((checkIn: DreamGymMentalCheckIn): DreamGymMentalCheckInClient => ({
         ...checkIn,
         date: toDate(checkIn.date),
       })),
-      favoriteTips: data.mental.favoriteTips,
-      lastCheckIn: data.mental.lastCheckIn ? toDate(data.mental.lastCheckIn) : null,
+      favoriteTips: data.mental?.favoriteTips ?? [],
+      lastCheckIn: data.mental?.lastCheckIn ? toDate(data.mental.lastCheckIn) : null,
     },
-    createdAt: toDate(data.createdAt),
-    updatedAt: toDate(data.updatedAt),
+    createdAt: data.createdAt ? toDate(data.createdAt) : new Date(),
+    updatedAt: data.updatedAt ? toDate(data.updatedAt) : new Date(),
   };
 }
 
@@ -175,26 +175,24 @@ export async function addMentalCheckInAdmin(
   const docRef = adminDb.doc(`users/${userId}/players/${playerId}/dreamGym/${DREAM_GYM_DOC_ID}`);
   const docSnap = await docRef.get();
 
-  if (!docSnap.exists) {
-    throw new Error('Dream Gym profile not found');
-  }
-
   const now = new Date();
   const newCheckIn = {
     ...checkIn,
     date: now,
   };
 
-  const existingCheckIns = docSnap.data()?.mental?.checkIns || [];
+  const existingCheckIns = docSnap.exists ? (docSnap.data()?.mental?.checkIns || []) : [];
 
   // Keep only last 30 check-ins
   const updatedCheckIns = [...existingCheckIns, newCheckIn].slice(-30);
 
-  await docRef.update({
-    'mental.checkIns': updatedCheckIns,
-    'mental.lastCheckIn': now,
+  await docRef.set({
+    mental: {
+      checkIns: updatedCheckIns,
+      lastCheckIn: now,
+    },
     updatedAt: now,
-  });
+  }, { merge: true });
 }
 
 /** Input type for adding events - accepts Date for flexibility */

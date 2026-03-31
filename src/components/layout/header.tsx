@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, Settings, CreditCard, LogOut, UserCircle, Check } from 'lucide-react';
+import { Bell, Settings, CreditCard, LogOut, UserCircle, Check, Loader2 } from 'lucide-react';
 import { MobileSidebar } from './sidebar';
 import { getInitials, getAvatarColor } from '@/lib/player-utils';
 import {
@@ -15,8 +15,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { format } from 'date-fns';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Overview',
@@ -28,7 +29,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/billing': 'Billing',
 };
 
-// ─── Mock notifications ───────────────────────────────────────
+// ─── Notifications ────────────────────────────────────────────
 interface Notification {
   id: string;
   message: string;
@@ -36,12 +37,12 @@ interface Notification {
   read: boolean;
 }
 
-const MOCK_NOTIFICATIONS: Notification[] = [];
-
-
 // ─── Notification bell ────────────────────────────────────────
 function NotificationDropdown() {
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const loadedRef = useRef(false);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllRead = () =>
@@ -52,8 +53,67 @@ function NotificationDropdown() {
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
 
+  const loadNotifications = async () => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    setLoading(true);
+    try {
+      const now = new Date();
+      const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const [scheduleRes, analyticsRes] = await Promise.all([
+        fetch(`/api/schedule?startDate=${now.toISOString()}&endDate=${weekFromNow.toISOString()}&limit=5`),
+        fetch('/api/analytics?range=7d'),
+      ]);
+
+      const scheduleData = scheduleRes.ok ? await scheduleRes.json() : { events: [] };
+      const analyticsData = analyticsRes.ok ? await analyticsRes.json() : null;
+
+      const items: Notification[] = [];
+
+      // Upcoming events
+      const events: { id: string; title: string; type: string; date: string; opponent?: string }[] = scheduleData.events ?? [];
+      for (const ev of events.slice(0, 3)) {
+        const dateLabel = format(new Date(ev.date), 'MMM d');
+        const msg = ev.type === 'game' && ev.opponent
+          ? `Game vs ${ev.opponent} on ${dateLabel}`
+          : `${ev.title} on ${dateLabel}`;
+        items.push({ id: `ev-${ev.id}`, message: msg, time: dateLabel, read: false });
+      }
+
+      // Games this week
+      const gamesThisWeek: number = analyticsData?.overview?.games ?? 0;
+      if (gamesThisWeek > 0) {
+        items.push({
+          id: 'games-week',
+          message: `${gamesThisWeek} game${gamesThisWeek !== 1 ? 's' : ''} logged this week`,
+          time: 'This week',
+          read: false,
+        });
+      }
+
+      // Training activity this week
+      const workouts: number = analyticsData?.overview?.workouts ?? 0;
+      const practices: number = analyticsData?.overview?.practices ?? 0;
+      if (workouts + practices > 0) {
+        items.push({
+          id: 'training-week',
+          message: `${workouts} workout${workouts !== 1 ? 's' : ''} and ${practices} practice${practices !== 1 ? 's' : ''} this week`,
+          time: 'This week',
+          read: false,
+        });
+      }
+
+      setNotifications(items);
+    } catch {
+      // non-blocking
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => { if (open) loadNotifications(); }}>
       <DropdownMenuTrigger
         className="relative p-2 rounded-xl hover:bg-zinc-100 transition-colors focus:outline-none"
         aria-label="Notifications"
@@ -87,13 +147,17 @@ function NotificationDropdown() {
         </div>
 
         {/* List / empty state */}
-        {notifications.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center px-4">
             <div className="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center mb-3">
               <Bell size={18} className="text-zinc-400" />
             </div>
             <p className="font-display text-sm font-semibold text-zinc-900 mb-1">All caught up</p>
-            <p className="font-body text-xs text-zinc-400">No new notifications</p>
+            <p className="font-body text-xs text-zinc-400">No recent activity</p>
           </div>
         ) : (
           <div className="max-h-72 overflow-y-auto">
