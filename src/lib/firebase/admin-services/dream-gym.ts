@@ -59,7 +59,11 @@ function toDreamGym(id: string, data: DreamGymDocument): DreamGym {
 /**
  * Get Dream Gym profile for a player (Admin SDK)
  */
-export async function getDreamGymAdmin(userId: string, playerId: string): Promise<DreamGym | null> {
+export async function getDreamGymAdmin(
+  userId: string,
+  playerId: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<(DreamGym & { weeklyGrid?: Record<string, Record<string, string | null>> }) | null> {
   const docRef = adminDb.doc(`users/${userId}/players/${playerId}/dreamGym/${DREAM_GYM_DOC_ID}`);
   const docSnap = await docRef.get();
 
@@ -67,7 +71,11 @@ export async function getDreamGymAdmin(userId: string, playerId: string): Promis
     return null;
   }
 
-  return toDreamGym(docSnap.id, docSnap.data() as DreamGymDocument);
+  const raw = docSnap.data() as DreamGymDocument & { weeklyGrid?: Record<string, Record<string, string | null>> };
+  return {
+    ...toDreamGym(docSnap.id, raw),
+    weeklyGrid: raw.weeklyGrid ?? {},
+  };
 }
 
 /**
@@ -193,6 +201,18 @@ export async function addMentalCheckInAdmin(
     },
     updatedAt: now,
   }, { merge: true });
+}
+
+/**
+ * Save the weekly training grid (slot-based schedule) for a player
+ */
+export async function updateWeeklyGridAdmin(
+  userId: string,
+  playerId: string,
+  weeklyGrid: Record<string, Record<string, string | null>>
+): Promise<void> {
+  const docRef = adminDb.doc(`users/${userId}/players/${playerId}/dreamGym/${DREAM_GYM_DOC_ID}`);
+  await docRef.set({ weeklyGrid, updatedAt: new Date() }, { merge: true });
 }
 
 /** Input type for adding events - accepts Date for flexibility */

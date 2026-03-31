@@ -1,15 +1,26 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Play, Pause, RotateCcw, Timer, Check } from 'lucide-react';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getInitials, getAvatarColor } from '@/lib/player-utils';
 
 interface PlayerOption {
   id: string;
   name: string;
+}
+
+interface CardioLogEntry {
+  id: string;
+  date: string | Date;
+  activityType: string;
+  durationMinutes: number;
+  distanceMiles: number;
+  perceivedEffort?: number | null;
+  notes?: string | null;
 }
 
 // ─── Data ─────────────────────────────────────────────────────
@@ -20,6 +31,7 @@ const cardioTypes = [
     description: 'Maintain a consistent pace for 20–40 min',
     targetMin: 25,
     color: 'bg-blue-500',
+    emoji: '🏃',
     tip: 'Keep your breathing controlled. You should be able to hold a conversation.',
   },
   {
@@ -28,6 +40,7 @@ const cardioTypes = [
     description: '8 × 60m sprints with 2 min recovery',
     targetMin: 20,
     color: 'bg-red-500',
+    emoji: '⚡',
     tip: 'Drive your knees high. Explode off the start, maintain form on each rep.',
   },
   {
@@ -36,6 +49,7 @@ const cardioTypes = [
     description: '5 rounds: 2 min hard / 1 min easy',
     targetMin: 15,
     color: 'bg-orange-500',
+    emoji: '🔁',
     tip: 'The hard intervals should feel very difficult. Recover fully before each round.',
   },
   {
@@ -44,14 +58,27 @@ const cardioTypes = [
     description: 'Easy jog to flush the legs, 20 min',
     targetMin: 20,
     color: 'bg-green-500',
+    emoji: '🧘',
     tip: 'Keep effort very low — this is active recovery. If it feels hard, slow down.',
   },
 ];
+
+const RPE_LABELS: Record<number, string> = {
+  1: 'Very Easy',
+  2: 'Easy',
+  3: 'Moderate',
+  4: 'Hard',
+  5: 'Max',
+};
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
   const s = (seconds % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
+}
+
+function getTypeConfig(id: string) {
+  return cardioTypes.find((t) => t.id === id) ?? cardioTypes[0];
 }
 
 // ─── Page ─────────────────────────────────────────────────────
@@ -63,10 +90,14 @@ export default function CardioPage() {
   const [elapsed, setElapsed] = useState(0);
   const [distance, setDistance] = useState('');
   const [notes, setNotes] = useState('');
+  const [effort, setEffort] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [history, setHistory] = useState<CardioLogEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Load players
   useEffect(() => {
     fetch('/api/players')
       .then((r) => r.json())
@@ -78,15 +109,35 @@ export default function CardioPage() {
       .catch(() => null);
   }, []);
 
+  // Load history when player changes
+  const loadHistory = useCallback(async (playerId: string) => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/players/${playerId}/cardio-logs?limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.logs ?? []);
+      }
+    } catch {
+      // non-blocking
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedPlayerId) loadHistory(selectedPlayerId);
+    else setHistory([]);
+  }, [selectedPlayerId, loadHistory]);
+
+  // Timer
   useEffect(() => {
     if (running) {
       intervalRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
     }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [running]);
 
   const reset = () => {
@@ -100,15 +151,19 @@ export default function CardioPage() {
     setSaved(false);
     setDistance('');
     setNotes('');
+    setEffort(null);
   };
 
   const handleSave = async () => {
-    if (elapsed === 0 || !distance || !selectedPlayerId) return;
+    if (elapsed === 0 || !selectedPlayerId) return;
     setRunning(false);
     setSaving(true);
     try {
-      const distKm = parseFloat(distance);
-      const distMiles = distKm * 0.621371;
+      const distKm = parseFloat(distance) || 0;
+      const distMiles = distKm > 0
+        ? Math.max(0.01, parseFloat((distKm * 0.621371).toFixed(2)))
+        : 0.01;
+
       await fetch(`/api/players/${selectedPlayerId}/cardio-logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,11 +171,19 @@ export default function CardioPage() {
           date: new Date().toISOString(),
           activityType: activeType.id,
           durationMinutes: Math.max(1, Math.round(elapsed / 60)),
-          distanceMiles: Math.max(0.01, parseFloat(distMiles.toFixed(2))),
+          distanceMiles: distMiles,
           notes: notes.trim() || null,
+          perceivedEffort: effort ? String(effort) : null,
         }),
       });
       setSaved(true);
+      // Reset form
+      setElapsed(0);
+      setDistance('');
+      setNotes('');
+      setEffort(null);
+      // Reload history
+      await loadHistory(selectedPlayerId);
       setTimeout(() => setSaved(false), 3000);
     } catch {
       // non-blocking
@@ -133,6 +196,7 @@ export default function CardioPage() {
   const progress = Math.min(elapsed / targetSeconds, 1);
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
+  const isPaused = elapsed > 0 && !running;
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-2xl mx-auto">
@@ -203,12 +267,7 @@ export default function CardioPage() {
                 : 'border-transparent bg-white shadow-sm hover:shadow-md'
             )}
           >
-            <div
-              className={cn(
-                'w-8 h-8 rounded-lg flex items-center justify-center mb-2',
-                type.color
-              )}
-            >
+            <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center mb-2', type.color)}>
               <Timer className="w-4 h-4 text-white" />
             </div>
             <p className="font-display text-sm font-semibold text-zinc-900">{type.label}</p>
@@ -253,6 +312,9 @@ export default function CardioPage() {
             <p className="font-body text-xs text-zinc-400 mt-1">
               Target: {activeType.targetMin} min
             </p>
+            {progress >= 1 && (
+              <p className="font-body text-xs text-green-600 font-medium mt-0.5">Target reached!</p>
+            )}
           </div>
         </div>
 
@@ -291,6 +353,20 @@ export default function CardioPage() {
         </div>
       </motion.div>
 
+      {/* Paused banner */}
+      {isPaused && (
+        <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 flex items-center gap-2"
+        >
+          <span className="text-amber-500 text-sm">⏸</span>
+          <p className="font-body text-sm text-amber-700">
+            Session paused — fill in details below and tap Save.
+          </p>
+        </motion.div>
+      )}
+
       {/* Log form */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -301,7 +377,7 @@ export default function CardioPage() {
         <p className="font-display text-sm font-semibold text-zinc-700">Log Session</p>
 
         <div>
-          <label className="block font-body text-sm font-medium text-zinc-700 mb-1.5">
+          <label className="block font-body text-sm font-medium text-zinc-700 mb-1">
             Distance (km)
           </label>
           <input
@@ -313,10 +389,36 @@ export default function CardioPage() {
             min="0"
             className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-white font-body text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 placeholder:text-zinc-400 transition-colors"
           />
+          <p className="font-body text-xs text-zinc-400 mt-1">Optional — enter distance if tracked</p>
         </div>
 
         <div>
-          <label className="block font-body text-sm font-medium text-zinc-700 mb-1.5">
+          <label className="block font-body text-sm font-medium text-zinc-700 mb-2">
+            Perceived Effort
+          </label>
+          <div className="flex items-center gap-2">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                onClick={() => setEffort(effort === n ? null : n)}
+                className={cn(
+                  'flex-1 py-2 rounded-xl font-display text-sm font-semibold transition-all border-2',
+                  effort === n
+                    ? 'border-zinc-900 bg-zinc-900 text-white'
+                    : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300'
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <p className="font-body text-xs text-zinc-400 mt-1">
+            {effort ? RPE_LABELS[effort] : 'Optional — 1 easy to 5 max effort'}
+          </p>
+        </div>
+
+        <div>
+          <label className="block font-body text-sm font-medium text-zinc-700 mb-1">
             Notes
           </label>
           <textarea
@@ -328,29 +430,91 @@ export default function CardioPage() {
           />
         </div>
 
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={handleSave}
-          disabled={elapsed === 0 || !distance || !selectedPlayerId || saving}
-          className={cn(
-            'w-full py-3 rounded-full font-display font-semibold text-sm transition-colors flex items-center justify-center gap-2',
-            saved
-              ? 'bg-green-500 text-white'
-              : elapsed > 0 && distance && selectedPlayerId
-              ? 'bg-zinc-900 text-white hover:bg-zinc-800'
-              : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+        <div>
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={handleSave}
+            disabled={elapsed === 0 || !selectedPlayerId || saving}
+            className={cn(
+              'w-full py-3 rounded-full font-display font-semibold text-sm transition-colors flex items-center justify-center gap-2',
+              saved
+                ? 'bg-green-500 text-white'
+                : elapsed > 0 && selectedPlayerId
+                ? 'bg-zinc-900 text-white hover:bg-zinc-800'
+                : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+            )}
+          >
+            {saved ? (
+              <><Check size={16} /> Saved!</>
+            ) : saving ? (
+              'Saving…'
+            ) : (
+              'Save Session'
+            )}
+          </motion.button>
+          {elapsed === 0 && (
+            <p className="font-body text-xs text-zinc-400 text-center mt-2">
+              Start the timer first to log a session
+            </p>
           )}
-        >
-          {saved ? (
-            <>
-              <Check size={16} /> Saved!
-            </>
-          ) : saving ? (
-            'Saving…'
-          ) : (
-            'Save Session'
-          )}
-        </motion.button>
+        </div>
+      </motion.div>
+
+      {/* History */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-white rounded-2xl p-5 shadow-sm pb-8"
+      >
+        <p className="font-display text-sm font-semibold text-zinc-700 mb-3">Past Sessions</p>
+
+        {historyLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 rounded-xl bg-zinc-100 animate-pulse" />
+            ))}
+          </div>
+        ) : history.length === 0 ? (
+          <p className="font-body text-sm text-zinc-400 text-center py-6">
+            No sessions logged yet
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {history.map((entry) => {
+              const cfg = getTypeConfig(entry.activityType);
+              const distKm = (entry.distanceMiles / 0.621371).toFixed(1);
+              const hasRealDist = entry.distanceMiles > 0.01;
+              return (
+                <div
+                  key={entry.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-zinc-50"
+                >
+                  <span className="text-lg shrink-0">{cfg.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display text-sm font-semibold text-zinc-900 leading-tight">
+                      {cfg.label}
+                    </p>
+                    <p className="font-body text-xs text-zinc-400">
+                      {format(new Date(entry.date), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-display text-sm font-semibold text-zinc-800">
+                      {entry.durationMinutes} min
+                      {hasRealDist && (
+                        <span className="text-zinc-400 font-normal"> · {distKm} km</span>
+                      )}
+                    </p>
+                    {entry.perceivedEffort != null && (
+                      <p className="font-body text-xs text-zinc-400">RPE {entry.perceivedEffort}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </motion.div>
     </div>
   );
