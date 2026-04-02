@@ -963,3 +963,46 @@ export interface PracticeLog extends Omit<PracticeLogDocument, 'date' | 'created
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ============================================================================
+// MEAL LOG TYPES
+// ============================================================================
+
+/**
+ * Meal Types
+ */
+export type MealType =
+  | 'breakfast'
+  | 'lunch'
+  | 'dinner'
+  | 'snack'
+  | 'pre_workout'
+  | 'post_workout';
+
+/**
+ * Meal Log Document
+ * Subcollection: /users/{userId}/players/{playerId}/mealLogs/{logId}
+ *
+ * Track daily nutrition and meals per athlete.
+ */
+export interface MealLogDocument {
+  playerId: string;
+  date: Timestamp;
+  mealType: MealType;
+  description: string;           // What was eaten
+  calories?: number | null;      // Total calories
+  protein?: number | null;       // Grams of protein
+  carbs?: number | null;         // Grams of carbohydrates
+  fat?: number | null;           // Grams of fat
+  notes?: string | null;         // Additional notes
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Meal Log client-side types
+export interface MealLog extends Omit<MealLogDocument, 'date' | 'createdAt' | 'updatedAt'> {
+  id: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}

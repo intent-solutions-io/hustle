@@ -15,6 +15,7 @@ import {
   Flame,
   ChevronRight,
   Zap,
+  Utensils,
 } from 'lucide-react';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { staggerContainer, staggerItem } from '@/lib/animation';
@@ -91,6 +92,14 @@ const modules = [
     color: 'bg-amber-500',
     lightColor: 'bg-amber-50 text-amber-600',
     desc: 'Soccer drill library',
+  },
+  {
+    name: 'Meals',
+    href: '/dashboard/dream-gym/meals',
+    icon: Utensils,
+    color: 'bg-emerald-500',
+    lightColor: 'bg-emerald-50 text-emerald-600',
+    desc: 'Fuel & nutrition tracking',
   },
 ];
 
