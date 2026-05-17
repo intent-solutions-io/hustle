@@ -122,7 +122,11 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run -d -p 8080:8080 --name test-app \
+          # Port 8084 + /api/healthz match the VPS-as-the-home migration
+          # (Phase 2, OPS-ch2). The healthz route is dependency-free and is
+          # the canonical smoke-validation gate the VPS deploy workflow
+          # asserts post-deploy.
+          docker run -d -p 8084:8084 --name test-app \
             -e NODE_ENV=production \
             -e NEXT_PUBLIC_FIREBASE_PROJECT_ID=hustleapp-production \
             -e FIREBASE_PROJECT_ID=hustleapp-production \
@@ -130,6 +134,6 @@ jobs:
           echo "Waiting for container startup..."
           sleep 15
           docker logs test-app || true
-          curl -sf --max-time 10 http://localhost:8080/api/healthcheck || \
+          curl -sf --max-time 10 http://localhost:8084/api/healthz || \
             (echo "Health check failed - container logs:" && docker logs test-app && exit 1)
           docker stop test-app
