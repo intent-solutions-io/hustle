@@ -1,0 +1,27 @@
+services:
+  app:
+    build: .
+    image: hustle:latest
+    container_name: hustle-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8084
+      HOSTNAME: 0.0.0.0
+      TZ: America/New_York
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET required in .env}
+      DATABASE_PATH: /data/hustle.db
+      UPLOADS_DIR: /data/uploads
+    ports:
+      - "127.0.0.1:8084:8084"
+    volumes:
+      - hustle-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8084/api/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  hustle-data:
