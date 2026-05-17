@@ -529,7 +529,7 @@ export default function MentalPage() {
   useEffect(() => {
     if (selectedPlayerId) loadHistory(selectedPlayerId);
     else { setMoodHistory([]); setJournalHistory([]); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [selectedPlayerId]);
 
   return (
