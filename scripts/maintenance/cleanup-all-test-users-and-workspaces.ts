@@ -75,7 +75,7 @@ async function deleteCollection(collectionName: string) {
   }
 
   const batchSize = 300; // Firestore batch write limit is 500
-  let docs = snap.docs;
+  const docs = snap.docs;
   let totalDeleted = 0;
 
   while (docs.length > 0) {
@@ -111,7 +111,7 @@ async function deleteSubcollections(parentPath: string, subcollections: string[]
 
     // Similar batch delete logic as deleteCollection
     const batchSize = 300;
-    let docs = snap.docs;
+    const docs = snap.docs;
 
     while (docs.length > 0) {
       const batch = db.batch();
