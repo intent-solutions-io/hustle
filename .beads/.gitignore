@@ -10,6 +10,20 @@ daemon.lock
 daemon.log
 daemon.pid
 bd.sock
+last-touched
+export-state.json
+
+# Dolt server runtime
+dolt-server.activity
+dolt-server.lock
+dolt-server.log
+dolt-server.pid
+dolt-server.port
+dolt/
+backup/
+
+# Credentials (never commit — beads stores its dolt server credential here)
+.beads-credential-key
 
 # Local version tracking (prevents upgrade notification spam after git ops)
 .local_version
