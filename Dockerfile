@@ -61,7 +61,11 @@ ENV HOSTNAME=0.0.0.0
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Drizzle migrations are read at boot by src/lib/db/index.ts; ship them in
+# the runtime image so the migration runner can find them at /app/drizzle.
+COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 
+ENV DATABASE_PATH=/data/hustle.db
 RUN mkdir -p /data /data/uploads && chown -R nextjs:nodejs /data
 VOLUME ["/data"]
 
