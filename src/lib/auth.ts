@@ -1,24 +1,33 @@
 /**
- * Server-Side Authentication (Firebase Auth)
+ * Server-Side Authentication (Auth.js v5 + SQLite/Drizzle)
  *
- * Single canonical module for all server-side auth.
+ * Phase 3.2 cutover: this module previously verified Firebase __session cookies
+ * via firebase-admin. It now reads the NextAuth JWT session set by the
+ * Credentials provider in src/auth.ts. The public function names + return
+ * shapes are preserved so dashboard pages + API routes that already import
+ * `auth()`, `authWithProfile()`, and `requireAuth()` continue to work without
+ * changes.
  *
- * - `auth()`            – lightweight session check for API routes (no Firestore)
- * - `authWithProfile()` – session + Firestore user profile for dashboard pages
+ * - `auth()`            – lightweight session check for API routes
+ * - `authWithProfile()` – session + SQLite user profile for dashboard pages
  * - `requireAuth()`     – throws if unauthenticated or email unverified
+ *
+ * Notes:
+ * - Email-verified gate: the Credentials provider's authorize() callback in
+ *   src/auth.ts already rejects sign-in for users without emailVerified, so
+ *   any active NextAuth session by definition represents a verified user. We
+ *   still consult the DB row in authWithProfile() and reflect the actual
+ *   timestamp for forensics.
+ * - The legacy DashboardUser shape exposes `firstName`/`lastName` strings —
+ *   we synthesize them by splitting the `name` field on the user row. When
+ *   Phase 4 schemas a richer profile table these fields will read from the
+ *   real columns.
  */
-
-import { cookies } from 'next/headers';
-import type { NextRequest } from 'next/server';
-import { adminAuth, adminDb } from './firebase/admin';
-import type { User } from '@/types/firestore';
-import { isE2ETestMode } from '@/lib/e2e';
-import { ensureUserProvisioned } from '@/lib/firebase/server-provisioning';
-import { withTimeout } from '@/lib/utils/timeout';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { auth as nextAuth } from "@/auth";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema/auth";
+import { isE2ETestMode } from "@/lib/e2e";
 
 export interface Session {
   user: {
@@ -36,133 +45,81 @@ export interface DashboardUser {
   emailVerified: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Core helpers
-// ---------------------------------------------------------------------------
-
-const SESSION_COOKIE_NAME = '__session';
-const VERIFY_SESSION_COOKIE_TIMEOUT_MS = 10_000;
-const USER_PROFILE_READ_TIMEOUT_MS = 10_000;
-const PROVISIONING_TIMEOUT_MS = 15_000;
-
-function getSessionCookieFromRequest(request: NextRequest): string | null {
-  return request.cookies.get(SESSION_COOKIE_NAME)?.value || null;
-}
-
-async function getSessionCookieFromHeaders(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(SESSION_COOKIE_NAME)?.value || null;
-}
-
-async function getSessionCookie(request?: NextRequest): Promise<string | null> {
-  if (request) return getSessionCookieFromRequest(request);
-  return getSessionCookieFromHeaders();
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 /**
- * Lightweight session check for API routes (no Firestore hit).
+ * Lightweight session check — no DB read.
+ * Returns null when there is no active session.
+ *
+ * NOTE: NextAuth's `auth()` helper reads request context from cookies()
+ * internally, so we no longer need to thread NextRequest through. The
+ * optional parameter is preserved for source compatibility with the
+ * Firebase-era signature but is ignored — every caller that passed it was
+ * a server-side route handler that already runs inside the same request
+ * scope.
  */
-export async function auth(request?: NextRequest): Promise<Session | null> {
+export async function auth(_request?: unknown): Promise<Session | null> {
   try {
-    const sessionCookie = await getSessionCookie(request);
-    if (!sessionCookie) return null;
-
-    const decodedToken = await withTimeout(
-      adminAuth.verifySessionCookie(sessionCookie),
-      VERIFY_SESSION_COOKIE_TIMEOUT_MS,
-      'verifySessionCookie'
-    );
-
+    const session = await nextAuth();
+    if (!session?.user?.id) return null;
     return {
       user: {
-        id: decodedToken.uid,
-        email: decodedToken.email || null,
-        emailVerified: decodedToken.email_verified || false,
+        id: session.user.id,
+        email: session.user.email ?? null,
+        // If a session exists, the Credentials authorize() gate already
+        // verified emailVerified at sign-in time.
+        emailVerified: true,
       },
     };
   } catch (error) {
-    console.error('Auth verification error:', error);
+    console.error("[auth] session check error:", error);
     return null;
   }
 }
 
 /**
- * Session check + Firestore user profile for dashboard pages.
- * Returns null if not authenticated.
+ * Session + user-row read for dashboard pages.
+ * Returns null when not authenticated OR the user row has been deleted.
  */
-export async function authWithProfile(request?: NextRequest): Promise<DashboardUser | null> {
+export async function authWithProfile(_request?: unknown): Promise<DashboardUser | null> {
   try {
-    const sessionCookie = await getSessionCookie(request);
-    if (!sessionCookie) return null;
+    const session = await nextAuth();
+    const uid = session?.user?.id;
+    if (!uid) return null;
 
-    const decodedToken = await withTimeout(
-      adminAuth.verifySessionCookie(sessionCookie, true),
-      VERIFY_SESSION_COOKIE_TIMEOUT_MS,
-      'verifySessionCookie'
-    );
-
-    let userDoc = await withTimeout(
-      adminDb.collection('users').doc(decodedToken.uid).get(),
-      USER_PROFILE_READ_TIMEOUT_MS,
-      'getUserProfile'
-    );
-
-    if (!userDoc.exists) {
-      try {
-        await withTimeout(
-          ensureUserProvisioned(decodedToken),
-          PROVISIONING_TIMEOUT_MS,
-          'ensureUserProvisioned'
-        );
-
-        userDoc = await withTimeout(
-          adminDb.collection('users').doc(decodedToken.uid).get(),
-          USER_PROFILE_READ_TIMEOUT_MS,
-          'getUserProfile'
-        );
-      } catch (provisionError: any) {
-        console.error('User provisioning failed:', provisionError?.message || provisionError);
-      }
-
-      if (!userDoc.exists) {
-        console.error(`User document not found for UID: ${decodedToken.uid}`);
-        return null;
-      }
+    const row = await db.query.users.findFirst({ where: eq(users.id, uid) });
+    if (!row) {
+      console.error(`[authWithProfile] no user row for id=${uid}`);
+      return null;
     }
 
-    const userData = userDoc.data() as User;
-    const emailVerified = isE2ETestMode() ? true : (decodedToken.email_verified || false);
+    const parts = (row.name ?? "").trim().split(/\s+/);
+    const firstName = parts[0] || undefined;
+    const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
+
+    const emailVerified = isE2ETestMode() ? true : Boolean(row.emailVerified);
 
     return {
-      uid: decodedToken.uid,
-      email: decodedToken.email || null,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
+      uid: row.id,
+      email: row.email ?? null,
+      firstName,
+      lastName,
       emailVerified,
     };
-  } catch (error: any) {
-    console.error('Error getting dashboard user:', error.message);
+  } catch (error) {
+    console.error("[authWithProfile] error:", error);
     return null;
   }
 }
 
 /**
- * Require authenticated + email-verified user. Throws if not.
+ * Require an authenticated, email-verified user. Throws otherwise.
  */
 export async function requireAuth(): Promise<DashboardUser> {
   const user = await authWithProfile();
-
   if (!user) {
-    throw new Error('Unauthorized: No valid Firebase session');
+    throw new Error("Unauthorized: No valid session");
   }
-
   if (!user.emailVerified) {
-    throw new Error('Unauthorized: Email not verified');
+    throw new Error("Unauthorized: Email not verified");
   }
-
   return user;
 }
