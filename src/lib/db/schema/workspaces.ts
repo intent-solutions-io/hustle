@@ -16,8 +16,8 @@ export const workspaces = sqliteTable("workspace", {
     .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
 
-  plan: text("plan").$type<WorkspacePlan>().notNull().$defaultFn(() => "free"),
-  status: text("status").$type<WorkspaceStatus>().notNull().$defaultFn(() => "trial"),
+  plan: text("plan").$type<WorkspacePlan>().notNull().default("free"),
+  status: text("status").$type<WorkspaceStatus>().notNull().default("trial"),
 
   // Billing (flattened from WorkspaceDocument.billing)
   billingStripeCustomerId: text("billingStripeCustomerId"),
@@ -25,16 +25,17 @@ export const workspaces = sqliteTable("workspace", {
   billingCurrentPeriodEnd: integer("billingCurrentPeriodEnd", { mode: "timestamp_ms" }),
 
   // Usage (flattened from WorkspaceDocument.usage; denormalized for limit checks)
-  usagePlayerCount: integer("usagePlayerCount").notNull().$defaultFn(() => 0),
-  usageGamesThisMonth: integer("usageGamesThisMonth").notNull().$defaultFn(() => 0),
-  usageStorageUsedMB: integer("usageStorageUsedMB").notNull().$defaultFn(() => 0),
+  usagePlayerCount: integer("usagePlayerCount").notNull().default(0),
+  usageGamesThisMonth: integer("usageGamesThisMonth").notNull().default(0),
+  usageStorageUsedMB: integer("usageStorageUsedMB").notNull().default(0),
 
   createdAt: integer("createdAt", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
     .notNull()
-    .$defaultFn(() => new Date()),
+    .$defaultFn(() => new Date())
+    .$onUpdateFn(() => new Date()),
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" }),
 });
 

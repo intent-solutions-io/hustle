@@ -35,8 +35,8 @@ export const games = sqliteTable("game", {
   emotionTags: text("emotionTags", { mode: "json" }).$type<GameEmotionTag[]>(),
 
   // Universal stats
-  goals: integer("goals").notNull().$defaultFn(() => 0),
-  assists: integer("assists").notNull().$defaultFn(() => 0),
+  goals: integer("goals").notNull().default(0),
+  assists: integer("assists").notNull().default(0),
 
   // Defensive stats (nullable for non-defenders)
   tackles: integer("tackles"),
@@ -51,7 +51,7 @@ export const games = sqliteTable("game", {
   cleanSheet: integer("cleanSheet", { mode: "boolean" }),
 
   // Verification
-  verified: integer("verified", { mode: "boolean" }).notNull().$defaultFn(() => false),
+  verified: integer("verified", { mode: "boolean" }).notNull().default(false),
   verifiedAt: integer("verifiedAt", { mode: "timestamp_ms" }),
 
   createdAt: integer("createdAt", { mode: "timestamp_ms" })
@@ -59,5 +59,6 @@ export const games = sqliteTable("game", {
     .$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
     .notNull()
-    .$defaultFn(() => new Date()),
+    .$defaultFn(() => new Date())
+    .$onUpdateFn(() => new Date()),
 });

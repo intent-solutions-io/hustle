@@ -30,7 +30,9 @@ export const users = sqliteTable("user", {
   // Game verification PIN (bcrypt hash of 4-6 digit PIN)
   verificationPinHash: text("verificationPinHash"),
 
-  updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
+    .$onUpdateFn(() => new Date()),
 });
 
 export const accounts = sqliteTable(

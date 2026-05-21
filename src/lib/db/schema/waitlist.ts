@@ -10,5 +10,6 @@ export const waitlist = sqliteTable("waitlist", {
     .$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
     .notNull()
-    .$defaultFn(() => new Date()),
+    .$defaultFn(() => new Date())
+    .$onUpdateFn(() => new Date()),
 });

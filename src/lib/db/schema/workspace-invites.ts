@@ -20,12 +20,13 @@ export const workspaceInvites = sqliteTable("workspaceInvite", {
   status: text("status")
     .$type<"pending" | "accepted" | "declined" | "expired">()
     .notNull()
-    .$defaultFn(() => "pending"),
+    .default("pending"),
   expiresAt: integer("expiresAt", { mode: "timestamp_ms" }).notNull(),
   createdAt: integer("createdAt", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
     .notNull()
-    .$defaultFn(() => new Date()),
+    .$defaultFn(() => new Date())
+    .$onUpdateFn(() => new Date()),
 });
