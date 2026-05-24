@@ -1,12 +1,12 @@
 /**
  * Subscription Lifecycle Ledger
  *
- * Phase 7 Task 8: Full Subscription Lifecycle Ledger
- *
- * Append-only, Firestore-backed ledger for recording all billing-relevant
- * events for a workspace. Provides immutable audit trail for troubleshooting.
- *
- * Collection: workspaces/{workspaceId}/billing_ledger/{eventId}
+ * Append-only audit log of billing-relevant events for each workspace.
+ * Phase 4.5 migration: backing store changed from the Firestore
+ * workspaces/{id}/billing_ledger subcollection to a single SQLite table
+ * (`billingLedger`). Public function signatures are preserved so callers
+ * (Stripe webhook, auditor, plan-enforcement, replay-events route) keep
+ * working unchanged.
  *
  * Usage:
  * ```typescript
@@ -25,194 +25,103 @@
  * ```
  */
 
-import { adminDb } from '@/lib/firebase/admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import {
+  insertBillingLedgerEntry,
+  listBillingLedger,
+  listBillingLedgerBySource,
+  listBillingLedgerByType,
+  type LedgerEventSource,
+  type LedgerEventType,
+  type RecordBillingLedgerInput,
+  type BillingLedgerRow,
+} from "@/lib/db/queries/stripe-billing";
+
+// Re-export the canonical type aliases so existing imports keep working.
+export type { LedgerEventSource, LedgerEventType };
 
 /**
- * Ledger event source
- */
-export type LedgerEventSource = 'webhook' | 'replay' | 'auditor' | 'manual' | 'enforcement';
-
-/**
- * Ledger event type
- *
- * Describes what happened in this billing event.
- */
-export type LedgerEventType =
-  // Subscription events
-  | 'subscription_created'
-  | 'subscription_updated'
-  | 'subscription_deleted'
-  | 'subscription_paused'
-  | 'subscription_resumed'
-  // Payment events
-  | 'payment_succeeded'
-  | 'payment_failed'
-  // Plan changes
-  | 'plan_upgraded'
-  | 'plan_downgraded'
-  | 'plan_changed'
-  // Status changes
-  | 'status_changed'
-  | 'workspace_suspended'
-  | 'workspace_reactivated'
-  // Drift detection
-  | 'drift_detected'
-  | 'drift_resolved'
-  // Admin actions
-  | 'manual_adjustment'
-  | 'event_replayed';
-
-/**
- * Billing event record
- *
- * Stored in Firestore subcollection: workspaces/{workspaceId}/billing_ledger/{eventId}
+ * Billing event row shape returned by the read helpers. Equivalent to the
+ * legacy BillingLedgerEvent + id field used during the Firestore era.
  */
 export interface BillingLedgerEvent {
-  type: LedgerEventType;
+  type: string;
   stripeEventId: string | null;
-  timestamp: FirebaseFirestore.Timestamp;
+  timestamp: Date;
   statusBefore: string | null;
   statusAfter: string | null;
   planBefore: string | null;
   planAfter: string | null;
-  source: LedgerEventSource;
+  source: string;
   note: string | null;
 }
 
 /**
- * Input for recording a billing event
- *
- * timestamp is auto-generated via serverTimestamp()
+ * Input for recording a billing event.
  */
-export interface RecordBillingEventInput {
-  type: LedgerEventType;
-  stripeEventId?: string | null;
-  statusBefore?: string | null;
-  statusAfter?: string | null;
-  planBefore?: string | null;
-  planAfter?: string | null;
-  source: LedgerEventSource;
-  note?: string | null;
+export type RecordBillingEventInput = RecordBillingLedgerInput;
+
+function toEvent(row: BillingLedgerRow): BillingLedgerEvent & { id: string } {
+  return {
+    id: row.id,
+    type: row.type,
+    stripeEventId: row.stripeEventId,
+    timestamp: row.timestamp,
+    statusBefore: row.statusBefore,
+    statusAfter: row.statusAfter,
+    planBefore: row.planBefore,
+    planAfter: row.planAfter,
+    source: row.source,
+    note: row.note,
+  };
 }
 
 /**
- * Record a billing event in the ledger
- *
- * Writes an append-only record to the workspace's billing_ledger subcollection.
- * This is passive observation - does not modify workspace or Stripe state.
+ * Record a billing event in the ledger. Append-only; does not modify any
+ * workspace or Stripe state.
  *
  * @param workspaceId - Workspace ID
  * @param event - Event details
- * @returns Document ID of created ledger entry
- * @throws Error if validation fails or Firestore write fails
+ * @returns Row ID of the new ledger entry
  */
 export async function recordBillingEvent(
   workspaceId: string,
   event: RecordBillingEventInput
 ): Promise<string> {
-  // 1. Validate required fields
-  if (!workspaceId || typeof workspaceId !== 'string') {
-    throw new Error('Invalid workspaceId: must be non-empty string');
-  }
-
-  if (!event.type || typeof event.type !== 'string') {
-    throw new Error('Invalid event.type: must be non-empty string');
-  }
-
-  if (!event.source || typeof event.source !== 'string') {
-    throw new Error('Invalid event.source: must be one of webhook, replay, auditor, manual, enforcement');
-  }
-
-  // 2. Validate source enum
-  const validSources: LedgerEventSource[] = ['webhook', 'replay', 'auditor', 'manual', 'enforcement'];
-  if (!validSources.includes(event.source)) {
-    throw new Error(
-      `Invalid event.source: ${event.source}. Must be one of: ${validSources.join(', ')}`
-    );
-  }
-
-  // 3. Build ledger document
-  const ledgerDoc: Omit<BillingLedgerEvent, 'timestamp'> & {
-    timestamp: FirebaseFirestore.FieldValue;
-  } = {
-    type: event.type,
-    stripeEventId: event.stripeEventId ?? null,
-    timestamp: FieldValue.serverTimestamp(),
-    statusBefore: event.statusBefore ?? null,
-    statusAfter: event.statusAfter ?? null,
-    planBefore: event.planBefore ?? null,
-    planAfter: event.planAfter ?? null,
-    source: event.source,
-    note: event.note ?? null,
-  };
-
-  // 4. Write to Firestore subcollection (append-only)
   try {
-    const docRef = await adminDb
-      .collection('workspaces')
-      .doc(workspaceId)
-      .collection('billing_ledger')
-      .add(ledgerDoc);
-
-    console.log('[Ledger] Recorded billing event:', {
+    const id = await insertBillingLedgerEntry(workspaceId, event);
+    console.log("[Ledger] Recorded billing event:", {
       workspaceId,
-      eventId: docRef.id,
+      eventId: id,
       type: event.type,
       source: event.source,
     });
-
-    return docRef.id;
-  } catch (error: any) {
-    console.error('[Ledger] Failed to record billing event:', error.message);
-    throw new Error(`Failed to record billing event: ${error.message}`);
+    return id;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Ledger] Failed to record billing event:", msg);
+    throw new Error(`Failed to record billing event: ${msg}`);
   }
 }
 
 /**
- * Get billing ledger for a workspace
- *
- * Returns recent billing events in descending timestamp order (newest first).
- * Read-only function for admin dashboard and troubleshooting.
- *
- * @param workspaceId - Workspace ID
- * @param limit - Maximum number of events to return (default: 50)
- * @returns Array of billing ledger events
+ * Get the most recent billing events for a workspace, newest first.
  */
 export async function getBillingLedger(
   workspaceId: string,
   limit: number = 50
 ): Promise<Array<BillingLedgerEvent & { id: string }>> {
   try {
-    const snapshot = await adminDb
-      .collection('workspaces')
-      .doc(workspaceId)
-      .collection('billing_ledger')
-      .orderBy('timestamp', 'desc')
-      .limit(limit)
-      .get();
-
-    const events = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as BillingLedgerEvent),
-    }));
-
-    return events;
-  } catch (error: any) {
-    console.error('[Ledger] Failed to get billing ledger:', error.message);
-    throw new Error(`Failed to get billing ledger: ${error.message}`);
+    const rows = await listBillingLedger(workspaceId, limit);
+    return rows.map(toEvent);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Ledger] Failed to get billing ledger:", msg);
+    throw new Error(`Failed to get billing ledger: ${msg}`);
   }
 }
 
 /**
- * Get billing ledger filtered by source
- *
- * Useful for debugging specific integration points (webhooks, replays, etc.)
- *
- * @param workspaceId - Workspace ID
- * @param source - Event source to filter by
- * @param limit - Maximum number of events to return (default: 50)
- * @returns Array of billing ledger events from specified source
+ * Filter billing ledger by source.
  */
 export async function getBillingLedgerBySource(
   workspaceId: string,
@@ -220,36 +129,17 @@ export async function getBillingLedgerBySource(
   limit: number = 50
 ): Promise<Array<BillingLedgerEvent & { id: string }>> {
   try {
-    const snapshot = await adminDb
-      .collection('workspaces')
-      .doc(workspaceId)
-      .collection('billing_ledger')
-      .where('source', '==', source)
-      .orderBy('timestamp', 'desc')
-      .limit(limit)
-      .get();
-
-    const events = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as BillingLedgerEvent),
-    }));
-
-    return events;
-  } catch (error: any) {
-    console.error('[Ledger] Failed to get billing ledger by source:', error.message);
-    throw new Error(`Failed to get billing ledger by source: ${error.message}`);
+    const rows = await listBillingLedgerBySource(workspaceId, source, limit);
+    return rows.map(toEvent);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Ledger] Failed to get billing ledger by source:", msg);
+    throw new Error(`Failed to get billing ledger by source: ${msg}`);
   }
 }
 
 /**
- * Get billing ledger filtered by event type
- *
- * Useful for tracking specific events (e.g., all payment failures)
- *
- * @param workspaceId - Workspace ID
- * @param type - Event type to filter by
- * @param limit - Maximum number of events to return (default: 50)
- * @returns Array of billing ledger events of specified type
+ * Filter billing ledger by event type.
  */
 export async function getBillingLedgerByType(
   workspaceId: string,
@@ -257,23 +147,11 @@ export async function getBillingLedgerByType(
   limit: number = 50
 ): Promise<Array<BillingLedgerEvent & { id: string }>> {
   try {
-    const snapshot = await adminDb
-      .collection('workspaces')
-      .doc(workspaceId)
-      .collection('billing_ledger')
-      .where('type', '==', type)
-      .orderBy('timestamp', 'desc')
-      .limit(limit)
-      .get();
-
-    const events = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as BillingLedgerEvent),
-    }));
-
-    return events;
-  } catch (error: any) {
-    console.error('[Ledger] Failed to get billing ledger by type:', error.message);
-    throw new Error(`Failed to get billing ledger by type: ${error.message}`);
+    const rows = await listBillingLedgerByType(workspaceId, type, limit);
+    return rows.map(toEvent);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Ledger] Failed to get billing ledger by type:", msg);
+    throw new Error(`Failed to get billing ledger by type: ${msg}`);
   }
 }

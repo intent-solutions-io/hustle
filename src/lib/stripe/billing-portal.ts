@@ -1,16 +1,15 @@
 /**
  * Stripe Billing Portal & Invoice Utilities
  *
- * Phase 7 Task 4: Customer Billing Portal & Invoice History
+ * Phase 4.5 migration: workspace lookup moved off Firestore onto Drizzle.
+ * Public function signatures unchanged.
  *
- * Provides utilities for customer-facing billing management:
- * - Stripe Customer Portal session creation
- * - Invoice history retrieval
+ * - getOrCreateBillingPortalUrl()  → short-lived Stripe Customer Portal URL
+ * - listRecentInvoices()           → invoice DTOs for dashboard display
  */
 
-import { getStripeClient } from '@/lib/stripe/client';
-import { adminDb } from '@/lib/firebase/admin';
-import type { Workspace } from '@/types/firestore';
+import { getStripeClient } from "@/lib/stripe/client";
+import { getWorkspaceByIdAdmin } from "@/lib/db/queries/workspaces";
 
 /**
  * Invoice DTO for dashboard display
@@ -29,109 +28,83 @@ export interface InvoiceDTO {
 }
 
 /**
- * Get or create Stripe Customer Portal URL
- *
- * Creates a short-lived session URL for the Stripe Customer Portal.
- * Customers can manage payment methods, view invoices, and update subscription.
+ * Get or create Stripe Customer Portal URL.
  *
  * @param workspaceId - Workspace ID
  * @param returnPath - Path to return to after portal session (default: /dashboard/billing)
  * @returns Stripe Customer Portal URL
- * @throws Error if workspace has no stripeCustomerId
- * @throws Error if Stripe API fails
+ * @throws Error if workspace not found, has no stripeCustomerId, or Stripe API fails
  */
 export async function getOrCreateBillingPortalUrl(
   workspaceId: string,
-  returnPath: string = '/dashboard/billing'
+  returnPath: string = "/dashboard/billing"
 ): Promise<string> {
   try {
-    // 1. Get workspace from Firestore
-    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
-
-    if (!workspaceDoc.exists) {
+    const workspace = await getWorkspaceByIdAdmin(workspaceId);
+    if (!workspace) {
       throw new Error(`Workspace not found: ${workspaceId}`);
     }
 
-    const workspace = {
-      id: workspaceDoc.id,
-      ...workspaceDoc.data(),
-    } as unknown as Workspace;
-
-    // 2. Ensure workspace has Stripe customer ID
     const customerId = workspace.billing?.stripeCustomerId;
-
     if (!customerId) {
-      throw new Error('Workspace has no Stripe customer ID. Cannot create billing portal session.');
+      throw new Error(
+        "Workspace has no Stripe customer ID. Cannot create billing portal session."
+      );
     }
 
-    // 3. Build return URL
     const baseUrl =
       process.env.NEXTAUTH_URL ||
       process.env.NEXT_PUBLIC_WEBSITE_DOMAIN ||
-      'http://localhost:3000';
+      "http://localhost:3000";
     const returnUrl = `${baseUrl}${returnPath}`;
 
-    // 4. Create Stripe Customer Portal session
     const session = await getStripeClient().billingPortal.sessions.create({
       customer: customerId,
       return_url: returnUrl,
     });
 
     return session.url;
-  } catch (error: any) {
-    console.error('[Billing Portal] Failed to create portal session:', {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Billing Portal] Failed to create portal session:", {
       workspaceId,
-      error: error.message,
+      error: msg,
     });
-    throw new Error(`Failed to create billing portal session: ${error.message}`);
+    throw new Error(`Failed to create billing portal session: ${msg}`);
   }
 }
 
 /**
- * List recent invoices for workspace
- *
- * Fetches recent invoices from Stripe and maps to DTOs for dashboard display.
+ * List recent invoices for workspace.
  *
  * @param workspaceId - Workspace ID
  * @param limit - Number of invoices to return (default: 5)
- * @returns Array of invoice DTOs
- * @throws Error if workspace lookup fails
+ * @returns Array of invoice DTOs (empty array if no Stripe customer yet)
  */
 export async function listRecentInvoices(
   workspaceId: string,
   limit: number = 5
 ): Promise<InvoiceDTO[]> {
   try {
-    // 1. Get workspace from Firestore
-    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
-
-    if (!workspaceDoc.exists) {
+    const workspace = await getWorkspaceByIdAdmin(workspaceId);
+    if (!workspace) {
       throw new Error(`Workspace not found: ${workspaceId}`);
     }
 
-    const workspace = {
-      id: workspaceDoc.id,
-      ...workspaceDoc.data(),
-    } as unknown as Workspace;
-
-    // 2. Check for Stripe customer ID
     const customerId = workspace.billing?.stripeCustomerId;
-
     if (!customerId) {
-      // No customer ID = no invoices yet (trial workspace)
-      console.log('[Billing Portal] Workspace has no Stripe customer ID, returning empty invoice list');
+      console.log(
+        "[Billing Portal] Workspace has no Stripe customer ID, returning empty invoice list"
+      );
       return [];
     }
 
-    // 3. Fetch invoices from Stripe
     const invoices = await getStripeClient().invoices.list({
       customer: customerId,
       limit,
     });
 
-    // 4. Map to DTOs
     return invoices.data.map((invoice) => {
-      // Extract plan name from line items
       let planName: string | null = null;
       if (invoice.lines.data.length > 0) {
         const firstLine = invoice.lines.data[0] as unknown as {
@@ -147,9 +120,9 @@ export async function listRecentInvoices(
       }
 
       return {
-        id: invoice.id,
+        id: invoice.id ?? "",
         hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
-        status: invoice.status || 'draft',
+        status: invoice.status || "draft",
         amountPaid: invoice.amount_paid,
         amountDue: invoice.amount_due,
         currency: invoice.currency,
@@ -159,11 +132,12 @@ export async function listRecentInvoices(
         planName,
       };
     });
-  } catch (error: any) {
-    console.error('[Billing Portal] Failed to list invoices:', {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Billing Portal] Failed to list invoices:", {
       workspaceId,
-      error: error.message,
+      error: msg,
     });
-    throw new Error(`Failed to list invoices: ${error.message}`);
+    throw new Error(`Failed to list invoices: ${msg}`);
   }
 }

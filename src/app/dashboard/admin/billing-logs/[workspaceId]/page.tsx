@@ -146,7 +146,7 @@ export default async function BillingLogsPage({ params }: PageProps) {
                 <tr key={event.id} className="hover:bg-gray-50">
                   {/* Timestamp */}
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                    {new Date(event.timestamp.seconds * 1000).toLocaleString('en-US', {
+                    {new Date(event.timestamp).toLocaleString('en-US', {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric',

@@ -1,397 +1,335 @@
 /**
- * Stripe Webhook Handler
+ * Stripe Webhook Handler (notification side)
  *
- * Phase 6 Task 3: Email notifications for billing events
+ * Sends notification emails on subscription lifecycle events. Idempotent via
+ * the `webhookEvent` table so duplicate Stripe deliveries are no-ops.
  *
- * Receives Stripe webhook events and triggers appropriate actions:
- * - invoice.payment_failed → Send payment failed email
- * - customer.subscription.deleted → Send subscription canceled email
- * - customer.subscription.updated → Update workspace status + send emails
- * - checkout.session.completed → Update workspace + send welcome email (existing)
+ * Phase 4.5 migration: workspace + owner-user lookups moved off Firestore
+ * onto Drizzle.
+ *
+ * - invoice.payment_failed         → payment-failed email; status → past_due
+ * - customer.subscription.deleted  → subscription-canceled email; status → canceled
+ * - customer.subscription.updated  → reflect Stripe status; cancel-email if newly canceled
+ * - checkout.session.completed     → handled by /api/billing/webhook
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import Stripe from 'stripe';
-import { getStripeClient } from '@/lib/stripe/client';
-import { adminDb } from '@/lib/firebase/admin';
-import { sendEmail } from '@/lib/email';
-import { emailTemplates } from '@/lib/email-templates';
-import { createLogger } from '@/lib/logger';
+import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import Stripe from "stripe";
+import { getStripeClient } from "@/lib/stripe/client";
+import {
+  getWorkspaceByStripeCustomerIdAdmin,
+  updateWorkspaceBillingAdmin,
+  updateWorkspaceStatusAdmin,
+} from "@/lib/db/queries/workspaces";
+import {
+  getWorkspaceOwnerUser,
+  hasProcessedWebhookEvent,
+  markWebhookEventProcessed,
+  recordWebhookEventError,
+  recordWebhookEventReceipt,
+} from "@/lib/db/queries/stripe-billing";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
+import { createLogger } from "@/lib/logger";
 
-const logger = createLogger('api/webhooks/stripe');
+const logger = createLogger("api/webhooks/stripe");
 
-// Webhook secret from Stripe Dashboard
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(request: NextRequest) {
-  try {
-    // Get request body as text
-    const body = await request.text();
+  let event: Stripe.Event | null = null;
 
-    // Get Stripe signature from headers
+  try {
+    const body = await request.text();
     const headersList = await headers();
-    const signature = headersList.get('stripe-signature');
+    const signature = headersList.get("stripe-signature");
 
     if (!signature) {
-      logger.error('Missing Stripe signature header');
+      logger.error("Missing Stripe signature header");
       return NextResponse.json(
-        { error: 'Missing Stripe signature' },
+        { error: "Missing Stripe signature" },
         { status: 400 }
       );
     }
 
-    // Verify webhook signature
-    let event: Stripe.Event;
     try {
       event = getStripeClient().webhooks.constructEvent(body, signature, WEBHOOK_SECRET);
-    } catch (err: any) {
-      logger.error('Webhook signature verification failed', err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(
+        "Webhook signature verification failed",
+        err instanceof Error ? err : new Error(msg)
+      );
       return NextResponse.json(
-        { error: `Webhook signature verification failed: ${err.message}` },
+        { error: `Webhook signature verification failed: ${msg}` },
         { status: 400 }
       );
     }
+
+    if (await hasProcessedWebhookEvent(event.id)) {
+      logger.info(`Duplicate event ${event.id} — skipping`);
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    await recordWebhookEventReceipt(event.id, event.type, body);
 
     logger.info(`Webhook received: ${event.type}`, {
       eventId: event.id,
       eventType: event.type,
     });
 
-    // Handle different event types
     switch (event.type) {
-      case 'invoice.payment_failed':
+      case "invoice.payment_failed":
         await handlePaymentFailed(event.data.object as Stripe.Invoice);
         break;
 
-      case 'customer.subscription.deleted':
+      case "customer.subscription.deleted":
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
 
-      case 'customer.subscription.updated':
+      case "customer.subscription.updated":
         await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
         break;
 
-      case 'checkout.session.completed':
-        // Existing handler - update workspace
-        // (Implementation exists from Phase 5)
-        logger.info('Checkout session completed - handled by existing logic');
+      case "checkout.session.completed":
+        logger.info("Checkout session completed — handled by /api/billing/webhook");
         break;
 
       default:
         logger.info(`Unhandled event type: ${event.type}`);
     }
 
+    await markWebhookEventProcessed(event.id);
     return NextResponse.json({ received: true });
-  } catch (error: any) {
-    logger.error('Webhook processing error', error);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(
+      "Webhook processing error",
+      error instanceof Error ? error : new Error(msg)
+    );
+    const ev = event as Stripe.Event | null;
+    if (ev) {
+      try {
+        await recordWebhookEventError(ev.id, msg);
+      } catch {
+        // best-effort
+      }
+    }
     return NextResponse.json(
-      { error: 'Webhook processing failed' },
+      { error: "Webhook processing failed" },
       { status: 500 }
     );
   }
 }
 
-/**
- * Handle invoice.payment_failed event
- *
- * Sends email notification when payment fails
- */
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
-  logger.info('Handling payment failed', {
+  logger.info("Handling payment failed", {
     invoiceId: invoice.id,
     customerId: invoice.customer,
     amount: invoice.amount_due,
   });
 
-  try {
-    // Get workspace from Stripe customer ID
-    const workspaceSnap = await adminDb
-      .collection('workspaces')
-      .where('billing.stripeCustomerId', '==', invoice.customer)
-      .limit(1)
-      .get();
+  const customerId =
+    typeof invoice.customer === "string"
+      ? invoice.customer
+      : invoice.customer?.id;
+  if (!customerId) {
+    logger.warn("Invoice has no customer id");
+    return;
+  }
 
-    if (workspaceSnap.empty) {
-      logger.warn('No workspace found for Stripe customer', {
-        customerId: invoice.customer,
-      });
-      return;
-    }
+  const workspace = await getWorkspaceByStripeCustomerIdAdmin(customerId);
+  if (!workspace) {
+    logger.warn("No workspace found for Stripe customer", { customerId });
+    return;
+  }
 
-    const workspaceDoc = workspaceSnap.docs[0];
-    const workspaceData = workspaceDoc.data();
+  const owner = await getWorkspaceOwnerUser(workspace.id);
+  if (!owner?.email) {
+    logger.warn("Workspace owner has no email", { workspaceId: workspace.id });
+    return;
+  }
 
-    // Get user (workspace owner)
-    const userSnap = await adminDb
-      .collection('users')
-      .where('defaultWorkspaceId', '==', workspaceDoc.id)
-      .limit(1)
-      .get();
-
-    if (userSnap.empty) {
-      logger.warn('No user found for workspace', {
-        workspaceId: workspaceDoc.id,
-      });
-      return;
-    }
-
-    const userData = userSnap.docs[0].data();
-    const userEmail = userData.email;
-    const userName = userData.firstName || 'User';
-
-    if (!userEmail) {
-      logger.warn('User has no email address', {
-        userId: userSnap.docs[0].id,
-      });
-      return;
-    }
-
-    // Get payment method details (last4) - access payment_intent via type assertion
-    let paymentMethodLast4: string | undefined;
-    const invoicePaymentIntent = (invoice as unknown as { payment_intent?: Stripe.PaymentIntent | string | null }).payment_intent;
-    if (invoicePaymentIntent && typeof invoicePaymentIntent === 'object') {
-      const paymentIntent = invoicePaymentIntent as Stripe.PaymentIntent;
-      if (paymentIntent.payment_method && typeof paymentIntent.payment_method === 'object') {
-        const paymentMethod = paymentIntent.payment_method as Stripe.PaymentMethod;
-        if (paymentMethod.card) {
-          paymentMethodLast4 = paymentMethod.card.last4;
-        }
+  // Extract payment method last4 if expanded
+  let paymentMethodLast4: string | undefined;
+  const invoicePaymentIntent = (invoice as unknown as {
+    payment_intent?: Stripe.PaymentIntent | string | null;
+  }).payment_intent;
+  if (invoicePaymentIntent && typeof invoicePaymentIntent === "object") {
+    const pi = invoicePaymentIntent as Stripe.PaymentIntent;
+    if (pi.payment_method && typeof pi.payment_method === "object") {
+      const pm = pi.payment_method as Stripe.PaymentMethod;
+      if (pm.card) {
+        paymentMethodLast4 = pm.card.last4;
       }
     }
-
-    // Send payment failed email
-    const template = emailTemplates.paymentFailed({
-      name: userName,
-      planName: workspaceData.plan || 'unknown',
-      amount: invoice.amount_due,
-      paymentMethodLast4,
-      updatePaymentUrl: `${process.env.NEXTAUTH_URL}/dashboard/settings/billing`,
-      invoiceUrl: invoice.hosted_invoice_url || undefined,
-    });
-
-    await sendEmail({
-      to: userEmail,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
-
-    logger.info('Payment failed email sent', {
-      userId: userSnap.docs[0].id,
-      workspaceId: workspaceDoc.id,
-      email: userEmail,
-    });
-
-    // Update workspace status to past_due
-    await adminDb.collection('workspaces').doc(workspaceDoc.id).update({
-      status: 'past_due',
-      'billing.lastPaymentFailed': new Date(),
-      updatedAt: new Date(),
-    });
-
-    logger.info('Workspace status updated to past_due', {
-      workspaceId: workspaceDoc.id,
-    });
-  } catch (error: any) {
-    logger.error('Error handling payment failed', error);
-    throw error;
   }
+
+  const template = emailTemplates.paymentFailed({
+    name: owner.firstName || "User",
+    planName: workspace.plan || "unknown",
+    amount: invoice.amount_due,
+    paymentMethodLast4,
+    updatePaymentUrl: `${process.env.NEXTAUTH_URL}/dashboard/settings/billing`,
+    invoiceUrl: invoice.hosted_invoice_url || undefined,
+  });
+
+  await sendEmail({
+    to: owner.email,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+  });
+
+  logger.info("Payment failed email sent", {
+    userId: owner.id,
+    workspaceId: workspace.id,
+    email: owner.email,
+  });
+
+  await updateWorkspaceStatusAdmin(workspace.id, "past_due");
+  await updateWorkspaceBillingAdmin(workspace.id, {
+    lastPaymentFailedAt: new Date(),
+    subscriptionStatus: "past_due",
+  });
+
+  logger.info("Workspace status updated to past_due", { workspaceId: workspace.id });
 }
 
-/**
- * Handle customer.subscription.deleted event
- *
- * Sends email notification when subscription is canceled
- */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  logger.info('Handling subscription deleted', {
+  logger.info("Handling subscription deleted", {
     subscriptionId: subscription.id,
     customerId: subscription.customer,
   });
 
-  try {
-    // Get workspace from Stripe customer ID
-    const workspaceSnap = await adminDb
-      .collection('workspaces')
-      .where('billing.stripeCustomerId', '==', subscription.customer)
-      .limit(1)
-      .get();
-
-    if (workspaceSnap.empty) {
-      logger.warn('No workspace found for Stripe customer', {
-        customerId: subscription.customer,
-      });
-      return;
-    }
-
-    const workspaceDoc = workspaceSnap.docs[0];
-    const workspaceData = workspaceDoc.data();
-
-    // Get user (workspace owner)
-    const userSnap = await adminDb
-      .collection('users')
-      .where('defaultWorkspaceId', '==', workspaceDoc.id)
-      .limit(1)
-      .get();
-
-    if (userSnap.empty) {
-      logger.warn('No user found for workspace', {
-        workspaceId: workspaceDoc.id,
-      });
-      return;
-    }
-
-    const userData = userSnap.docs[0].data();
-    const userEmail = userData.email;
-    const userName = userData.firstName || 'User';
-
-    if (!userEmail) {
-      logger.warn('User has no email address', {
-        userId: userSnap.docs[0].id,
-      });
-      return;
-    }
-
-    // Send subscription canceled email
-    const template = emailTemplates.subscriptionCanceled({
-      name: userName,
-      planName: workspaceData.plan || 'unknown',
-      cancellationDate: new Date().toLocaleDateString('en-US', { dateStyle: 'long' }),
-      reactivateUrl: `${process.env.NEXTAUTH_URL}/dashboard/settings/billing`,
-    });
-
-    await sendEmail({
-      to: userEmail,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    });
-
-    logger.info('Subscription canceled email sent', {
-      userId: userSnap.docs[0].id,
-      workspaceId: workspaceDoc.id,
-      email: userEmail,
-    });
-
-    // Update workspace status to canceled
-    await adminDb.collection('workspaces').doc(workspaceDoc.id).update({
-      status: 'canceled',
-      'billing.canceledAt': new Date(),
-      updatedAt: new Date(),
-    });
-
-    logger.info('Workspace status updated to canceled', {
-      workspaceId: workspaceDoc.id,
-    });
-  } catch (error: any) {
-    logger.error('Error handling subscription deleted', error);
-    throw error;
+  const customerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer?.id;
+  if (!customerId) {
+    logger.warn("Subscription has no customer id");
+    return;
   }
+
+  const workspace = await getWorkspaceByStripeCustomerIdAdmin(customerId);
+  if (!workspace) {
+    logger.warn("No workspace found for Stripe customer", { customerId });
+    return;
+  }
+
+  const owner = await getWorkspaceOwnerUser(workspace.id);
+  if (!owner?.email) {
+    logger.warn("Workspace owner has no email", { workspaceId: workspace.id });
+    return;
+  }
+
+  const template = emailTemplates.subscriptionCanceled({
+    name: owner.firstName || "User",
+    planName: workspace.plan || "unknown",
+    cancellationDate: new Date().toLocaleDateString("en-US", { dateStyle: "long" }),
+    reactivateUrl: `${process.env.NEXTAUTH_URL}/dashboard/settings/billing`,
+  });
+
+  await sendEmail({
+    to: owner.email,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+  });
+
+  logger.info("Subscription canceled email sent", {
+    userId: owner.id,
+    workspaceId: workspace.id,
+    email: owner.email,
+  });
+
+  await updateWorkspaceStatusAdmin(workspace.id, "canceled");
+  await updateWorkspaceBillingAdmin(workspace.id, {
+    canceledAt: new Date(),
+    subscriptionStatus: "canceled",
+  });
+
+  logger.info("Workspace status updated to canceled", { workspaceId: workspace.id });
 }
 
-/**
- * Handle customer.subscription.updated event
- *
- * Updates workspace status and sends emails if needed
- */
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  logger.info('Handling subscription updated', {
+  logger.info("Handling subscription updated", {
     subscriptionId: subscription.id,
     customerId: subscription.customer,
     status: subscription.status,
   });
 
-  try {
-    // Get workspace from Stripe customer ID
-    const workspaceSnap = await adminDb
-      .collection('workspaces')
-      .where('billing.stripeCustomerId', '==', subscription.customer)
-      .limit(1)
-      .get();
+  const customerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer?.id;
+  if (!customerId) {
+    logger.warn("Subscription has no customer id");
+    return;
+  }
 
-    if (workspaceSnap.empty) {
-      logger.warn('No workspace found for Stripe customer', {
-        customerId: subscription.customer,
+  const workspace = await getWorkspaceByStripeCustomerIdAdmin(customerId);
+  if (!workspace) {
+    logger.warn("No workspace found for Stripe customer", { customerId });
+    return;
+  }
+
+  const previousStatus = workspace.status;
+  let newStatus: "active" | "trial" | "past_due" | "canceled" = previousStatus as
+    | "active"
+    | "trial"
+    | "past_due"
+    | "canceled";
+
+  switch (subscription.status) {
+    case "active":
+      newStatus = "active";
+      break;
+    case "trialing":
+      newStatus = "trial";
+      break;
+    case "past_due":
+      newStatus = "past_due";
+      break;
+    case "canceled":
+    case "unpaid":
+      newStatus = "canceled";
+      break;
+  }
+
+  await updateWorkspaceStatusAdmin(workspace.id, newStatus);
+  await updateWorkspaceBillingAdmin(workspace.id, {
+    subscriptionStatus: subscription.status,
+  });
+
+  logger.info("Workspace status updated", {
+    workspaceId: workspace.id,
+    previousStatus,
+    newStatus,
+  });
+
+  if (newStatus === "canceled" && previousStatus !== "canceled") {
+    const owner = await getWorkspaceOwnerUser(workspace.id);
+    if (owner?.email) {
+      const template = emailTemplates.subscriptionCanceled({
+        name: owner.firstName || "User",
+        planName: workspace.plan || "unknown",
+        cancellationDate: new Date().toLocaleDateString("en-US", { dateStyle: "long" }),
+        reactivateUrl: `${process.env.NEXTAUTH_URL}/dashboard/settings/billing`,
       });
-      return;
+
+      await sendEmail({
+        to: owner.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      logger.info("Subscription canceled email sent (via subscription updated)", {
+        userId: owner.id,
+        workspaceId: workspace.id,
+        email: owner.email,
+      });
     }
-
-    const workspaceDoc = workspaceSnap.docs[0];
-    const workspaceData = workspaceDoc.data();
-    const previousStatus = workspaceData.status;
-
-    // Map Stripe subscription status to workspace status
-    let newStatus: string;
-    switch (subscription.status) {
-      case 'active':
-        newStatus = 'active';
-        break;
-      case 'trialing':
-        newStatus = 'trial';
-        break;
-      case 'past_due':
-        newStatus = 'past_due';
-        break;
-      case 'canceled':
-      case 'unpaid':
-        newStatus = 'canceled';
-        break;
-      default:
-        newStatus = previousStatus; // Keep current status
-    }
-
-    // Update workspace status
-    await adminDb.collection('workspaces').doc(workspaceDoc.id).update({
-      status: newStatus,
-      'billing.subscriptionStatus': subscription.status,
-      updatedAt: new Date(),
-    });
-
-    logger.info('Workspace status updated', {
-      workspaceId: workspaceDoc.id,
-      previousStatus,
-      newStatus,
-    });
-
-    // Send email if status changed to canceled (via portal or Stripe)
-    if (newStatus === 'canceled' && previousStatus !== 'canceled') {
-      const userSnap = await adminDb
-        .collection('users')
-        .where('defaultWorkspaceId', '==', workspaceDoc.id)
-        .limit(1)
-        .get();
-
-      if (!userSnap.empty) {
-        const userData = userSnap.docs[0].data();
-        const userEmail = userData.email;
-        const userName = userData.firstName || 'User';
-
-        if (userEmail) {
-          const template = emailTemplates.subscriptionCanceled({
-            name: userName,
-            planName: workspaceData.plan || 'unknown',
-            cancellationDate: new Date().toLocaleDateString('en-US', { dateStyle: 'long' }),
-            reactivateUrl: `${process.env.NEXTAUTH_URL}/dashboard/settings/billing`,
-          });
-
-          await sendEmail({
-            to: userEmail,
-            subject: template.subject,
-            html: template.html,
-            text: template.text,
-          });
-
-          logger.info('Subscription canceled email sent (via subscription updated)', {
-            userId: userSnap.docs[0].id,
-            workspaceId: workspaceDoc.id,
-            email: userEmail,
-          });
-        }
-      }
-    }
-  } catch (error: any) {
-    logger.error('Error handling subscription updated', error);
-    throw error;
   }
 }

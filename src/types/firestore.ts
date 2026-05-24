@@ -703,8 +703,13 @@ export interface Workspace extends Omit<WorkspaceDocument, 'createdAt' | 'update
     stripeCustomerId: string | null;
     stripeSubscriptionId: string | null;
     currentPeriodEnd: Date | null;
+    // Phase 4.5 — additional Stripe fields hydrated from workspace table
+    subscriptionStatus?: string | null;
+    lastPaymentFailedAt?: Date | null;
+    canceledAt?: Date | null;
   };
   members: Array<Omit<WorkspaceMember, 'addedAt'> & { addedAt: Date }>;  // Convert Timestamp to Date
+  trialEndsAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;

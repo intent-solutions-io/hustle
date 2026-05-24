@@ -1,16 +1,13 @@
 /**
  * Workspace Plan Change Audit & Enforcement
  *
- * Phase 7 Task 9: Unified Plan Enforcement Engine
+ * Unified enforcement engine for plan/status changes driven by Stripe.
+ * Phase 4.5 migration: workspace lookup + update moved off Firestore onto
+ * Drizzle/SQLite. Public function signature + return shape unchanged so the
+ * Stripe webhook, replay route, and auditor keep working.
  *
- * Enforces plan changes consistently across Stripe webhooks, workspace documents,
- * ledger, billing auditor, and replay mechanisms.
- *
- * Ensures workspace state always converges to correct plan/status even if:
- * - Stripe webhook delivery is delayed
- * - Webhooks arrive out of order
- * - Webhooks are duplicated
- * - Drift is detected by auditor
+ * Ensures workspace state always converges to the correct plan/status
+ * regardless of webhook delivery order or duplication.
  *
  * Usage:
  * ```typescript
@@ -25,39 +22,28 @@
  * ```
  */
 
-import { adminDb } from '@/lib/firebase/admin';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import type { Workspace, WorkspacePlan, WorkspaceStatus } from '@/types/firestore';
+import {
+  getWorkspaceByIdAdmin,
+  updateWorkspacePlanAdmin,
+  updateWorkspaceStatusAdmin,
+} from "@/lib/db/queries/workspaces";
+import type {
+  WorkspacePlan,
+  WorkspaceStatus,
+} from "@/types/firestore";
 import {
   getPlanForPriceId,
   mapStripeStatusToWorkspaceStatus,
-} from '@/lib/stripe/plan-mapping';
-import { recordBillingEvent, LedgerEventSource } from '@/lib/stripe/ledger';
-
-/** Safely convert Firestore Timestamp to Date with warning on missing data */
-function safeTimestampToDate(
-  value: unknown,
-  fieldName: string,
-  docId: string
-): Date {
-  if (value instanceof Timestamp) {
-    return value.toDate();
-  }
-  if (value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate();
-  }
-  console.warn(
-    `[plan-enforcement] Missing or invalid ${fieldName} for workspace ${docId}, using current time`
-  );
-  return new Date();
-}
+} from "@/lib/stripe/plan-mapping";
+import { recordBillingEvent } from "@/lib/stripe/ledger";
+import type { LedgerEventSource } from "@/lib/db/queries/stripe-billing";
 
 /**
  * Enforcement input parameters
  */
 export interface EnforcePlanInput {
   stripePriceId: string;
-  stripeStatus: string; // Stripe subscription status
+  stripeStatus: string; // Stripe subscription status (raw string)
   source: LedgerEventSource;
   stripeEventId: string | null;
 }
@@ -76,21 +62,20 @@ export interface EnforcePlanResult {
   ledgerEventId: string;
 }
 
+const VALID_SOURCES: LedgerEventSource[] = [
+  "webhook",
+  "replay",
+  "auditor",
+  "manual",
+  "enforcement",
+];
+
 /**
- * Enforce workspace plan and status based on Stripe data
+ * Enforce workspace plan and status based on Stripe data.
  *
- * This is the unified, authoritative mechanism for plan changes.
  * Always converges to correct state regardless of webhook order.
- *
- * Responsibilities:
- * 1. Compare workspace.plan with Stripe plan (from price ID)
- * 2. Compare workspace.status with Stripe status
- * 3. If mismatch: update workspace + record delta in ledger
- * 4. If no mismatch: record noop in ledger
- *
- * IMPORTANT: This function NEVER modifies Stripe data.
- * Workspace is source of truth for runtime behavior.
- * Stripe subscription is source of truth for billing.
+ * NEVER modifies Stripe data — workspace row is source of truth for runtime
+ * behavior; Stripe subscription is source of truth for billing.
  *
  * @param workspaceId - Workspace ID to enforce
  * @param input - Enforcement parameters
@@ -102,67 +87,42 @@ export async function enforceWorkspacePlan(
   input: EnforcePlanInput
 ): Promise<EnforcePlanResult> {
   // 1. Validate inputs
-  if (!workspaceId || typeof workspaceId !== 'string') {
-    throw new Error('Invalid workspaceId: must be non-empty string');
+  if (!workspaceId || typeof workspaceId !== "string") {
+    throw new Error("Invalid workspaceId: must be non-empty string");
   }
-
-  if (!input.stripePriceId || typeof input.stripePriceId !== 'string') {
-    throw new Error('Invalid stripePriceId: must be non-empty string');
+  if (!input.stripePriceId || typeof input.stripePriceId !== "string") {
+    throw new Error("Invalid stripePriceId: must be non-empty string");
   }
-
-  if (!input.stripeStatus || typeof input.stripeStatus !== 'string') {
-    throw new Error('Invalid stripeStatus: must be non-empty string');
+  if (!input.stripeStatus || typeof input.stripeStatus !== "string") {
+    throw new Error("Invalid stripeStatus: must be non-empty string");
   }
-
-  if (!input.source || typeof input.source !== 'string') {
-    throw new Error('Invalid source: must be one of webhook, replay, auditor, manual, enforcement');
-  }
-
-  const validSources: LedgerEventSource[] = ['webhook', 'replay', 'auditor', 'manual', 'enforcement'];
-  if (!validSources.includes(input.source)) {
+  if (!input.source || !VALID_SOURCES.includes(input.source)) {
     throw new Error(
-      `Invalid source: ${input.source}. Must be one of: ${validSources.join(', ')}`
+      `Invalid source: ${input.source}. Must be one of: ${VALID_SOURCES.join(", ")}`
     );
   }
 
-  // 2. Fetch workspace from Firestore
-  const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
-
-  if (!workspaceDoc.exists) {
+  // 2. Fetch workspace
+  const workspace = await getWorkspaceByIdAdmin(workspaceId);
+  if (!workspace) {
     throw new Error(`Workspace not found: ${workspaceId}`);
   }
 
-  const workspaceData = workspaceDoc.data();
-  const workspace = {
-    id: workspaceDoc.id,
-    ...workspaceData,
-    createdAt: safeTimestampToDate(workspaceData?.createdAt, 'createdAt', workspaceId),
-    updatedAt: safeTimestampToDate(workspaceData?.updatedAt, 'updatedAt', workspaceId),
-    deletedAt: workspaceData?.deletedAt?.toDate() || null,
-    billing: {
-      stripeCustomerId: workspaceData?.billing?.stripeCustomerId || null,
-      stripeSubscriptionId: workspaceData?.billing?.stripeSubscriptionId || null,
-      currentPeriodEnd: workspaceData?.billing?.currentPeriodEnd?.toDate() || null,
-    },
-    members: (workspaceData?.members || []).map((member: { addedAt?: unknown; [key: string]: unknown }) => ({
-      ...member,
-      addedAt: safeTimestampToDate(member.addedAt, 'member.addedAt', workspaceId),
-    })),
-  } as unknown as Workspace;
-
-  // 3. Map Stripe data to workspace types
+  // 3. Map Stripe → workspace types
   let targetPlan: WorkspacePlan;
   try {
     targetPlan = getPlanForPriceId(input.stripePriceId);
-  } catch (error: any) {
-    throw new Error(`Failed to map Stripe price ID to plan: ${error.message}`);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to map Stripe price ID to plan: ${msg}`);
   }
 
   let targetStatus: WorkspaceStatus;
   try {
-    targetStatus = mapStripeStatusToWorkspaceStatus(input.stripeStatus as any);
-  } catch (error: any) {
-    throw new Error(`Failed to map Stripe status to workspace status: ${error.message}`);
+    targetStatus = mapStripeStatusToWorkspaceStatus(input.stripeStatus as never);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to map Stripe status to workspace status: ${msg}`);
   }
 
   // 4. Detect deltas
@@ -171,7 +131,7 @@ export async function enforceWorkspacePlan(
   const planChanged = planBefore !== targetPlan;
   const statusChanged = statusBefore !== targetStatus;
 
-  console.log('[Plan Enforcement]', {
+  console.log("[Plan Enforcement]", {
     workspaceId,
     source: input.source,
     planBefore,
@@ -182,41 +142,32 @@ export async function enforceWorkspacePlan(
     statusChanged,
   });
 
-  // 5. Update workspace if mismatch detected
+  // 5. Apply updates if anything changed
   if (planChanged || statusChanged) {
-    // Update Firestore workspace document
-    // Note: Using Record type as FieldValue.serverTimestamp() is a sentinel, not a Date
-    const updates: Record<string, WorkspacePlan | WorkspaceStatus | ReturnType<typeof FieldValue.serverTimestamp>> = {
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-
-    if (planChanged) {
-      updates.plan = targetPlan;
-    }
-
-    if (statusChanged) {
-      updates.status = targetStatus;
-    }
-
     try {
-      await adminDb.collection('workspaces').doc(workspaceId).update(updates);
-    } catch (error: any) {
-      throw new Error(`Failed to update workspace: ${error.message}`);
+      if (planChanged) {
+        await updateWorkspacePlanAdmin(workspaceId, targetPlan);
+      }
+      if (statusChanged) {
+        await updateWorkspaceStatusAdmin(workspaceId, targetStatus);
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to update workspace: ${msg}`);
     }
 
-    // Record delta in ledger
     const ledgerEventId = await recordBillingEvent(workspaceId, {
-      type: 'plan_changed', // Use existing ledger event type
+      type: "plan_changed",
       stripeEventId: input.stripeEventId,
       statusBefore,
       statusAfter: statusChanged ? targetStatus : statusBefore,
       planBefore,
       planAfter: planChanged ? targetPlan : planBefore,
       source: input.source,
-      note: `Plan enforcement: ${planChanged ? `${planBefore}→${targetPlan}` : 'plan unchanged'}, ${statusChanged ? `${statusBefore}→${targetStatus}` : 'status unchanged'}`,
+      note: `Plan enforcement: ${planChanged ? `${planBefore}→${targetPlan}` : "plan unchanged"}, ${statusChanged ? `${statusBefore}→${targetStatus}` : "status unchanged"}`,
     });
 
-    console.log('[Plan Enforcement] Applied changes:', {
+    console.log("[Plan Enforcement] Applied changes:", {
       workspaceId,
       planBefore,
       planAfter: targetPlan,
@@ -235,48 +186,42 @@ export async function enforceWorkspacePlan(
       statusAfter: targetStatus,
       ledgerEventId,
     };
-  } else {
-    // No changes needed - record noop in ledger
-    const ledgerEventId = await recordBillingEvent(workspaceId, {
-      type: 'plan_changed', // Same type, but note indicates noop
-      stripeEventId: input.stripeEventId,
-      statusBefore,
-      statusAfter: statusBefore,
-      planBefore,
-      planAfter: planBefore,
-      source: input.source,
-      note: 'Plan enforcement: no changes (workspace already in sync with Stripe)',
-    });
-
-    console.log('[Plan Enforcement] No changes needed:', {
-      workspaceId,
-      plan: planBefore,
-      status: statusBefore,
-      ledgerEventId,
-    });
-
-    return {
-      workspaceId,
-      planChanged: false,
-      statusChanged: false,
-      planBefore,
-      planAfter: planBefore,
-      statusBefore,
-      statusAfter: statusBefore,
-      ledgerEventId,
-    };
   }
+
+  // 6. No-op: record idempotent ledger entry
+  const ledgerEventId = await recordBillingEvent(workspaceId, {
+    type: "plan_changed",
+    stripeEventId: input.stripeEventId,
+    statusBefore,
+    statusAfter: statusBefore,
+    planBefore,
+    planAfter: planBefore,
+    source: input.source,
+    note: "Plan enforcement: no changes (workspace already in sync with Stripe)",
+  });
+
+  console.log("[Plan Enforcement] No changes needed:", {
+    workspaceId,
+    plan: planBefore,
+    status: statusBefore,
+    ledgerEventId,
+  });
+
+  return {
+    workspaceId,
+    planChanged: false,
+    statusChanged: false,
+    planBefore,
+    planAfter: planBefore,
+    statusBefore,
+    statusAfter: statusBefore,
+    ledgerEventId,
+  };
 }
 
 /**
- * Validate enforcement source
- *
- * Helper function to ensure source is valid before calling enforceWorkspacePlan()
- *
- * @param source - Event source to validate
- * @returns true if valid
+ * Validate enforcement source.
  */
 export function isValidEnforcementSource(source: string): source is LedgerEventSource {
-  const validSources: LedgerEventSource[] = ['webhook', 'replay', 'auditor', 'manual', 'enforcement'];
-  return validSources.includes(source as LedgerEventSource);
+  return VALID_SOURCES.includes(source as LedgerEventSource);
 }

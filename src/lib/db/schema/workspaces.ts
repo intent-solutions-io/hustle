@@ -23,6 +23,11 @@ export const workspaces = sqliteTable("workspace", {
   billingStripeCustomerId: text("billingStripeCustomerId"),
   billingStripeSubscriptionId: text("billingStripeSubscriptionId"),
   billingCurrentPeriodEnd: integer("billingCurrentPeriodEnd", { mode: "timestamp_ms" }),
+  // Phase 4.5 — additional Stripe billing fields used by webhook + guards
+  billingSubscriptionStatus: text("billingSubscriptionStatus"),
+  billingLastPaymentFailedAt: integer("billingLastPaymentFailedAt", { mode: "timestamp_ms" }),
+  billingCanceledAt: integer("billingCanceledAt", { mode: "timestamp_ms" }),
+  trialEndsAt: integer("trialEndsAt", { mode: "timestamp_ms" }),
 
   // Usage (flattened from WorkspaceDocument.usage; denormalized for limit checks)
   usagePlayerCount: integer("usagePlayerCount").notNull().default(0),
