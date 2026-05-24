@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import bcrypt from 'bcrypt';
-import { updateUserProfileAdmin } from '@/lib/firebase/admin-services/users';
+import { updateUserProfileAdmin } from '@/lib/db/queries/users';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/account/pin');

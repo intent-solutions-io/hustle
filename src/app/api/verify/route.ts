@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import bcrypt from 'bcrypt'
-import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users'
-import { getGameAdmin, verifyGameAdmin } from '@/lib/firebase/admin-services/games'
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players'
+import { getUserProfileAdmin } from '@/lib/db/queries/users'
+import { getGameAdmin, verifyGameAdmin } from '@/lib/db/queries/games'
+import { getPlayerAdmin } from '@/lib/db/queries/players'
 import { createLogger } from '@/lib/logger'
 
 const logger = createLogger('api/verify')

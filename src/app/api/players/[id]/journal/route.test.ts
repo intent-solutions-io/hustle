@@ -23,11 +23,11 @@ vi.mock('@/lib/auth', () => ({
   auth: mocks.auth,
 }));
 
-vi.mock('@/lib/firebase/admin-services/players', () => ({
+vi.mock('@/lib/db/queries/players', () => ({
   getPlayerAdmin: mocks.getPlayerAdmin,
 }));
 
-vi.mock('@/lib/firebase/admin-services/journal', () => ({
+vi.mock('@/lib/db/queries/journal', () => ({
   createJournalEntryAdmin: mocks.createJournalEntryAdmin,
   getJournalEntriesAdmin: mocks.getJournalEntriesAdmin,
 }));

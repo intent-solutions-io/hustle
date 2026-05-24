@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
-import { deleteMealLogAdmin } from '@/lib/firebase/admin-services/meal-logs';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
+import { deleteMealLogAdmin } from '@/lib/db/queries/meal-logs';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/players/[id]/meal-logs/[logId]');

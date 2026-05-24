@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isOnWaitlistAdmin, addToWaitlistAdmin } from '@/lib/firebase/admin-services/waitlist';
+import { isOnWaitlistAdmin, addToWaitlistAdmin } from '@/lib/db/queries/waitlist';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/waitlist');

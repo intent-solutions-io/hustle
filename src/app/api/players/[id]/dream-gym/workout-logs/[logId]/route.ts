@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   getWorkoutLogAdmin,
   updateWorkoutLogAdmin,
   deleteWorkoutLogAdmin,
-} from '@/lib/firebase/admin-services/workout-logs';
+} from '@/lib/db/queries/workout-logs';
 import { workoutLogUpdateSchema } from '@/lib/validations/workout-log-schema';
 
 const logger = createLogger('api/players/[id]/dream-gym/workout-logs/[logId]');

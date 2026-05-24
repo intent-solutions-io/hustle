@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
 import { practiceLogCreateSchema, practiceLogQuerySchema } from '@/lib/validations/practice-log-schema';
-import { createPracticeLogAdmin, getPracticeLogsAdmin } from '@/lib/firebase/admin-services/practice-logs';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { createPracticeLogAdmin, getPracticeLogsAdmin } from '@/lib/db/queries/practice-logs';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 
 const logger = createLogger('api/practice-logs');
 

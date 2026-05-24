@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   createPracticeLogAdmin,
   getPracticeLogsAdmin,
-} from '@/lib/firebase/admin-services/practice-logs';
+} from '@/lib/db/queries/practice-logs';
 import { practiceLogCreateSchema, practiceLogQuerySchema } from '@/lib/validations/practice-log-schema';
 import type { PracticeType, PracticeFocusArea } from '@/types/firestore';
 import { createLogger } from '@/lib/logger';

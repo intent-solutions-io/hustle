@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
-import { getAllGamesAdmin } from '@/lib/firebase/admin-services/games';
-import { getWorkoutLogsAdmin } from '@/lib/firebase/admin-services/workout-logs';
-import { getPracticeLogsAdmin } from '@/lib/firebase/admin-services/practice-logs';
-import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
+import { getAllGamesAdmin } from '@/lib/db/queries/games';
+import { getWorkoutLogsAdmin } from '@/lib/db/queries/workout-logs';
+import { getPracticeLogsAdmin } from '@/lib/db/queries/practice-logs';
+import { getPlayersAdmin } from '@/lib/db/queries/players';
 import { format } from 'date-fns';
 
 const logger = createLogger('api/analytics');

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
-import { getDreamGymAdmin } from '@/lib/firebase/admin-services/dream-gym';
-import { getWorkoutLogsAdmin } from '@/lib/firebase/admin-services/workout-logs';
-import { getBiometricsTrendsAdmin } from '@/lib/firebase/admin-services/biometrics';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
+import { getDreamGymAdmin } from '@/lib/db/queries/dream-gym';
+import { getWorkoutLogsAdmin } from '@/lib/db/queries/workout-logs';
+import { getBiometricsTrendsAdmin } from '@/lib/db/queries/biometrics';
 import type { Player, DreamGym, WorkoutLog } from '@/types/firestore';
-import type { BiometricsTrends } from '@/lib/firebase/admin-services/biometrics';
+import type { BiometricsTrends } from '@/lib/db/queries/biometrics';
 import {
   generateWorkoutStrategy,
   analyzeRecoveryStatus,

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   createJournalEntryAdmin,
   getJournalEntriesAdmin,
-} from '@/lib/firebase/admin-services/journal';
+} from '@/lib/db/queries/journal';
 import { journalEntryCreateSchema, journalEntryQuerySchema } from '@/lib/validations/journal-schema';
 import type { JournalContext, JournalMoodTag } from '@/types/firestore';
 import { createLogger } from '@/lib/logger';

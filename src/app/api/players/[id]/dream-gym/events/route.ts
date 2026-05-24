@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
-import { addDreamGymEventAdmin } from '@/lib/firebase/admin-services/dream-gym';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
+import { addDreamGymEventAdmin } from '@/lib/db/queries/dream-gym';
 
 const logger = createLogger('api/players/[id]/dream-gym/events');
 

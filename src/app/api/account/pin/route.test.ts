@@ -37,7 +37,7 @@ vi.mock('bcrypt', () => ({
   },
 }));
 
-vi.mock('@/lib/firebase/admin-services/users', () => ({
+vi.mock('@/lib/db/queries/users', () => ({
   updateUserProfileAdmin: mocks.updateUserProfileAdmin,
 }));
 

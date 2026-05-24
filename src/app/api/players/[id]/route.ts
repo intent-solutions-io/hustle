@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
-import { getPlayerAdmin, updatePlayerAdmin, deletePlayerAdmin } from '@/lib/firebase/admin-services/players';
-import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
-import { getWorkspaceByIdAdmin } from '@/lib/firebase/admin-services/workspaces';
+import { getPlayerAdmin, updatePlayerAdmin, deletePlayerAdmin } from '@/lib/db/queries/players';
+import { getUserProfileAdmin } from '@/lib/db/queries/users';
+import { getWorkspaceByIdAdmin } from '@/lib/db/queries/workspaces';
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce';
 import { WorkspaceAccessError } from '@/lib/firebase/access-control';
 import { playerSchema } from '@/lib/validations/player';
