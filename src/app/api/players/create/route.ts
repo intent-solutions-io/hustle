@@ -8,10 +8,8 @@ import {
   incrementWorkspacePlayerCountAdmin,
 } from '@/lib/db/queries/workspaces';
 import { getPlanLimits } from '@/lib/stripe/plan-mapping';
-import { WorkspaceAccessError } from '@/lib/firebase/access-control';
+import { WorkspaceAccessError } from '@/lib/workspaces/errors';
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce';
-import { ensureUserProvisioned } from '@/lib/firebase/server-provisioning';
-import { adminAuth } from '@/lib/firebase/admin';
 
 const logger = createLogger('api/players/create');
 
@@ -75,29 +73,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Phase 5 Task 4: Get user's workspace and check plan limits
-    let user = await getUserProfileAdmin(session.user.id);
-
-    // If user has no workspace, try to provision one (fallback for provisioning failures during login)
-    if (!user?.defaultWorkspaceId) {
-      logger.warn(`User has no workspace, attempting fallback provisioning: ${session.user.id}`);
-      try {
-        // Get the decoded token claims from the current session
-        const sessionCookie = request.cookies.get('__session')?.value || '';
-        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie);
-        const provisionResult = await ensureUserProvisioned(decodedToken);
-        logger.info(`Fallback provisioning succeeded: userId=${provisionResult.userId}, workspaceId=${provisionResult.workspaceId}`);
-
-        // Re-fetch user profile with new workspace
-        user = await getUserProfileAdmin(session.user.id);
-      } catch (provisionError: any) {
-        logger.error(`Fallback provisioning failed: ${provisionError?.message || provisionError}`);
-      }
-    }
+    // Phase 5 Task 4: Get user's workspace and check plan limits.
+    // (Phase 4.5: Firebase-backed fallback provisioning removed — user
+    // provisioning now happens in the NextAuth register flow.)
+    const user = await getUserProfileAdmin(session.user.id);
 
     if (!user?.defaultWorkspaceId) {
-      logger.error(`User has no default workspace after provisioning: ${session.user.id}`);
-
+      logger.error(`User has no default workspace: ${session.user.id}`);
       return NextResponse.json(
         { error: 'WORKSPACE_NOT_FOUND', message: 'No workspace found. Please try logging out and back in, or contact support.' },
         { status: 500 }

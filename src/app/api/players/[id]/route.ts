@@ -5,7 +5,7 @@ import { getPlayerAdmin, updatePlayerAdmin, deletePlayerAdmin } from '@/lib/db/q
 import { getUserProfileAdmin } from '@/lib/db/queries/users';
 import { getWorkspaceByIdAdmin } from '@/lib/db/queries/workspaces';
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce';
-import { WorkspaceAccessError } from '@/lib/firebase/access-control';
+import { WorkspaceAccessError } from '@/lib/workspaces/errors';
 import { playerSchema } from '@/lib/validations/player';
 
 const logger = createLogger('api/players/[id]');
