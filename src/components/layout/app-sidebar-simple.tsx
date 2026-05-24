@@ -16,8 +16,7 @@ import {
 import { Home, Users, Calendar, BarChart3, Settings, LogOut, Dumbbell, PanelLeftClose } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { signOut as firebaseSignOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+import { signOut as nextAuthSignOut } from 'next-auth/react';
 
 const navItems = [
   {
@@ -72,13 +71,8 @@ export default function AppSidebarSimple() {
         setOpenMobile(false);
       }
 
-      // Clear Firebase client-side auth
-      await firebaseSignOut(auth);
-
-      // Clear server-side session cookie
-      await fetch('/api/auth/logout', { method: 'POST' });
-
-      // Redirect to home
+      // Clear NextAuth session (handles the server-side cookie too).
+      await nextAuthSignOut({ redirect: false });
       router.push('/');
       router.refresh();
     } catch (error) {

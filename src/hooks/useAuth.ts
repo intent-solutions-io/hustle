@@ -1,47 +1,63 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+/**
+ * Client-side auth hook.
+ *
+ * Phase 4.5 migration: previously subscribed to Firebase Auth's
+ * onAuthStateChanged. Now reads the NextAuth session via useSession() and
+ * shapes the result to match the legacy contract consumed by the header
+ * (displayName, photoURL, email).
+ *
+ * The 'user-photo-updated' window event is honored — it triggers a
+ * NextAuth session refresh so the header re-renders with the new photo.
+ */
+
+import { useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+
+export interface AuthUserView {
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+  uid: string;
+}
 
 interface AuthState {
-  user: User | null;
+  user: AuthUserView | null;
   loading: boolean;
   error: Error | null;
 }
 
 export function useAuth(): AuthState {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    loading: true,
-    error: null,
-  });
+  const { data: session, status, update } = useSession();
+  const loading = status === 'loading';
 
+  // Refresh session on photo-update events so the header avatar updates
+  // without a full reload.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (user) => {
-        setState({ user, loading: false, error: null });
-      },
-      (error) => {
-        setState({ user: null, loading: false, error });
-      }
-    );
-
-    // Listen for profile photo updates (custom event from UserProfilePhotoUpload)
-    const handlePhotoUpdate = () => {
-      const user = auth.currentUser;
-      if (user) {
-        setState((prev) => ({ ...prev, user: { ...user } }));
-      }
+    const onUpdate = () => {
+      void update();
     };
-    window.addEventListener('user-photo-updated', handlePhotoUpdate);
+    window.addEventListener('user-photo-updated', onUpdate);
+    return () => window.removeEventListener('user-photo-updated', onUpdate);
+  }, [update]);
 
-    return () => {
-      unsubscribe();
-      window.removeEventListener('user-photo-updated', handlePhotoUpdate);
-    };
-  }, []);
+  const sessionUser = session?.user;
+  if (!sessionUser) {
+    return { user: null, loading, error: null };
+  }
 
-  return state;
+  const displayName =
+    sessionUser.name ?? sessionUser.email?.split('@')[0] ?? null;
+
+  return {
+    user: {
+      uid: (sessionUser as { id?: string }).id ?? sessionUser.email ?? '',
+      displayName,
+      email: sessionUser.email ?? null,
+      photoURL: sessionUser.image ?? null,
+    },
+    loading,
+    error: null,
+  };
 }
