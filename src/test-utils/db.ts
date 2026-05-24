@@ -30,6 +30,7 @@ import * as journalSchema from "@/lib/db/schema/journal";
 import * as mealLogsSchema from "@/lib/db/schema/meal-logs";
 import * as dreamGymSchema from "@/lib/db/schema/dream-gym";
 import * as scheduleEventsSchema from "@/lib/db/schema/schedule-events";
+import * as billingSchema from "@/lib/db/schema/billing";
 
 const schema = {
   ...authSchema,
@@ -47,6 +48,7 @@ const schema = {
   ...mealLogsSchema,
   ...dreamGymSchema,
   ...scheduleEventsSchema,
+  ...billingSchema,
 };
 
 export type TestDB = ReturnType<typeof drizzle<typeof schema>>;

@@ -8,7 +8,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripeClient } from '@/lib/stripe/client';
 import { auth } from '@/lib/auth';
-import { getWorkspaceById, updateWorkspaceBilling } from '@/lib/firebase/services/workspaces';
+import {
+  getWorkspaceByIdAdmin,
+  updateWorkspaceBillingAdmin,
+} from '@/lib/db/queries/workspaces';
 import { z } from 'zod';
 import { createLogger } from '@/lib/logger';
 
@@ -55,7 +58,7 @@ export async function POST(request: NextRequest) {
     const { workspaceId, priceId } = validation.data;
 
     // 3. Verify workspace ownership
-    const workspace = await getWorkspaceById(workspaceId);
+    const workspace = await getWorkspaceByIdAdmin(workspaceId);
 
     if (!workspace) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
       customerId = customer.id;
 
       // Save customer ID immediately
-      await updateWorkspaceBilling(workspaceId, {
+      await updateWorkspaceBillingAdmin(workspaceId, {
         stripeCustomerId: customerId,
       });
     }

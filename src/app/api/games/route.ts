@@ -9,7 +9,7 @@ import { getAllGamesForPlayerAdmin, createGameAdmin, getUnverifiedGamesAdmin } f
 import { getUserProfileAdmin } from '@/lib/db/queries/users'
 import { getWorkspaceByIdAdmin, incrementWorkspaceGamesThisMonthAdmin } from '@/lib/db/queries/workspaces'
 import { getPlanLimits } from '@/lib/stripe/plan-mapping'
-import { WorkspaceAccessError } from '@/lib/firebase/access-control'
+import { WorkspaceAccessError } from '@/lib/workspaces/errors'
 import { assertWorkspaceActive } from '@/lib/workspaces/enforce'
 
 const logger = createLogger('api/games');

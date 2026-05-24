@@ -44,8 +44,8 @@ vi.mock('@/lib/workspaces/enforce', () => ({
   assertWorkspaceActive: mocks.assertWorkspaceActive,
 }));
 
-vi.mock('@/lib/firebase/access-control', async () => {
-  const { WorkspaceAccessError } = await import('@/lib/firebase/access-control');
+vi.mock('@/lib/workspaces/errors', async () => {
+  const { WorkspaceAccessError } = await import('@/lib/workspaces/errors');
   return { WorkspaceAccessError };
 });
 
@@ -200,7 +200,7 @@ describe('PUT /api/players/[id]', () => {
   });
 
   it('returns 403 when workspace is inactive', async () => {
-    const { WorkspaceAccessError } = await import('@/lib/firebase/access-control');
+    const { WorkspaceAccessError } = await import('@/lib/workspaces/errors');
     mocks.auth.mockResolvedValue(createMockSession());
     mocks.getUserProfileAdmin.mockResolvedValue({ defaultWorkspaceId: 'ws-123' });
     mocks.getWorkspaceByIdAdmin.mockResolvedValue(createMockWorkspace({ status: 'canceled' }));
@@ -317,7 +317,7 @@ describe('DELETE /api/players/[id]', () => {
   });
 
   it('returns 403 when workspace is inactive', async () => {
-    const { WorkspaceAccessError } = await import('@/lib/firebase/access-control');
+    const { WorkspaceAccessError } = await import('@/lib/workspaces/errors');
     mocks.auth.mockResolvedValue(createMockSession());
     mocks.getUserProfileAdmin.mockResolvedValue({ defaultWorkspaceId: 'ws-123' });
     mocks.getWorkspaceByIdAdmin.mockResolvedValue(createMockWorkspace({ status: 'suspended' }));

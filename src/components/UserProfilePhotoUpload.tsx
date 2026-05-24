@@ -5,7 +5,6 @@ import { Camera, Trash2, Loader2 } from 'lucide-react';
 import { useUserPhotoUpload } from '@/hooks/useUserPhotoUpload';
 import { getInitials, getAvatarColor } from '@/lib/player-utils';
 import { cn } from '@/lib/utils';
-import { auth } from '@/lib/firebase/client';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const MAX_SIZE_DISPLAY: Record<string, string> = {
@@ -49,8 +48,7 @@ export function UserProfilePhotoUpload({
     try {
       const result = await uploadPhoto(file);
       setPreviewUrl(result.url);
-      // Reload Firebase Auth user so photoURL is updated, then notify header
-      await auth.currentUser?.reload();
+      // Notify header to re-fetch the session/profile photo.
       window.dispatchEvent(new Event('user-photo-updated'));
       onUploadComplete?.(result.url);
     } catch {
@@ -66,8 +64,7 @@ export function UserProfilePhotoUpload({
     try {
       await deletePhoto();
       setPreviewUrl(null);
-      // Reload Firebase Auth user so photoURL is cleared, then notify header
-      await auth.currentUser?.reload();
+      // Notify header to re-fetch the session/profile photo.
       window.dispatchEvent(new Event('user-photo-updated'));
       onDeleteComplete?.();
     } catch {

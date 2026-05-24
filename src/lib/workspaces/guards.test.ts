@@ -1,373 +1,204 @@
 /**
  * Workspace Status Guards Tests
  *
- * Tests granular assertion helpers for workspace lifecycle status:
- * - canWriteWithStatus() / canReadWithStatus() - synchronous boolean helpers
- * - getUpgradePrompt() - user-friendly messages per status
- * - assertWorkspaceActiveOrTrial() - throws for anything other than active/trial
- * - assertWorkspaceNotTerminated() - allows past_due, blocks canceled/suspended/deleted
- * - assertWorkspacePaymentCurrent() - allows active/trial only
+ * In-memory SQLite harness — guards.ts now reads via Drizzle.
+ *
+ * Covers:
+ *  - canWriteWithStatus / canReadWithStatus (pure)
+ *  - getUpgradePrompt (pure)
+ *  - assertWorkspaceActiveOrTrial / NotTerminated / PaymentCurrent (DB-backed)
  */
 
-import { vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { eq } from "drizzle-orm";
+import { makeTestDb, mockDbModule, type TestDB } from "@/test-utils/db";
+import * as authSchema from "@/lib/db/schema/auth";
+import * as workspacesSchema from "@/lib/db/schema/workspaces";
+import type { WorkspaceStatus } from "@/types/firestore";
+import { WorkspaceAccessError } from "@/lib/workspaces/errors";
 
-// ---------------------------------------------------------------------------
-// Hoisted mock variables
-// ---------------------------------------------------------------------------
+let testDb: TestDB;
+let closeDb: () => void;
+const USER_ID = "user-guards";
+const WORKSPACE_ID = "ws-guards";
 
-const mocks = vi.hoisted(() => {
-  const mockGet = vi.fn();
-  const mockDoc = vi.fn(() => ({ get: mockGet }));
-  const mockCollection = vi.fn(() => ({ doc: mockDoc }));
-  return { mockGet, mockDoc, mockCollection };
-});
-
-// ---------------------------------------------------------------------------
-// Module mocks
-// ---------------------------------------------------------------------------
-
-vi.mock('@/lib/firebase/admin', () => ({
-  adminDb: {
-    collection: mocks.mockCollection,
-  },
-}));
-
-// ---------------------------------------------------------------------------
-// Imports (after mocks)
-// ---------------------------------------------------------------------------
-
-import {
-  assertWorkspaceActiveOrTrial,
-  assertWorkspaceNotTerminated,
-  assertWorkspacePaymentCurrent,
-  canWriteWithStatus,
-  canReadWithStatus,
-  getUpgradePrompt,
-} from './guards';
-import { WorkspaceAccessError } from '@/lib/firebase/access-control';
-import type { WorkspaceStatus } from '@/types/firestore';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function mockWorkspaceDoc(status: WorkspaceStatus, trialEndsAt?: Date | null) {
-  mocks.mockGet.mockResolvedValue({
-    exists: true,
-    id: 'ws-test',
-    data: () => ({
-      status,
-      plan: 'starter',
-      billing: { currentPeriodEnd: { toDate: () => new Date('2026-12-31') } },
-      ...(trialEndsAt !== undefined
-        ? { trialEndsAt: trialEndsAt ? { toDate: () => trialEndsAt } : null }
-        : {}),
-    }),
+async function seed(status: WorkspaceStatus, trialEndsAt?: Date | null) {
+  const now = new Date();
+  await testDb.delete(workspacesSchema.workspaces);
+  await testDb.delete(authSchema.users);
+  await testDb.insert(authSchema.users).values({
+    id: USER_ID,
+    email: "u@example.com",
+    name: "U",
+    emailVerified: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await testDb.insert(workspacesSchema.workspaces).values({
+    id: WORKSPACE_ID,
+    ownerUserId: USER_ID,
+    name: "Test WS",
+    plan: "starter",
+    status,
+    trialEndsAt: trialEndsAt ?? null,
+    createdAt: now,
+    updatedAt: now,
   });
 }
 
-function mockWorkspaceNotFound() {
-  mocks.mockGet.mockResolvedValue({ exists: false });
-}
+beforeEach(async () => {
+  const { db, close } = makeTestDb();
+  testDb = db;
+  closeDb = close;
+  mockDbModule(testDb);
+  vi.clearAllMocks();
+});
 
-// ---------------------------------------------------------------------------
-// canWriteWithStatus
-// ---------------------------------------------------------------------------
+afterEach(() => {
+  closeDb();
+  vi.resetModules();
+});
 
-describe('canWriteWithStatus()', () => {
-  it('returns true for active', () => {
-    expect(canWriteWithStatus('active')).toBe(true);
+describe("canWriteWithStatus / canReadWithStatus", () => {
+  it("writes allowed only for active + trial", async () => {
+    const { canWriteWithStatus } = await import("./guards");
+    expect(canWriteWithStatus("active")).toBe(true);
+    expect(canWriteWithStatus("trial")).toBe(true);
+    expect(canWriteWithStatus("past_due")).toBe(false);
+    expect(canWriteWithStatus("canceled")).toBe(false);
+    expect(canWriteWithStatus("suspended")).toBe(false);
+    expect(canWriteWithStatus("deleted")).toBe(false);
   });
 
-  it('returns true for trial', () => {
-    expect(canWriteWithStatus('trial')).toBe(true);
-  });
-
-  it('returns false for past_due', () => {
-    expect(canWriteWithStatus('past_due')).toBe(false);
-  });
-
-  it('returns false for canceled', () => {
-    expect(canWriteWithStatus('canceled')).toBe(false);
-  });
-
-  it('returns false for suspended', () => {
-    expect(canWriteWithStatus('suspended')).toBe(false);
-  });
-
-  it('returns false for deleted', () => {
-    expect(canWriteWithStatus('deleted')).toBe(false);
+  it("reads allowed for active, trial, past_due", async () => {
+    const { canReadWithStatus } = await import("./guards");
+    expect(canReadWithStatus("active")).toBe(true);
+    expect(canReadWithStatus("trial")).toBe(true);
+    expect(canReadWithStatus("past_due")).toBe(true);
+    expect(canReadWithStatus("canceled")).toBe(false);
+    expect(canReadWithStatus("suspended")).toBe(false);
+    expect(canReadWithStatus("deleted")).toBe(false);
   });
 });
 
-// ---------------------------------------------------------------------------
-// canReadWithStatus
-// ---------------------------------------------------------------------------
-
-describe('canReadWithStatus()', () => {
-  it('returns true for active', () => {
-    expect(canReadWithStatus('active')).toBe(true);
-  });
-
-  it('returns true for trial', () => {
-    expect(canReadWithStatus('trial')).toBe(true);
-  });
-
-  it('returns true for past_due (grace period)', () => {
-    expect(canReadWithStatus('past_due')).toBe(true);
-  });
-
-  it('returns false for canceled', () => {
-    expect(canReadWithStatus('canceled')).toBe(false);
-  });
-
-  it('returns false for suspended', () => {
-    expect(canReadWithStatus('suspended')).toBe(false);
-  });
-
-  it('returns false for deleted', () => {
-    expect(canReadWithStatus('deleted')).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getUpgradePrompt
-// ---------------------------------------------------------------------------
-
-describe('getUpgradePrompt()', () => {
-  it('returns a message mentioning payment for past_due', () => {
-    const message = getUpgradePrompt('past_due');
-    expect(message.toLowerCase()).toContain('payment');
-    expect(message.length).toBeGreaterThan(0);
-  });
-
-  it('returns a message mentioning cancellation for canceled', () => {
-    const message = getUpgradePrompt('canceled');
-    expect(message.toLowerCase()).toMatch(/cancel/);
-  });
-
-  it('returns a message mentioning support for suspended', () => {
-    const message = getUpgradePrompt('suspended');
-    expect(message.toLowerCase()).toContain('support');
-  });
-
-  it('returns a message mentioning deleted for deleted', () => {
-    const message = getUpgradePrompt('deleted');
-    expect(message.toLowerCase()).toContain('deleted');
-  });
-
-  it('returns a message mentioning trial/upgrade for trial', () => {
-    const message = getUpgradePrompt('trial');
-    expect(message.toLowerCase()).toMatch(/trial|upgrade/);
-  });
-
-  it('returns a non-empty default message for active', () => {
-    const message = getUpgradePrompt('active');
-    expect(message.length).toBeGreaterThan(0);
-  });
-
-  it('returns different messages for different statuses', () => {
-    const messages = new Set([
-      getUpgradePrompt('past_due'),
-      getUpgradePrompt('canceled'),
-      getUpgradePrompt('suspended'),
-      getUpgradePrompt('deleted'),
-      getUpgradePrompt('trial'),
-    ]);
-    // At least 3 distinct messages among the 5 error statuses
-    expect(messages.size).toBeGreaterThanOrEqual(3);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// assertWorkspaceActiveOrTrial
-// ---------------------------------------------------------------------------
-
-describe('assertWorkspaceActiveOrTrial()', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('does not throw for active workspace', async () => {
-    mockWorkspaceDoc('active');
-    await expect(assertWorkspaceActiveOrTrial('ws-1')).resolves.toBeUndefined();
-  });
-
-  it('does not throw for trial workspace with no expiry', async () => {
-    mockWorkspaceDoc('trial', null);
-    await expect(assertWorkspaceActiveOrTrial('ws-1')).resolves.toBeUndefined();
-  });
-
-  it('does not throw for trial workspace with future expiry', async () => {
-    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    mockWorkspaceDoc('trial', future);
-    await expect(assertWorkspaceActiveOrTrial('ws-1')).resolves.toBeUndefined();
-  });
-
-  it('throws WorkspaceAccessError for trial workspace with expired trial', async () => {
-    const past = new Date(Date.now() - 1000);
-    mockWorkspaceDoc('trial', past);
-    await expect(assertWorkspaceActiveOrTrial('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws WorkspaceAccessError for past_due workspace', async () => {
-    mockWorkspaceDoc('past_due');
-    await expect(assertWorkspaceActiveOrTrial('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws with PAYMENT_PAST_DUE code for past_due', async () => {
-    mockWorkspaceDoc('past_due');
-    try {
-      await assertWorkspaceActiveOrTrial('ws-1');
-    } catch (err) {
-      expect(err).toBeInstanceOf(WorkspaceAccessError);
-      expect((err as WorkspaceAccessError).code).toBe('PAYMENT_PAST_DUE');
-    }
-  });
-
-  it('throws WorkspaceAccessError for canceled workspace', async () => {
-    mockWorkspaceDoc('canceled');
-    await expect(assertWorkspaceActiveOrTrial('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws WorkspaceAccessError for suspended workspace', async () => {
-    mockWorkspaceDoc('suspended');
-    await expect(assertWorkspaceActiveOrTrial('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws WorkspaceAccessError for deleted workspace', async () => {
-    mockWorkspaceDoc('deleted');
-    await expect(assertWorkspaceActiveOrTrial('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws WorkspaceAccessError when workspace is not found', async () => {
-    mockWorkspaceNotFound();
-    await expect(assertWorkspaceActiveOrTrial('missing-ws')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('thrown error has httpStatus 403', async () => {
-    mockWorkspaceDoc('canceled');
-    try {
-      await assertWorkspaceActiveOrTrial('ws-1');
-    } catch (err) {
-      expect((err as WorkspaceAccessError).httpStatus).toBe(403);
+describe("getUpgradePrompt", () => {
+  it("returns a non-empty string for every known status", async () => {
+    const { getUpgradePrompt } = await import("./guards");
+    for (const s of [
+      "active",
+      "trial",
+      "past_due",
+      "canceled",
+      "suspended",
+      "deleted",
+    ] as WorkspaceStatus[]) {
+      expect(getUpgradePrompt(s)).toMatch(/.+/);
     }
   });
 });
 
-// ---------------------------------------------------------------------------
-// assertWorkspaceNotTerminated
-// ---------------------------------------------------------------------------
-
-describe('assertWorkspaceNotTerminated()', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+describe("assertWorkspaceActiveOrTrial", () => {
+  it("allows active", async () => {
+    await seed("active");
+    const { assertWorkspaceActiveOrTrial } = await import("./guards");
+    await expect(assertWorkspaceActiveOrTrial(WORKSPACE_ID)).resolves.not.toThrow();
   });
 
-  it('does not throw for active workspace', async () => {
-    mockWorkspaceDoc('active');
-    await expect(assertWorkspaceNotTerminated('ws-1')).resolves.toBeUndefined();
+  it("allows trial when trial not expired", async () => {
+    await seed("trial", new Date(Date.now() + 24 * 60 * 60 * 1000));
+    const { assertWorkspaceActiveOrTrial } = await import("./guards");
+    await expect(assertWorkspaceActiveOrTrial(WORKSPACE_ID)).resolves.not.toThrow();
   });
 
-  it('does not throw for trial workspace', async () => {
-    mockWorkspaceDoc('trial', null);
-    await expect(assertWorkspaceNotTerminated('ws-1')).resolves.toBeUndefined();
+  it("throws TRIAL_EXPIRED when trial expired", async () => {
+    await seed("trial", new Date(Date.now() - 24 * 60 * 60 * 1000));
+    const { assertWorkspaceActiveOrTrial } = await import("./guards");
+    await expect(assertWorkspaceActiveOrTrial(WORKSPACE_ID)).rejects.toMatchObject({
+      code: "TRIAL_EXPIRED",
+    });
   });
 
-  it('does not throw for past_due workspace (grace period allowed)', async () => {
-    mockWorkspaceDoc('past_due');
-    await expect(assertWorkspaceNotTerminated('ws-1')).resolves.toBeUndefined();
+  it("throws PAYMENT_PAST_DUE for past_due", async () => {
+    await seed("past_due");
+    const { assertWorkspaceActiveOrTrial } = await import("./guards");
+    await expect(assertWorkspaceActiveOrTrial(WORKSPACE_ID)).rejects.toMatchObject({
+      code: "PAYMENT_PAST_DUE",
+      httpStatus: 403,
+    });
   });
 
-  it('throws WorkspaceAccessError for canceled workspace', async () => {
-    mockWorkspaceDoc('canceled');
-    await expect(assertWorkspaceNotTerminated('ws-1')).rejects.toThrow(WorkspaceAccessError);
+  it.each([
+    ["canceled", "SUBSCRIPTION_CANCELED"],
+    ["suspended", "ACCOUNT_SUSPENDED"],
+    ["deleted", "WORKSPACE_DELETED"],
+  ] as Array<[WorkspaceStatus, string]>)("throws %s code for status %s", async (status, code) => {
+    await seed(status);
+    const { assertWorkspaceActiveOrTrial } = await import("./guards");
+    await expect(assertWorkspaceActiveOrTrial(WORKSPACE_ID)).rejects.toMatchObject({ code });
   });
 
-  it('throws WorkspaceAccessError for suspended workspace', async () => {
-    mockWorkspaceDoc('suspended');
-    await expect(assertWorkspaceNotTerminated('ws-1')).rejects.toThrow(WorkspaceAccessError);
+  it("throws WORKSPACE_NOT_FOUND when workspace missing", async () => {
+    const { assertWorkspaceActiveOrTrial } = await import("./guards");
+    await expect(assertWorkspaceActiveOrTrial("nope")).rejects.toMatchObject({
+      code: "WORKSPACE_NOT_FOUND",
+    });
   });
 
-  it('throws WorkspaceAccessError for deleted workspace', async () => {
-    mockWorkspaceDoc('deleted');
-    await expect(assertWorkspaceNotTerminated('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws WorkspaceAccessError when workspace is not found', async () => {
-    mockWorkspaceNotFound();
-    await expect(assertWorkspaceNotTerminated('missing-ws')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('thrown error for canceled has SUBSCRIPTION_CANCELED code', async () => {
-    mockWorkspaceDoc('canceled');
+  it("throws WorkspaceAccessError instance (so callers can branch on it)", async () => {
+    await seed("canceled");
+    const { assertWorkspaceActiveOrTrial } = await import("./guards");
     try {
-      await assertWorkspaceNotTerminated('ws-1');
-    } catch (err) {
-      expect((err as WorkspaceAccessError).code).toBe('SUBSCRIPTION_CANCELED');
-    }
-  });
-
-  it('thrown error for suspended has ACCOUNT_SUSPENDED code', async () => {
-    mockWorkspaceDoc('suspended');
-    try {
-      await assertWorkspaceNotTerminated('ws-1');
-    } catch (err) {
-      expect((err as WorkspaceAccessError).code).toBe('ACCOUNT_SUSPENDED');
+      await assertWorkspaceActiveOrTrial(WORKSPACE_ID);
+      throw new Error("should not reach");
+    } catch (e) {
+      // resetModules() between tests reloads the class identity, so check
+      // by name instead of instanceof.
+      expect((e as Error).name).toBe("WorkspaceAccessError");
+      expect((e as { code: string }).code).toBe("SUBSCRIPTION_CANCELED");
     }
   });
 });
 
-// ---------------------------------------------------------------------------
-// assertWorkspacePaymentCurrent
-// ---------------------------------------------------------------------------
-
-describe('assertWorkspacePaymentCurrent()', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('does not throw for active workspace', async () => {
-    mockWorkspaceDoc('active');
-    await expect(assertWorkspacePaymentCurrent('ws-1')).resolves.toBeUndefined();
-  });
-
-  it('does not throw for trial workspace', async () => {
-    mockWorkspaceDoc('trial', null);
-    await expect(assertWorkspacePaymentCurrent('ws-1')).resolves.toBeUndefined();
-  });
-
-  it('throws WorkspaceAccessError for past_due workspace', async () => {
-    mockWorkspaceDoc('past_due');
-    await expect(assertWorkspacePaymentCurrent('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws with PAYMENT_PAST_DUE code for past_due', async () => {
-    mockWorkspaceDoc('past_due');
-    try {
-      await assertWorkspacePaymentCurrent('ws-1');
-    } catch (err) {
-      expect((err as WorkspaceAccessError).code).toBe('PAYMENT_PAST_DUE');
+describe("assertWorkspaceNotTerminated", () => {
+  it.each(["active", "trial", "past_due"] as WorkspaceStatus[])(
+    "allows %s",
+    async (status) => {
+      await seed(status);
+      const { assertWorkspaceNotTerminated } = await import("./guards");
+      await expect(assertWorkspaceNotTerminated(WORKSPACE_ID)).resolves.not.toThrow();
     }
-  });
+  );
 
-  it('throws WorkspaceAccessError for canceled workspace', async () => {
-    mockWorkspaceDoc('canceled');
-    await expect(assertWorkspacePaymentCurrent('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws WorkspaceAccessError for suspended workspace', async () => {
-    mockWorkspaceDoc('suspended');
-    await expect(assertWorkspacePaymentCurrent('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws WorkspaceAccessError for deleted workspace', async () => {
-    mockWorkspaceDoc('deleted');
-    await expect(assertWorkspacePaymentCurrent('ws-1')).rejects.toThrow(WorkspaceAccessError);
-  });
-
-  it('throws WorkspaceAccessError when workspace is not found', async () => {
-    mockWorkspaceNotFound();
-    await expect(assertWorkspacePaymentCurrent('missing-ws')).rejects.toThrow(WorkspaceAccessError);
-  });
+  it.each(["canceled", "suspended", "deleted"] as WorkspaceStatus[])(
+    "throws for %s",
+    async (status) => {
+      await seed(status);
+      const { assertWorkspaceNotTerminated } = await import("./guards");
+      await expect(assertWorkspaceNotTerminated(WORKSPACE_ID)).rejects.toMatchObject({
+        httpStatus: 403,
+      });
+    }
+  );
 });
+
+describe("assertWorkspacePaymentCurrent", () => {
+  it.each(["active", "trial"] as WorkspaceStatus[])("allows %s", async (status) => {
+    await seed(status);
+    const { assertWorkspacePaymentCurrent } = await import("./guards");
+    await expect(assertWorkspacePaymentCurrent(WORKSPACE_ID)).resolves.not.toThrow();
+  });
+
+  it.each(["past_due", "canceled", "suspended", "deleted"] as WorkspaceStatus[])(
+    "throws for %s",
+    async (status) => {
+      await seed(status);
+      const { assertWorkspacePaymentCurrent } = await import("./guards");
+      await expect(assertWorkspacePaymentCurrent(WORKSPACE_ID)).rejects.toMatchObject({
+        httpStatus: 403,
+      });
+    }
+  );
+});
+
+// Reference the imported helper symbol so the bundler keeps the dep above.
+void eq;

@@ -1,13 +1,42 @@
+/**
+ * POST /api/auth/resend-verification
+ *
+ * Resends a verification email if a user with that email exists AND is not
+ * already verified. Anti-enumeration response shape.
+ *
+ * Phase 4.5 migration: replaces firebase-admin auth.getUserByEmail +
+ * generateEmailVerificationLink + Firestore user-doc lookup with Drizzle.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import crypto from 'node:crypto';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { users, verificationTokens } from '@/lib/db/schema/auth';
 import { sendEmail } from '@/lib/email';
 import { emailTemplates } from '@/lib/email-templates';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/auth/resend-verification');
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function appOrigin(req: NextRequest): string {
+  const direct =
+    process.env.WEBSITE_URL ||
+    process.env.NEXT_PUBLIC_WEBSITE_DOMAIN ||
+    process.env.APP_ORIGIN ||
+    new URL(req.url).origin;
+  return direct.startsWith('http://') || direct.startsWith('https://')
+    ? direct
+    : `https://${direct}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -20,7 +49,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // If email service is not configured, fail fast (doesn't leak user existence).
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
     return NextResponse.json(
       { success: false, error: 'Email service is not configured. Please contact support.' },
@@ -28,16 +56,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const origin =
-    process.env.WEBSITE_URL ||
-    process.env.NEXT_PUBLIC_WEBSITE_DOMAIN ||
-    new URL(request.url).origin;
-  const websiteOrigin = origin.startsWith('http://') || origin.startsWith('https://')
-    ? origin
-    : `https://${origin}`;
+  const normalized = email.toLowerCase().trim();
+  const websiteOrigin = appOrigin(request);
 
   try {
-    const user = await adminAuth.getUserByEmail(email);
+    const user = await db.query.users.findFirst({ where: eq(users.email, normalized) });
+
+    // Anti-enumeration: always return the same shape regardless of user existence.
+    if (!user) {
+      return NextResponse.json({
+        success: true,
+        message: 'If an account exists with this email, a verification link has been sent.',
+      });
+    }
 
     if (user.emailVerified) {
       return NextResponse.json({
@@ -46,21 +77,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const firebaseLink = await adminAuth.generateEmailVerificationLink(email);
-    const actionUrl = new URL(firebaseLink);
-    const oobCode = actionUrl.searchParams.get('oobCode');
+    const token = crypto.randomBytes(32).toString('base64url');
+    await db.insert(verificationTokens).values({
+      identifier: normalized,
+      token,
+      expires: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+    });
 
-    const verificationUrl = oobCode
-      ? `${websiteOrigin}/verify-email?oobCode=${encodeURIComponent(oobCode)}`
-      : firebaseLink;
-
-    const userDoc = await adminDb.collection('users').doc(user.uid).get();
-    const userData = userDoc.exists ? userDoc.data() : null;
-    const firstName = (userData?.firstName as string | undefined) || user.displayName?.split(' ')[0] || 'there';
+    const verificationUrl = `${websiteOrigin}/verify-email?token=${encodeURIComponent(token)}&email=${encodeURIComponent(normalized)}`;
+    const firstName = user.firstName || user.name?.split(' ')[0] || 'there';
 
     const template = emailTemplates.emailVerification(firstName, verificationUrl);
     const result = await sendEmail({
-      to: email,
+      to: normalized,
       subject: template.subject,
       html: template.html,
       text: template.text,
@@ -77,15 +106,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'If an account exists with this email, a verification link has been sent.',
     });
-  } catch (error: any) {
-    // Avoid user enumeration: return success for unknown users.
-    if (error?.code === 'auth/user-not-found') {
-      return NextResponse.json({
-        success: true,
-        message: 'If an account exists with this email, a verification link has been sent.',
-      });
-    }
-
+  } catch (error) {
     logger.error('Failed', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { success: false, error: 'Failed to send verification email. Please try again.' },

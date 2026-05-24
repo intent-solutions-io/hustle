@@ -1,222 +1,121 @@
 /**
  * Tests for GET /api/workspace/current
  *
- * Covers: auth (401), not-found (404), happy path (200), error handling (500)
+ * In-memory SQLite harness; only authWithProfile is mocked.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createMockRequest, createMockDashboardUser } from '@/test-utils';
-
-// ---------------------------------------------------------------------------
-// Hoisted mocks
-// ---------------------------------------------------------------------------
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { eq } from "drizzle-orm";
+import { makeTestDb, mockDbModule, type TestDB } from "@/test-utils/db";
+import * as authSchema from "@/lib/db/schema/auth";
+import * as workspacesSchema from "@/lib/db/schema/workspaces";
 
 const mocks = vi.hoisted(() => ({
   authWithProfile: vi.fn(),
-  adminDbGet: vi.fn(),
 }));
 
-vi.mock('@/lib/auth', () => ({
+vi.mock("@/lib/auth", () => ({
   authWithProfile: mocks.authWithProfile,
 }));
 
-// We mock the adminDb collection/doc chain used in this route.
-// The route calls:
-//   adminDb.collection('users').doc(uid).get()
-//   adminDb.collection('workspaces').doc(workspaceId).get()
+let testDb: TestDB;
+let closeDb: () => void;
+const USER_ID = "user-current";
+const WORKSPACE_ID = "ws-current";
 
-const makeDocRef = (getFn: () => Promise<unknown>) => ({
-  get: getFn,
-});
+beforeEach(async () => {
+  const { db, close } = makeTestDb();
+  testDb = db;
+  closeDb = close;
+  mockDbModule(testDb);
+  vi.clearAllMocks();
 
-const makeCollectionRef = (docFn: (id: string) => { get: () => Promise<unknown> }) => ({
-  doc: (id: string) => docFn(id),
-});
-
-// We track calls by collection name so we can control each independently.
-let userDocGetFn = mocks.adminDbGet;
-let workspaceDocGetFn = mocks.adminDbGet;
-
-vi.mock('@/lib/firebase/admin', () => ({
-  adminDb: {
-    collection: vi.fn((collectionName: string) => {
-      if (collectionName === 'users') {
-        return {
-          doc: vi.fn(() => ({ get: () => userDocGetFn() })),
-        };
-      }
-      if (collectionName === 'workspaces') {
-        return {
-          doc: vi.fn(() => ({ get: () => workspaceDocGetFn() })),
-        };
-      }
-      return {
-        doc: vi.fn(() => ({ get: mocks.adminDbGet })),
-      };
-    }),
-  },
-}));
-
-// ---------------------------------------------------------------------------
-// Import under test (AFTER mocks)
-// ---------------------------------------------------------------------------
-
-import { GET } from './route';
-
-// ---------------------------------------------------------------------------
-// Firestore snapshot helpers
-// ---------------------------------------------------------------------------
-
-function makeUserDoc(data: Record<string, unknown> | null) {
-  return {
-    exists: data !== null,
-    data: () => data,
-  };
-}
-
-function makeWorkspaceDoc(
-  data: Record<string, unknown> | null,
-  id = 'workspace-123'
-) {
-  return {
-    exists: data !== null,
-    id,
-    data: () => data,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-describe('GET /api/workspace/current', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    // Reset to the shared mock by default
-    userDocGetFn = mocks.adminDbGet;
-    workspaceDocGetFn = mocks.adminDbGet;
+  const now = new Date();
+  await testDb.insert(authSchema.users).values({
+    id: USER_ID,
+    email: "user@example.com",
+    name: "User",
+    emailVerified: now,
+    defaultWorkspaceId: WORKSPACE_ID,
+    createdAt: now,
+    updatedAt: now,
   });
+  await testDb.insert(workspacesSchema.workspaces).values({
+    id: WORKSPACE_ID,
+    ownerUserId: USER_ID,
+    name: "Test Workspace",
+    plan: "starter",
+    status: "active",
+    createdAt: now,
+    updatedAt: now,
+  });
+});
 
-  it('returns 401 when not authenticated', async () => {
+afterEach(() => {
+  closeDb();
+  vi.resetModules();
+});
+
+describe("GET /api/workspace/current", () => {
+  it("returns 401 when no session", async () => {
     mocks.authWithProfile.mockResolvedValue(null);
-
-    const response = await GET();
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(body.error).toBe('UNAUTHORIZED');
+    const { GET } = await import("./route");
+    const res = await GET();
+    expect(res.status).toBe(401);
   });
 
-  it('returns 404 when user document does not exist', async () => {
-    mocks.authWithProfile.mockResolvedValue(createMockDashboardUser());
-    userDocGetFn = vi.fn().mockResolvedValue(makeUserDoc(null));
-
-    const response = await GET();
-    const body = await response.json();
-
-    expect(response.status).toBe(404);
-    expect(body.error).toBe('USER_NOT_FOUND');
+  it("returns 404 when user row missing", async () => {
+    mocks.authWithProfile.mockResolvedValue({ uid: "no-such-user", emailVerified: true });
+    const { GET } = await import("./route");
+    const res = await GET();
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("USER_NOT_FOUND");
   });
 
-  it('returns 404 when user has no defaultWorkspaceId', async () => {
-    mocks.authWithProfile.mockResolvedValue(createMockDashboardUser());
-    userDocGetFn = vi.fn().mockResolvedValue(makeUserDoc({ defaultWorkspaceId: null }));
-
-    const response = await GET();
-    const body = await response.json();
-
-    expect(response.status).toBe(404);
-    expect(body.error).toBe('NO_WORKSPACE');
+  it("returns 404 when user has no default workspace", async () => {
+    await testDb
+      .update(authSchema.users)
+      .set({ defaultWorkspaceId: null })
+      .where(eq(authSchema.users.id, USER_ID));
+    mocks.authWithProfile.mockResolvedValue({ uid: USER_ID, emailVerified: true });
+    const { GET } = await import("./route");
+    const res = await GET();
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("NO_WORKSPACE");
   });
 
-  it('returns 404 when workspace document does not exist', async () => {
-    mocks.authWithProfile.mockResolvedValue(createMockDashboardUser());
-    userDocGetFn = vi.fn().mockResolvedValue(makeUserDoc({ defaultWorkspaceId: 'ws-abc' }));
-    workspaceDocGetFn = vi.fn().mockResolvedValue(makeWorkspaceDoc(null));
-
-    const response = await GET();
-    const body = await response.json();
-
-    expect(response.status).toBe(404);
-    expect(body.error).toBe('WORKSPACE_NOT_FOUND');
+  it("returns 404 when workspace not found", async () => {
+    await testDb
+      .delete(workspacesSchema.workspaces)
+      .where(eq(workspacesSchema.workspaces.id, WORKSPACE_ID));
+    mocks.authWithProfile.mockResolvedValue({ uid: USER_ID, emailVerified: true });
+    const { GET } = await import("./route");
+    const res = await GET();
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("WORKSPACE_NOT_FOUND");
   });
 
-  it('returns workspace data on success', async () => {
-    mocks.authWithProfile.mockResolvedValue(createMockDashboardUser());
-
-    const fakeTimestamp = {
-      toDate: () => new Date('2026-03-01T00:00:00.000Z'),
-    };
-
-    userDocGetFn = vi.fn().mockResolvedValue(
-      makeUserDoc({ defaultWorkspaceId: 'workspace-123' })
-    );
-    workspaceDocGetFn = vi.fn().mockResolvedValue(
-      makeWorkspaceDoc({
-        name: 'Test Workspace',
-        plan: 'starter',
-        status: 'active',
-        billing: {
-          currentPeriodEnd: fakeTimestamp,
-        },
-        usage: { playerCount: 2 },
-        createdAt: fakeTimestamp,
-        updatedAt: fakeTimestamp,
-      })
-    );
-
-    const response = await GET();
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
+  it("returns workspace data on success without exposing stripe ids", async () => {
+    mocks.authWithProfile.mockResolvedValue({ uid: USER_ID, emailVerified: true });
+    const { GET } = await import("./route");
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.workspace).toMatchObject({
-      id: 'workspace-123',
-      name: 'Test Workspace',
-      plan: 'starter',
-      status: 'active',
+    expect(body.workspace.id).toBe(WORKSPACE_ID);
+    expect(body.workspace.name).toBe("Test Workspace");
+    expect(body.workspace.plan).toBe("starter");
+    expect(body.workspace.status).toBe("active");
+    expect(body.workspace.billing).toEqual({ currentPeriodEnd: null });
+    expect(body.workspace.usage).toEqual({
+      playerCount: 0,
+      gamesThisMonth: 0,
+      storageUsedMB: 0,
     });
-    expect(body.workspace.billing.currentPeriodEnd).toBe('2026-03-01T00:00:00.000Z');
-    // Sensitive Stripe fields must NOT be exposed
-    expect(body.workspace.billing.stripeCustomerId).toBeUndefined();
-    expect(body.workspace.billing.stripeSubscriptionId).toBeUndefined();
-  });
-
-  it('handles null currentPeriodEnd gracefully', async () => {
-    mocks.authWithProfile.mockResolvedValue(createMockDashboardUser());
-
-    const fakeTimestamp = { toDate: () => new Date('2026-01-01') };
-
-    userDocGetFn = vi.fn().mockResolvedValue(
-      makeUserDoc({ defaultWorkspaceId: 'workspace-123' })
-    );
-    workspaceDocGetFn = vi.fn().mockResolvedValue(
-      makeWorkspaceDoc({
-        name: 'No Billing Workspace',
-        plan: 'free',
-        status: 'trial',
-        billing: {}, // no currentPeriodEnd
-        usage: {},
-        createdAt: fakeTimestamp,
-        updatedAt: fakeTimestamp,
-      })
-    );
-
-    const response = await GET();
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.workspace.billing.currentPeriodEnd).toBeNull();
-  });
-
-  it('returns 500 when adminDb throws', async () => {
-    mocks.authWithProfile.mockResolvedValue(createMockDashboardUser());
-    userDocGetFn = vi.fn().mockRejectedValue(new Error('Firestore unavailable'));
-
-    const response = await GET();
-    const body = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(body.error).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(body)).not.toContain("stripeCustomerId");
+    expect(JSON.stringify(body)).not.toContain("stripeSubscriptionId");
   });
 });

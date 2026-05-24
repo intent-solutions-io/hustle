@@ -18,7 +18,7 @@
  */
 
 import type { Workspace, WorkspaceStatus } from '@/types/firestore';
-import { WorkspaceAccessError } from '@/lib/firebase/access-control';
+import { WorkspaceAccessError } from '@/lib/workspaces/errors';
 
 /**
  * Assert workspace is active (not disabled by billing/status)

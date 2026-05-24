@@ -53,6 +53,9 @@ async function toWorkspace(row: WorkspaceRow): Promise<Workspace> {
       stripeCustomerId: row.billingStripeCustomerId ?? null,
       stripeSubscriptionId: row.billingStripeSubscriptionId ?? null,
       currentPeriodEnd: row.billingCurrentPeriodEnd ?? null,
+      subscriptionStatus: row.billingSubscriptionStatus ?? null,
+      lastPaymentFailedAt: row.billingLastPaymentFailedAt ?? null,
+      canceledAt: row.billingCanceledAt ?? null,
     },
     usage: {
       playerCount: row.usagePlayerCount,
@@ -60,10 +63,11 @@ async function toWorkspace(row: WorkspaceRow): Promise<Workspace> {
       storageUsedMB: row.usageStorageUsedMB,
     },
     members: members.map(toWorkspaceMember),
+    trialEndsAt: row.trialEndsAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     deletedAt: row.deletedAt ?? null,
-  };
+  } as unknown as Workspace;
 }
 
 export async function getWorkspaceByIdAdmin(
@@ -90,6 +94,10 @@ export async function updateWorkspaceBillingAdmin(
     stripeCustomerId?: string | null;
     stripeSubscriptionId?: string | null;
     currentPeriodEnd?: Date | null;
+    subscriptionStatus?: string | null;
+    lastPaymentFailedAt?: Date | null;
+    canceledAt?: Date | null;
+    trialEndsAt?: Date | null;
   }
 ): Promise<void> {
   const patch: Partial<typeof workspaces.$inferInsert> = {
@@ -104,6 +112,18 @@ export async function updateWorkspaceBillingAdmin(
   if (billing.currentPeriodEnd !== undefined) {
     patch.billingCurrentPeriodEnd = billing.currentPeriodEnd;
   }
+  if (billing.subscriptionStatus !== undefined) {
+    patch.billingSubscriptionStatus = billing.subscriptionStatus;
+  }
+  if (billing.lastPaymentFailedAt !== undefined) {
+    patch.billingLastPaymentFailedAt = billing.lastPaymentFailedAt;
+  }
+  if (billing.canceledAt !== undefined) {
+    patch.billingCanceledAt = billing.canceledAt;
+  }
+  if (billing.trialEndsAt !== undefined) {
+    patch.trialEndsAt = billing.trialEndsAt;
+  }
 
   await db.update(workspaces).set(patch).where(eq(workspaces.id, workspaceId));
 }
@@ -115,6 +135,16 @@ export async function updateWorkspaceStatusAdmin(
   await db
     .update(workspaces)
     .set({ status, updatedAt: new Date() })
+    .where(eq(workspaces.id, workspaceId));
+}
+
+export async function updateWorkspacePlanAdmin(
+  workspaceId: string,
+  plan: WorkspaceDocument["plan"]
+): Promise<void> {
+  await db
+    .update(workspaces)
+    .set({ plan, updatedAt: new Date() })
     .where(eq(workspaces.id, workspaceId));
 }
 

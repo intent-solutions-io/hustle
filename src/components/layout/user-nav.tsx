@@ -11,8 +11,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { signOut as firebaseSignOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+import { signOut as nextAuthSignOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 interface UserNavProps {
@@ -36,13 +35,8 @@ export function UserNav({ user }: UserNavProps) {
 
   const handleSignOut = async () => {
     try {
-      // Clear Firebase client-side auth
-      await firebaseSignOut(auth);
-
-      // Clear server-side session cookie
-      await fetch('/api/auth/logout', { method: 'POST' });
-
-      // Redirect to home
+      // Clear NextAuth session (handles the server-side cookie too).
+      await nextAuthSignOut({ redirect: false });
       router.push('/');
       router.refresh();
     } catch (error) {

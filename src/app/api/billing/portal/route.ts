@@ -3,32 +3,23 @@
  *
  * POST /api/billing/portal
  *
- * Phase 7 Task 4: Customer Billing Portal & Invoice History
- *
  * Creates a Stripe Customer Portal session for authenticated users.
- * Returns a short-lived URL for self-service billing management.
+ * Phase 4.5 migration: workspace + user lookups moved off Firestore onto Drizzle.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authWithProfile } from '@/lib/auth';
-import { adminDb } from '@/lib/firebase/admin';
+import { getUserProfileAdmin } from '@/lib/db/queries/users';
+import { getWorkspaceByIdAdmin } from '@/lib/db/queries/workspaces';
 import { getOrCreateBillingPortalUrl } from '@/lib/stripe/billing-portal';
-import type { Workspace } from '@/types/firestore';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/billing/portal');
 
-/**
- * POST handler for billing portal session creation
- *
- * Request body: { returnPath?: string } (optional)
- * Response: { url: string }
- */
 export async function POST(request: NextRequest) {
   try {
-    // 0. Check billing feature switch (Phase 7 Task 6)
+    // 0. Feature switch
     const billingEnabled = process.env.BILLING_ENABLED !== 'false';
-
     if (!billingEnabled) {
       return NextResponse.json(
         {
@@ -41,7 +32,6 @@ export async function POST(request: NextRequest) {
 
     // 1. Authenticate user
     const dashboardUser = await authWithProfile();
-
     if (!dashboardUser) {
       return NextResponse.json(
         { error: 'UNAUTHORIZED', message: 'Authentication required' },
@@ -49,19 +39,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Get user's default workspace
-    const userDoc = await adminDb.collection('users').doc(dashboardUser.uid).get();
-
-    if (!userDoc.exists) {
+    // 2. Get user → default workspace
+    const user = await getUserProfileAdmin(dashboardUser.uid);
+    if (!user) {
       return NextResponse.json(
         { error: 'USER_NOT_FOUND', message: 'User document not found' },
         { status: 404 }
       );
     }
 
-    const userData = userDoc.data();
-    const workspaceId = userData?.defaultWorkspaceId;
-
+    const workspaceId = user.defaultWorkspaceId;
     if (!workspaceId) {
       return NextResponse.json(
         { error: 'NO_WORKSPACE', message: 'User has no default workspace' },
@@ -69,27 +56,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Get workspace document
-    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
-
-    if (!workspaceDoc.exists) {
+    // 3. Fetch workspace
+    const workspace = await getWorkspaceByIdAdmin(workspaceId);
+    if (!workspace) {
       return NextResponse.json(
         { error: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found' },
         { status: 404 }
       );
     }
 
-    const workspaceData = workspaceDoc.data();
-    const workspace = {
-      id: workspaceDoc.id,
-      ...workspaceData,
-    } as unknown as Workspace;
-
-    // 4. Enforce workspace status
-    // Allowed: active, past_due, trial
-    // Blocked: canceled, suspended, deleted
+    // 4. Enforce status — allow active, past_due, trial; block canceled/suspended/deleted
     const blockedStatuses = ['canceled', 'suspended', 'deleted'];
-
     if (blockedStatuses.includes(workspace.status)) {
       return NextResponse.json(
         {
@@ -102,16 +79,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Parse optional returnPath from request body
     const body = await request.json().catch(() => ({}));
     const returnPath = body.returnPath || '/dashboard/billing';
 
-    // 6. Create billing portal session
     let url: string;
     try {
       url = await getOrCreateBillingPortalUrl(workspace.id, returnPath);
-    } catch (error: any) {
-      logger.error('Billing portal session creation failed: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(
+        'Billing portal session creation failed: ' + msg,
+        error instanceof Error ? error : new Error(msg)
+      );
       return NextResponse.json(
         {
           error: 'BILLING_PORTAL_FAILED',
@@ -121,18 +100,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Return success response
     return NextResponse.json({ url });
-  } catch (error: any) {
-    logger.error('/api/billing/portal error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(
+      '/api/billing/portal error: ' + msg,
+      error instanceof Error ? error : new Error(msg)
+    );
 
-    // Handle Stripe API errors
-    if (error.type) {
+    const errType = (error as { type?: string }).type;
+    if (errType) {
       return NextResponse.json(
         {
           error: 'STRIPE_ERROR',
-          message: error.message || 'Stripe API error occurred',
-          type: error.type,
+          message: msg || 'Stripe API error occurred',
+          type: errType,
         },
         { status: 500 }
       );

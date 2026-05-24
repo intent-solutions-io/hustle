@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { validateFile } from '@/lib/firebase/storage-utils';
+import { validateFile } from '@/lib/storage/upload-validation';
 import {
   uploadUserPhotoLocal,
   deletePhotoLocal,

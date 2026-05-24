@@ -8,12 +8,12 @@
 /**
  * Game data structure from Firestore database
  *
- * Use this for raw game data from Firestore queries.
+ * Use this for raw game data from the Drizzle games query module.
  *
  * @example
  * ```typescript
- * import { getGames } from '@/lib/firebase/services/games';
- * const games: GameData[] = await getGames(userId, playerId);
+ * import { getAllGamesForPlayerAdmin } from '@/lib/db/queries/games';
+ * const games: GameData[] = await getAllGamesForPlayerAdmin(userId, playerId);
  * ```
  */
 export interface GameData {

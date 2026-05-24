@@ -3,37 +3,27 @@
  *
  * POST /api/billing/change-plan
  *
- * Phase 7 Task 3: Self-Service Plan Changes
- *
  * Creates a Stripe Checkout session for plan upgrades/downgrades.
- * Validates workspace eligibility and returns checkout URL.
+ * Phase 4.5 migration: workspace + user lookups moved off Firestore onto Drizzle.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authWithProfile } from '@/lib/auth';
-import { adminDb } from '@/lib/firebase/admin';
+import { getUserProfileAdmin } from '@/lib/db/queries/users';
+import { getWorkspaceByIdAdmin } from '@/lib/db/queries/workspaces';
 import {
   validatePlanChangeEligibility,
   buildCheckoutSession,
   getProrationPreview,
 } from '@/lib/billing/plan-change';
 import { getPlanForPriceId } from '@/lib/stripe/plan-mapping';
-import type { Workspace } from '@/types/firestore';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/billing/change-plan');
 
-/**
- * POST handler for plan change
- *
- * Request body: { targetPriceId: string }
- * Response: { url: string, preview: { amountDue, immediateCharge, ... } }
- */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Authenticate user
     const dashboardUser = await authWithProfile();
-
     if (!dashboardUser) {
       return NextResponse.json(
         { error: 'UNAUTHORIZED', message: 'Authentication required' },
@@ -41,19 +31,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Get user's default workspace
-    const userDoc = await adminDb.collection('users').doc(dashboardUser.uid).get();
-
-    if (!userDoc.exists) {
+    const user = await getUserProfileAdmin(dashboardUser.uid);
+    if (!user) {
       return NextResponse.json(
         { error: 'USER_NOT_FOUND', message: 'User document not found' },
         { status: 404 }
       );
     }
 
-    const userData = userDoc.data();
-    const workspaceId = userData?.defaultWorkspaceId;
-
+    const workspaceId = user.defaultWorkspaceId;
     if (!workspaceId) {
       return NextResponse.json(
         { error: 'NO_WORKSPACE', message: 'User has no default workspace' },
@@ -61,23 +47,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Get workspace document
-    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
-
-    if (!workspaceDoc.exists) {
+    const workspace = await getWorkspaceByIdAdmin(workspaceId);
+    if (!workspace) {
       return NextResponse.json(
         { error: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found' },
         { status: 404 }
       );
     }
 
-    const workspaceData = workspaceDoc.data();
-    const workspace = {
-      id: workspaceDoc.id,
-      ...workspaceData,
-    } as unknown as Workspace;
-
-    // 4. Parse request body
     const body = await request.json();
     const { targetPriceId } = body;
 
@@ -88,19 +65,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Validate price ID
     try {
-      getPlanForPriceId(targetPriceId); // Throws if invalid
-    } catch (error: any) {
+      getPlanForPriceId(targetPriceId);
+    } catch {
       return NextResponse.json(
         { error: 'INVALID_PRICE_ID', message: 'Unknown Stripe price ID' },
         { status: 400 }
       );
     }
 
-    // 6. Validate workspace eligibility
     const eligibility = validatePlanChangeEligibility(workspace);
-
     if (!eligibility.eligible) {
       return NextResponse.json(
         {
@@ -111,12 +85,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Get proration preview
     let prorationPreview;
     try {
       prorationPreview = await getProrationPreview(workspace, targetPriceId);
-    } catch (error: any) {
-      logger.error('Plan change proration preview failed: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(
+        'Plan change proration preview failed: ' + msg,
+        error instanceof Error ? error : new Error(msg)
+      );
       return NextResponse.json(
         {
           error: 'PRORATION_FAILED',
@@ -126,12 +103,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 8. Build checkout session
     let checkoutUrl;
     try {
       checkoutUrl = await buildCheckoutSession(workspace, targetPriceId);
-    } catch (error: any) {
-      logger.error('Plan change checkout session failed: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(
+        'Plan change checkout session failed: ' + msg,
+        error instanceof Error ? error : new Error(msg)
+      );
       return NextResponse.json(
         {
           error: 'CHECKOUT_FAILED',
@@ -141,7 +121,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 9. Return success response
     return NextResponse.json({
       success: true,
       url: checkoutUrl,
@@ -153,16 +132,20 @@ export async function POST(request: NextRequest) {
         currencyCode: prorationPreview.currencyCode,
       },
     });
-  } catch (error: any) {
-    logger.error('/api/billing/change-plan error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(
+      '/api/billing/change-plan error: ' + msg,
+      error instanceof Error ? error : new Error(msg)
+    );
 
-    // Handle Stripe API errors
-    if (error.type) {
+    const errType = (error as { type?: string }).type;
+    if (errType) {
       return NextResponse.json(
         {
           error: 'STRIPE_ERROR',
-          message: error.message || 'Stripe API error occurred',
-          type: error.type,
+          message: msg || 'Stripe API error occurred',
+          type: errType,
         },
         { status: 500 }
       );
