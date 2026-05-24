@@ -1,11 +1,15 @@
 /**
  * AI Workout Strategy Module
  *
- * Uses Vertex AI Gemini to generate personalized workout strategies
- * based on player history, position, goals, and biometrics.
+ * Uses Claude (via lib/ai/claude.ts) to generate personalized workout
+ * strategies based on player history, position, goals, and biometrics.
+ *
+ * When ANTHROPIC_API_KEY is unset, or NODE_ENV === 'test' without a key,
+ * `generateWorkoutStrategy` returns a deterministic fallback strategy so
+ * offline / CI environments stay green without making network calls.
  */
 
-import { VertexAI } from '@google-cloud/vertexai';
+import { generateText, ClaudeError } from './claude';
 
 // Types for workout strategy
 export interface WorkoutStrategyInput {
@@ -84,66 +88,71 @@ export interface ProgressionSuggestion {
   reason: string;
 }
 
-// Initialize Vertex AI client
-function getVertexAI(): VertexAI {
-  const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
-  const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
-
-  console.log('[AI Strategy] Initializing Vertex AI:', {
-    projectId: projectId ? `${projectId.slice(0, 10)}...` : 'NOT SET',
-    location,
-    hasGoogleCloudProject: !!process.env.GOOGLE_CLOUD_PROJECT,
-    hasGCloudProject: !!process.env.GCLOUD_PROJECT,
-  });
-
-  if (!projectId) {
-    throw new Error('GOOGLE_CLOUD_PROJECT environment variable is required');
-  }
-
-  return new VertexAI({
-    project: projectId,
-    location,
-  });
+/**
+ * Whether the offline / test fallback path should fire instead of a real
+ * Claude call. If there is no API key, or we're in a test environment
+ * without one, return the canned plan rather than crashing.
+ */
+function shouldUseFallback(): boolean {
+  const hasKey = Boolean(process.env.ANTHROPIC_API_KEY);
+  if (!hasKey) return true;
+  // NODE_ENV === 'test' AND key present → still call the (mocked) API.
+  return false;
 }
 
 /**
- * Generate a personalized workout strategy using Vertex AI Gemini
+ * Generate a personalized workout strategy using Claude.
+ *
+ * Public signature is unchanged from the previous implementation so API
+ * routes that import this don't need to change.
  */
 export async function generateWorkoutStrategy(
   input: WorkoutStrategyInput
 ): Promise<WorkoutStrategy> {
+  if (shouldUseFallback()) {
+    console.log('[AI Strategy] ANTHROPIC_API_KEY not set — using fallback strategy');
+    return generateFallbackStrategy(input);
+  }
+
   try {
-    console.log('[AI Strategy] Attempting Vertex AI generation for player:', input.playerName);
-    const vertexAI = getVertexAI();
-    const model = vertexAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 8192,
-      },
+    console.log('[AI Strategy] Attempting Claude generation for player:', input.playerName);
+
+    const userPrompt = buildStrategyPrompt(input);
+    const text = await generateText({
+      system: STRATEGY_SYSTEM_PROMPT,
+      user: userPrompt,
+      // 8192 token output budget — generous for the full weekly plan JSON.
+      maxTokens: 8192,
+      temperature: 0.7,
     });
 
-    const prompt = buildStrategyPrompt(input);
-    console.log('[AI Strategy] Sending request to Vertex AI...');
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
-
     if (!text) {
-      throw new Error('No response from Vertex AI');
+      throw new Error('No response text from Claude');
     }
 
     console.log('[AI Strategy] SUCCESS - Received AI-generated strategy');
     return parseStrategyResponse(text, input);
-  } catch (error: any) {
-    console.error('[AI Strategy] FAILED - Using fallback strategy. Error:', error?.message || error);
-    // Return a fallback strategy when Vertex AI is unavailable or fails
+  } catch (error) {
+    const msg = error instanceof ClaudeError || error instanceof Error
+      ? error.message
+      : String(error);
+    console.error('[AI Strategy] FAILED - Using fallback strategy. Error:', msg);
+    // Return a fallback strategy when Claude is unavailable or fails.
     return generateFallbackStrategy(input);
   }
 }
 
 /**
- * Build the prompt for Gemini based on player data
+ * System prompt for workout strategy generation. Lifted out so the
+ * persona/role lives outside the user-data prompt.
+ */
+const STRATEGY_SYSTEM_PROMPT =
+  'You are an expert youth soccer fitness coach. You respond ONLY with valid JSON ' +
+  'matching the schema described in the user message. No markdown, no code fences, ' +
+  'no commentary outside the JSON.';
+
+/**
+ * Build the user prompt based on player data
  */
 function buildStrategyPrompt(input: WorkoutStrategyInput): string {
   const workoutSummary = input.recentWorkouts.length > 0
@@ -174,7 +183,7 @@ Mental Check-ins:
     ? `Upcoming games: ${input.upcomingGames.map(g => g.date.toLocaleDateString()).join(', ')}`
     : 'No upcoming games scheduled.';
 
-  return `You are an expert youth soccer fitness coach. Generate a personalized weekly workout strategy for the following player.
+  return `Generate a personalized weekly workout strategy for the following player.
 
 PLAYER PROFILE:
 - Name: ${input.playerName}
@@ -318,7 +327,7 @@ function tryFixJSON(text: string): string {
 }
 
 /**
- * Parse the Gemini response into structured strategy
+ * Parse the Claude response into structured strategy
  */
 function parseStrategyResponse(
   text: string,

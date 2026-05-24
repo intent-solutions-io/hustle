@@ -1,41 +1,46 @@
 // POST /api/ai/recommend
 //
-// Routes coaching requests through the A2A Operations Manager orchestrator
-// (hustle-operations-manager, Vertex AI Agent Engine).
-//
-// Execution path:
-//   1. Build a structured natural-language prompt from the incoming context.
-//   2. If ORCHESTRATOR_REASONING_ENGINE_ID is set → call the orchestrator via
-//      the two-step Agent Engine API (create session → streamQuery).
-//      The orchestrator uses its analytics sub-agent and Gemini 2.0 Flash to
-//      produce the response, benefiting from session memory and A2A routing.
-//   3. If the orchestrator is not configured or errors → fall back to calling
-//      Gemini 2.0 Flash directly via vertex-ai.ts (same model, no sub-agents).
+// Generates short coaching recommendations (strategy / analytics / tip)
+// via Claude. Each prompt type splits its persona (system) from the
+// per-request data (user) so the role description stays out of the
+// data prompt.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callOrchestrator, isOrchestratorConfigured } from '@/lib/a2a-client';
-import { generateContent } from '@/lib/vertex-ai';
+import { generateText } from '@/lib/ai/claude';
 
-// ─── Prompt builders ──────────────────────────────────────────
+// ─── System prompts (persona/role) ───────────────────────────
 
-function buildStrategyPrompt(ctx: Record<string, unknown>): string {
+const SYSTEM_PROMPTS = {
+  strategy:
+    'You are an expert youth soccer coach. You give concise, actionable, ' +
+    'motivating tactical advice written directly to the player.',
+  analytics:
+    'You are a soccer performance analyst reviewing a youth athlete\'s stats. ' +
+    'You write data-driven yet encouraging insights, concise and specific.',
+  tip:
+    'You are a youth soccer coach delivering a single daily motivational tip. ' +
+    'You address the player directly (use "you") and stay brief and practical.',
+} as const;
+
+// ─── User-prompt builders (per-request data) ─────────────────
+
+function buildStrategyUserPrompt(ctx: Record<string, unknown>): string {
   const formation     = (ctx.formation     as string) ?? 'unknown';
   const position      = (ctx.position      as string | undefined);
   const opponentNotes = (ctx.opponentNotes as string | undefined);
 
   return [
-    'You are an expert youth soccer coach. A player is preparing for a match.',
+    'A player is preparing for a match.',
     `Formation: ${formation}`,
     position      ? `Player position: ${position}`   : '',
     opponentNotes ? `Opponent notes: ${opponentNotes}` : '',
     '',
     'Give exactly 3 specific, actionable tactical recommendations tailored to this formation and position.',
     'Format as a numbered list (1. 2. 3.). Keep each point to 2 sentences max.',
-    'Be practical, concise, and motivating — written directly to the player.',
   ].filter(Boolean).join('\n');
 }
 
-function buildAnalyticsPrompt(ctx: Record<string, unknown>): string {
+function buildAnalyticsUserPrompt(ctx: Record<string, unknown>): string {
   const goals   = ctx.goals   as number;
   const assists = ctx.assists as number;
   const games   = ctx.games   as number;
@@ -43,31 +48,28 @@ function buildAnalyticsPrompt(ctx: Record<string, unknown>): string {
   const range   = (ctx.range  as string) ?? 'the selected period';
 
   return [
-    'You are a soccer performance analyst reviewing a youth athlete\'s stats.',
     `Period: ${range}`,
     `Stats — Goals: ${goals}, Assists: ${assists}, Games: ${games}, Win Rate: ${winRate}%`,
     '',
     'Provide 2–3 key insights about their performance trends.',
     'Highlight one clear strength and one concrete area to improve.',
-    'Keep the tone data-driven yet encouraging. 4 sentences maximum total.',
+    '4 sentences maximum total.',
   ].join('\n');
 }
 
-function buildTipPrompt(ctx: Record<string, unknown>): string {
+function buildTipUserPrompt(ctx: Record<string, unknown>): string {
   const workoutsCompleted = ctx.workoutsCompleted as number;
   const workoutsGoal      = ctx.workoutsGoal      as number;
   const practicesLogged   = ctx.practicesLogged   as number;
   const recentResults     = ctx.recentResults     as string | undefined;
 
   return [
-    'You are a youth soccer coach delivering a daily motivational tip.',
     `Workouts completed this week: ${workoutsCompleted}/${workoutsGoal}`,
     `Practices logged: ${practicesLogged}`,
     recentResults ? `Recent results: ${recentResults}` : '',
     '',
     'Give ONE specific, actionable tip for today to improve performance.',
-    'Be encouraging, practical, and brief — 2–3 sentences only.',
-    'Address the player directly (use "you").',
+    'Keep it to 2–3 sentences only.',
   ].filter(Boolean).join('\n');
 }
 
@@ -86,32 +88,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing type or context' }, { status: 400 });
     }
 
-    let prompt: string;
+    let userPrompt: string;
     if (type === 'strategy') {
-      prompt = buildStrategyPrompt(context);
+      userPrompt = buildStrategyUserPrompt(context);
     } else if (type === 'analytics') {
-      prompt = buildAnalyticsPrompt(context);
+      userPrompt = buildAnalyticsUserPrompt(context);
     } else if (type === 'tip') {
-      prompt = buildTipPrompt(context);
+      userPrompt = buildTipUserPrompt(context);
     } else {
       return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
     }
 
-    let result: string;
+    console.log(`[/api/ai/recommend] type=${type}`);
 
-    console.log(`[/api/ai/recommend] type=${type} orchestrator=${isOrchestratorConfigured()}`);
-
-    if (isOrchestratorConfigured()) {
-      try {
-        result = await callOrchestrator(prompt);
-      } catch (orchError) {
-        // Orchestrator unreachable or session error — degrade gracefully
-        console.warn('[/api/ai/recommend] Orchestrator failed, falling back to direct Gemini:', orchError);
-        result = await generateContent(prompt);
-      }
-    } else {
-      result = await generateContent(prompt);
-    }
+    const result = await generateText({
+      system: SYSTEM_PROMPTS[type],
+      user: userPrompt,
+      // Coaching tips are short — 512 tokens is plenty and keeps cost down.
+      maxTokens: 512,
+      temperature: 0.7,
+    });
 
     return NextResponse.json({ result });
   } catch (error) {
