@@ -19,15 +19,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all players for authenticated user from Firestore (Admin SDK)
-    const firestorePlayers = await getPlayersAdmin(session.user.id);
+    // Get all players for authenticated user (Drizzle admin queries)
+    const playerRows = await getPlayersAdmin(session.user.id);
 
-    // Get user email for parent info (Admin SDK)
+    // Get user email for parent info
     const parentUser = await getUserProfileAdmin(session.user.id);
 
-    // Get pending games count for each player (Admin SDK)
+    // Get pending games count for each player
     const playersWithPending = await Promise.all(
-      firestorePlayers.map(async (player) => {
+      playerRows.map(async (player) => {
         const unverifiedGames = await getUnverifiedGamesAdmin(session.user.id, player.id);
         return {
           id: player.id,

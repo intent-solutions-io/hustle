@@ -25,12 +25,11 @@ import { redirect } from 'next/navigation';
 /**
  * Admin allow-list (UIDs)
  *
- * Add Firebase UIDs of admin users who can access this page.
- * In production, use Firebase custom claims or a database table.
+ * Add NextAuth user IDs of admin users who can access this page.
+ * In production, prefer a roles table over a hardcoded allow-list.
  */
 const ADMIN_UIDS: string[] = [
-  // Add your admin UIDs here
-  // Example: 'firebase-uid-of-admin-user'
+  // Add your admin user IDs here
 ];
 
 /**
