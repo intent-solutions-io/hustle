@@ -43,3 +43,7 @@ hustle-firebase-admin-key.json
 *.tsbuildinfo
 next-env.d.ts
 /data
+
+# Phase 4.5g: vendored sub-project at repo root; Turbopack chokes on its
+# nwsl/archive_*/venv-videos/bin/python symlinks during file tracing.
+/nwsl

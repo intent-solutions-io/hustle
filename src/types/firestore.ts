@@ -12,7 +12,11 @@
  * /waitlist/{email}
  */
 
-import { Timestamp } from 'firebase/firestore';
+// Phase 4.5g: legacy Firestore document type aliases retained for source
+// compatibility across 90+ importers. The firebase Timestamp import is
+// dropped — every "document" field that used to be a Firestore Timestamp
+// is now a plain JS Date (which is also what the Drizzle schema returns).
+type Timestamp = Date;
 import type { LeagueCode } from './league';
 import type { PerformanceRating, GameEmotionTag } from './game';
 
