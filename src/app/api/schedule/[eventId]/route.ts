@@ -6,7 +6,7 @@ import {
   getScheduleEventAdmin,
   updateScheduleEventAdmin,
   deleteScheduleEventAdmin,
-} from '@/lib/firebase/admin-services/schedule-events';
+} from '@/lib/db/queries/schedule-events';
 
 const logger = createLogger('api/schedule/[eventId]');
 

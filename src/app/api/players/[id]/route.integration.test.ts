@@ -15,7 +15,7 @@ import {
   seedPlayer,
   type TestUser,
 } from '@/test-utils/integration';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 
 // Mock next/headers to inject real session cookie
 vi.mock('next/headers', () => ({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
-import { createMealLogAdmin, getMealLogsAdmin } from '@/lib/firebase/admin-services/meal-logs';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
+import { createMealLogAdmin, getMealLogsAdmin } from '@/lib/db/queries/meal-logs';
 import { mealLogCreateSchema, mealLogQuerySchema } from '@/lib/validations/meal-log-schema';
 import type { MealType } from '@/types/firestore';
 import { createLogger } from '@/lib/logger';

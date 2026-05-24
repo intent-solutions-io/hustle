@@ -26,17 +26,17 @@ vi.mock('@/lib/auth', () => ({
   auth: mocks.auth,
 }));
 
-vi.mock('@/lib/firebase/admin-services/players', () => ({
+vi.mock('@/lib/db/queries/players', () => ({
   getPlayerAdmin: mocks.getPlayerAdmin,
   updatePlayerAdmin: mocks.updatePlayerAdmin,
   deletePlayerAdmin: mocks.deletePlayerAdmin,
 }));
 
-vi.mock('@/lib/firebase/admin-services/users', () => ({
+vi.mock('@/lib/db/queries/users', () => ({
   getUserProfileAdmin: mocks.getUserProfileAdmin,
 }));
 
-vi.mock('@/lib/firebase/admin-services/workspaces', () => ({
+vi.mock('@/lib/db/queries/workspaces', () => ({
   getWorkspaceByIdAdmin: mocks.getWorkspaceByIdAdmin,
 }));
 

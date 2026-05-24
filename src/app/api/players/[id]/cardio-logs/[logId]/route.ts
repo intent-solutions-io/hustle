@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   getCardioLogAdmin,
   updateCardioLogAdmin,
   deleteCardioLogAdmin,
-} from '@/lib/firebase/admin-services/cardio-logs';
+} from '@/lib/db/queries/cardio-logs';
 import { cardioLogUpdateSchema } from '@/lib/validations/cardio-log-schema';
 import { createLogger } from '@/lib/logger';
 

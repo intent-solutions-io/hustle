@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
 // Module mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('@/lib/firebase/admin-services/waitlist', () => ({
+vi.mock('@/lib/db/queries/waitlist', () => ({
   isOnWaitlistAdmin: mocks.isOnWaitlistAdmin,
   addToWaitlistAdmin: mocks.addToWaitlistAdmin,
 }));

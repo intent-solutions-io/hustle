@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { createLogger } from '@/lib/logger'
-import { getPlayersAdmin } from '@/lib/firebase/admin-services/players'
-import { getUnverifiedGamesAdmin } from '@/lib/firebase/admin-services/games'
-import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users'
+import { getPlayersAdmin } from '@/lib/db/queries/players'
+import { getUnverifiedGamesAdmin } from '@/lib/db/queries/games'
+import { getUserProfileAdmin } from '@/lib/db/queries/users'
 
 const logger = createLogger('api/players')
 

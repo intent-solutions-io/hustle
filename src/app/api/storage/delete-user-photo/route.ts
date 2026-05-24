@@ -3,8 +3,8 @@ import { auth } from '@/lib/auth';
 import { getAdminAuth } from '@/lib/firebase/admin';
 import { extractStoragePath } from '@/lib/firebase/storage-utils';
 import { deletePlayerPhotoAdmin } from '@/lib/firebase/admin-storage';
-import { getUserProfileAdmin, updateUserProfileAdmin } from '@/lib/firebase/admin-services/users';
-import { updateWorkspaceStorageUsageAdmin } from '@/lib/firebase/admin-services/workspaces';
+import { getUserProfileAdmin, updateUserProfileAdmin } from '@/lib/db/queries/users';
+import { updateWorkspaceStorageUsageAdmin } from '@/lib/db/queries/workspaces';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/storage/delete-user-photo');

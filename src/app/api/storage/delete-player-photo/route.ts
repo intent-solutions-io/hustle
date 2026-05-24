@@ -12,8 +12,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { extractStoragePath } from '@/lib/firebase/storage-utils';
 import { deletePlayerPhotoAdmin } from '@/lib/firebase/admin-storage';
-import { getPlayerAdmin, updatePlayerAdmin } from '@/lib/firebase/admin-services/players';
-import { updateWorkspaceStorageUsageAdmin } from '@/lib/firebase/admin-services/workspaces';
+import { getPlayerAdmin, updatePlayerAdmin } from '@/lib/db/queries/players';
+import { updateWorkspaceStorageUsageAdmin } from '@/lib/db/queries/workspaces';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/storage/delete-player-photo');
