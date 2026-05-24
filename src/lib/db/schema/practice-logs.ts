@@ -30,8 +30,9 @@ export const practiceLogs = sqliteTable("practiceLog", {
   location: text("location"),
   drillsCompleted: text("drillsCompleted", { mode: "json" }).$type<string[]>(),
 
-  intensity: integer("intensity").$type<1 | 2 | 3 | 4 | 5>(),
-  enjoyment: integer("enjoyment").$type<1 | 2 | 3 | 4 | 5>(),
+  // Stored as number; validation layer constrains to 1..5
+  intensity: integer("intensity"),
+  enjoyment: integer("enjoyment"),
   improvement: text("improvement"),
 
   notes: text("notes"),

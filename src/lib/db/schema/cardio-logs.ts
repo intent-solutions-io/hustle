@@ -33,7 +33,8 @@ export const cardioLogs = sqliteTable("cardioLog", {
   weather: text("weather"),
   notes: text("notes"),
 
-  perceivedEffort: integer("perceivedEffort").$type<1 | 2 | 3 | 4 | 5>(),
+  // Stored as number; validation layer constrains to 1..5
+  perceivedEffort: integer("perceivedEffort"),
 
   createdAt: integer("createdAt", { mode: "timestamp_ms" })
     .notNull()
