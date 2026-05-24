@@ -1,50 +1,26 @@
 /**
- * Delete Player Photo API Route
- *
- * Phase 6 Task 5: Storage & Uploads
- *
  * DELETE /api/storage/delete-player-photo
  *
- * Deletes a player's profile photo and updates storage usage.
+ * Phase 5 rewrite: deletes from local disk, decrements workspace storage.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { extractStoragePath } from '@/lib/firebase/storage-utils';
-import { deletePlayerPhotoAdmin } from '@/lib/firebase/admin-storage';
+import { deletePhotoLocal, extractLocalPath } from '@/lib/storage/local';
 import { getPlayerAdmin, updatePlayerAdmin } from '@/lib/db/queries/players';
 import { updateWorkspaceStorageUsageAdmin } from '@/lib/db/queries/workspaces';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/storage/delete-player-photo');
 
-/**
- * DELETE /api/storage/delete-player-photo
- *
- * Delete player profile photo.
- *
- * Request:
- * - Body: { playerId: string }
- *
- * Response:
- * - 200: { success: true, sizeFreed: number }
- * - 400: Invalid request
- * - 401: Unauthorized
- * - 403: Not owner of player
- * - 404: Player or photo not found
- * - 500: Server error
- */
 export async function DELETE(request: NextRequest) {
   try {
-    // 1. Check authentication
     const session = await auth(request);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
     const userId = session.user.id;
 
-    // 2. Parse request body
     const body = await request.json();
     const { playerId } = body;
 
@@ -52,37 +28,32 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required field: playerId' }, { status: 400 });
     }
 
-    // 3. Get player and verify ownership
     const player = await getPlayerAdmin(userId, playerId);
     if (!player) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 });
     }
 
-    // 4. Check if player has a photo
     if (!player.photoUrl) {
       return NextResponse.json({ error: 'Player has no photo' }, { status: 404 });
     }
 
-    // 5. Extract storage path from URL
-    const storagePath = extractStoragePath(player.photoUrl);
+    const storagePath = extractLocalPath(player.photoUrl);
     if (!storagePath) {
-      return NextResponse.json({ error: 'Invalid photo URL' }, { status: 400 });
+      // Legacy/foreign URL (e.g. an old firebasestorage download URL still in
+      // the DB) — clear the field but skip the local delete.
+      await updatePlayerAdmin(userId, playerId, { photoUrl: null });
+      return NextResponse.json({ success: true, sizeFreed: 0 });
     }
 
-    // 6. Delete photo from Firebase Storage
-    const sizeFreed = await deletePlayerPhotoAdmin(storagePath);
+    const sizeFreed = await deletePhotoLocal(storagePath);
 
-    // 7. Update player photoUrl in Firestore
-    await updatePlayerAdmin(userId, playerId, {
-      photoUrl: null,
-    });
+    await updatePlayerAdmin(userId, playerId, { photoUrl: null });
 
-    // 8. Update workspace storage usage (negative delta)
     if (player.workspaceId) {
       await updateWorkspaceStorageUsageAdmin(player.workspaceId, -sizeFreed);
     }
 
-    logger.info('Player photo deleted successfully', {
+    logger.info('Player photo deleted', {
       userId,
       playerId,
       workspaceId: player.workspaceId,
@@ -90,15 +61,10 @@ export async function DELETE(request: NextRequest) {
       sizeFreed,
     });
 
-    return NextResponse.json({
-      success: true,
-      sizeFreed,
-    });
-  } catch (error: any) {
-    logger.error('Delete player photo failed', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to delete photo' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, sizeFreed });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Delete player photo failed', error instanceof Error ? error : undefined);
+    return NextResponse.json({ error: message || 'Failed to delete photo' }, { status: 500 });
   }
 }
