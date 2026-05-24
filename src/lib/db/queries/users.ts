@@ -57,6 +57,22 @@ export async function getUserProfileAdmin(uid: string): Promise<User | null> {
   return toUser(row);
 }
 
+/**
+ * Look up the user whose `defaultWorkspaceId` equals the given id. Used by
+ * the daily trial-reminders timer to find the owner email for a workspace
+ * with an expiring trial — matches the legacy Cloud Function's lookup
+ * (Firestore: where("defaultWorkspaceId", "==", workspaceId).limit(1)).
+ */
+export async function getUserByDefaultWorkspaceIdAdmin(
+  workspaceId: string
+): Promise<User | null> {
+  const row = await db.query.users.findFirst({
+    where: eq(users.defaultWorkspaceId, workspaceId),
+  });
+  if (!row) return null;
+  return toUser(row);
+}
+
 export async function updateUserProfileAdmin(
   uid: string,
   data: Partial<Omit<UserDocument, "createdAt" | "emailVerified">>

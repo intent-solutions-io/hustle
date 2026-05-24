@@ -12,7 +12,7 @@
  * Workspace members live in their own join table (`workspaceMember`).
  */
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { workspaces, workspaceMembers } from "@/lib/db/schema/workspaces";
 import type {
@@ -187,5 +187,42 @@ export async function updateWorkspaceStorageUsageAdmin(
     .where(eq(workspaces.id, workspaceId));
 }
 
-// Suppress unused import warnings for utilities reserved for future use.
-void and;
+/**
+ * List workspaces whose `trialEndsAt` falls in a future window.
+ *
+ * Used by the daily trial-reminders timer (POSTs to
+ * /api/internal/trial-reminders) — replaces the legacy
+ * `sendTrialReminders` Cloud Function on hustleapp-production.
+ *
+ * `daysMin` / `daysMax` are integer offsets from now, e.g. (3, 4) returns
+ * workspaces whose trial ends within the next 24h window starting 3 days
+ * out — matches the original Firestore query's >= 3d, < 4d shape.
+ */
+export async function listWorkspacesEndingTrialWithinWindow(
+  daysMin: number,
+  daysMax: number
+): Promise<Workspace[]> {
+  if (daysMax <= daysMin) {
+    throw new Error(
+      `listWorkspacesEndingTrialWithinWindow: daysMax (${daysMax}) must be > daysMin (${daysMin})`
+    );
+  }
+  const now = new Date();
+  const lower = new Date(now);
+  lower.setDate(lower.getDate() + daysMin);
+  const upper = new Date(now);
+  upper.setDate(upper.getDate() + daysMax);
+
+  const rows = await db
+    .select()
+    .from(workspaces)
+    .where(
+      and(
+        eq(workspaces.status, "trial"),
+        gte(workspaces.trialEndsAt, lower),
+        lt(workspaces.trialEndsAt, upper)
+      )
+    );
+
+  return Promise.all(rows.map(toWorkspace));
+}
