@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily trial-reminder emails for hustle
+Requires=hustle-trial-reminders.service
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 UTC
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

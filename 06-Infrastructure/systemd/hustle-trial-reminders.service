@@ -1,0 +1,11 @@
+[Unit]
+Description=POST to hustle /api/internal/trial-reminders
+After=network-online.target docker.service
+Requires=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/intentsolutions/hustle-internal.env
+ExecStart=/usr/bin/curl -fsS -X POST http://127.0.0.1:8084/api/internal/trial-reminders \
+  -H "Authorization: Bearer ${HUSTLE_INTERNAL_TOKEN}" \
+  --max-time 60
