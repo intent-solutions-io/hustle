@@ -17,6 +17,10 @@ const publicPrefixes = [
   '/api/auth/',
   '/api/healthcheck',
   '/api/health',
+  '/api/healthz',
+  // Bearer-token-gated routes — they enforce their own auth, must bypass
+  // the cookie redirect (which would 307→/login before the route runs).
+  '/api/internal/',
   '/_next/',
   '/favicon',
   '/images/',
