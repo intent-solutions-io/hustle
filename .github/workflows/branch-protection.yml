@@ -4,30 +4,18 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  PROJECT_ID: hustleapp-production
-  REGION: us-central1
-
 jobs:
   validate:
     name: Pre-merge Validation
     runs-on: ubuntu-latest
 
     env:
-      # Firebase configuration (public - safe to expose)
-      NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
-      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "hustleapp-production.firebaseapp.com"
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: "hustleapp-production"
-      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "hustleapp-production.firebasestorage.app"
-      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "335713777643"
-      NEXT_PUBLIC_FIREBASE_APP_ID: "1:335713777643:web:209e728afd5aee07c80bae"
-      # E2E test mode
+      # E2E test mode + credentials. Firebase + GCP env wires removed during
+      # the VPS-as-the-home / GCP exodus (Phase 3+ rip out Firebase auth/admin;
+      # Phase 8 retires the GCP project). Anything Firebase- or Vertex-related
+      # that needs to be set in CI now should come from SOPS secrets the
+      # canonical way, not from this file.
       NEXT_PUBLIC_E2E_TEST_MODE: 'true'
-      # Firebase Admin (private - from secrets)
-      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-      FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-      FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
-      # E2E Test credentials
       E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
       E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
@@ -75,59 +63,3 @@ jobs:
 
       - name: Build check
         run: npm run build
-
-  # Only deploy to staging/preview on PRs
-  deploy-preview:
-    name: Deploy Preview Environment
-    runs-on: ubuntu-latest
-    needs: validate
-    if: github.event_name == 'pull_request'
-
-    permissions:
-      contents: read
-      id-token: write
-      pull-requests: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Deploy to Preview
-        run: |
-          gcloud run deploy hustle-app-staging \
-            --source . \
-            --region ${{ env.REGION }} \
-            --project ${{ env.PROJECT_ID }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=staging" \
-            --set-env-vars "NEXTAUTH_URL=https://staging-hustlestats.io" \
-            --set-secrets "DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest"
-
-      - name: Get preview URL
-        id: preview-url
-        run: |
-          URL=$(gcloud run services describe hustle-app-staging \
-            --region ${{ env.REGION }} \
-            --format 'value(status.url)')
-          echo "url=$URL" >> $GITHUB_OUTPUT
-
-      - name: Comment PR with preview URL
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## Preview Deployment Ready!\n\n**Preview URL:** ${{ steps.preview-url.outputs.url }}\n\nAll checks passed. Deployed to staging environment.\n\nTest your changes before merging to production.`
-            })

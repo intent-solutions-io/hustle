@@ -15,13 +15,13 @@ const mocks = vi.hoisted(() => ({
   emailsSend: vi.fn(),
 }));
 
-// Mock the Resend class before any imports
+// Mock the Resend class before any imports. vitest 4 rejects arrow-function
+// mockImplementation as "not a constructor" when the caller does `new Resend(...)`,
+// so the mock has to be a real class declaration.
 vi.mock('resend', () => ({
-  Resend: vi.fn().mockImplementation(() => ({
-    emails: {
-      send: mocks.emailsSend,
-    },
-  })),
+  Resend: class {
+    emails = { send: mocks.emailsSend };
+  },
 }));
 
 // ---------------------------------------------------------------------------

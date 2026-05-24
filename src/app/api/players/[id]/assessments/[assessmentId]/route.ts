@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   getAssessmentAdmin,
   updateAssessmentAdmin,
   deleteAssessmentAdmin,
   getAssessmentProgressAdmin,
-} from '@/lib/firebase/admin-services/assessments';
+} from '@/lib/db/queries/assessments';
 import { fitnessAssessmentUpdateSchema, validateAssessmentValue } from '@/lib/validations/assessment-schema';
 
 const logger = createLogger('api/players/[id]/assessments/[assessmentId]');

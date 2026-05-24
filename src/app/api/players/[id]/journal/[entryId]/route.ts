@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   getJournalEntryAdmin,
   updateJournalEntryAdmin,
   deleteJournalEntryAdmin,
-} from '@/lib/firebase/admin-services/journal';
+} from '@/lib/db/queries/journal';
 import { journalEntryUpdateSchema } from '@/lib/validations/journal-schema';
 import { createLogger } from '@/lib/logger';
 

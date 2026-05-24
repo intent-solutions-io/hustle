@@ -12,7 +12,7 @@
 import { useState, useRef } from 'react';
 import Image from 'next/image';
 import { usePlayerPhotoUpload } from '@/hooks/usePlayerPhotoUpload';
-import { STORAGE_LIMITS, ALLOWED_IMAGE_TYPES } from '@/lib/firebase/storage';
+import { STORAGE_LIMITS, ALLOWED_IMAGE_TYPES } from '@/lib/storage/upload-validation';
 import type { WorkspacePlan } from '@/types/firestore';
 
 interface PlayerPhotoUploadProps {

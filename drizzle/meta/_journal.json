@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1779156230317,
+      "tag": "0000_init_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1779324172887,
+      "tag": "0001_overjoyed_sleeper",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779594399795,
+      "tag": "0002_p4_subcollections",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1779598046768,
+      "tag": "0003_p45_stripe_billing",
+      "breakpoints": true
+    }
+  ]
+}

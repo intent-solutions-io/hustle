@@ -25,12 +25,11 @@ import { redirect } from 'next/navigation';
 /**
  * Admin allow-list (UIDs)
  *
- * Add Firebase UIDs of admin users who can access this page.
- * In production, use Firebase custom claims or a database table.
+ * Add NextAuth user IDs of admin users who can access this page.
+ * In production, prefer a roles table over a hardcoded allow-list.
  */
 const ADMIN_UIDS: string[] = [
-  // Add your admin UIDs here
-  // Example: 'firebase-uid-of-admin-user'
+  // Add your admin user IDs here
 ];
 
 /**
@@ -146,7 +145,7 @@ export default async function BillingLogsPage({ params }: PageProps) {
                 <tr key={event.id} className="hover:bg-gray-50">
                   {/* Timestamp */}
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                    {new Date(event.timestamp.seconds * 1000).toLocaleString('en-US', {
+                    {new Date(event.timestamp).toLocaleString('en-US', {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric',

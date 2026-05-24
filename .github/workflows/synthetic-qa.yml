@@ -29,22 +29,6 @@ jobs:
       # E2E Test Mode
       NEXT_PUBLIC_E2E_TEST_MODE: "true"
 
-      # Firebase configuration (public - safe to expose)
-      NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
-      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "hustleapp-production.firebaseapp.com"
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: "hustleapp-production"
-      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "hustleapp-production.firebasestorage.app"
-      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "335713777643"
-      NEXT_PUBLIC_FIREBASE_APP_ID: "1:335713777643:web:209e728afd5aee07c80bae"
-
-      # Firebase Admin (private - from secrets)
-      # Priority 1: Full service account JSON (most reliable for CI)
-      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-      # Priority 2: Individual credentials (fallback)
-      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-      FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-      FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -79,24 +63,6 @@ jobs:
           echo "NPM version: $(npm -v)"
           echo "E2E Test Mode: $NEXT_PUBLIC_E2E_TEST_MODE"
           echo "Middleware Debug: $MIDDLEWARE_DEBUG"
-          echo "Firebase Project: $NEXT_PUBLIC_FIREBASE_PROJECT_ID"
-          echo ""
-          echo "=== FIREBASE ADMIN CREDENTIALS CHECK ==="
-          if [ -n "$FIREBASE_PROJECT_ID" ]; then
-            echo "✓ FIREBASE_PROJECT_ID is set"
-          else
-            echo "✗ FIREBASE_PROJECT_ID is MISSING"
-          fi
-          if [ -n "$FIREBASE_CLIENT_EMAIL" ]; then
-            echo "✓ FIREBASE_CLIENT_EMAIL is set (length: ${#FIREBASE_CLIENT_EMAIL})"
-          else
-            echo "✗ FIREBASE_CLIENT_EMAIL is MISSING"
-          fi
-          if [ -n "$FIREBASE_PRIVATE_KEY" ]; then
-            echo "✓ FIREBASE_PRIVATE_KEY is set (length: ${#FIREBASE_PRIVATE_KEY})"
-          else
-            echo "✗ FIREBASE_PRIVATE_KEY is MISSING"
-          fi
           echo ""
           echo "=== MIDDLEWARE FILE CHECK ==="
           if [ -f "src/middleware.ts" ]; then

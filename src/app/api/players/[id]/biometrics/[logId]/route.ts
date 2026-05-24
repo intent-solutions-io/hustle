@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   getBiometricsLogAdmin,
   updateBiometricsLogAdmin,
   deleteBiometricsLogAdmin,
-} from '@/lib/firebase/admin-services/biometrics';
+} from '@/lib/db/queries/biometrics';
 import { biometricsLogUpdateSchema } from '@/lib/validations/biometrics-schema';
 import { createLogger } from '@/lib/logger';
 

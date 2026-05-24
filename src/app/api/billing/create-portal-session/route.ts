@@ -3,15 +3,14 @@
  *
  * POST /api/billing/create-portal-session
  *
- * Phase 7 Task 1: Customer Portal Integration
- *
  * Creates a Stripe Customer Portal session for self-service billing management.
- * Users can update payment methods, view invoices, and cancel subscriptions.
+ * Phase 4.5 migration: workspace + user lookups moved off Firestore onto Drizzle.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authWithProfile } from '@/lib/auth';
-import { adminDb } from '@/lib/firebase/admin';
+import { getUserProfileAdmin } from '@/lib/db/queries/users';
+import { getWorkspaceByIdAdmin } from '@/lib/db/queries/workspaces';
 import {
   createCustomerPortalSession,
   getDefaultReturnUrl,
@@ -33,19 +32,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Get user's default workspace
-    const userDoc = await adminDb.collection('users').doc(dashboardUser.uid).get();
-
-    if (!userDoc.exists) {
+    // 2. Get user profile to find default workspace
+    const user = await getUserProfileAdmin(dashboardUser.uid);
+    if (!user) {
       return NextResponse.json(
         { error: 'USER_NOT_FOUND', message: 'User document not found' },
         { status: 404 }
       );
     }
 
-    const userData = userDoc.data();
-    const workspaceId = userData?.defaultWorkspaceId;
-
+    const workspaceId = user.defaultWorkspaceId;
     if (!workspaceId) {
       return NextResponse.json(
         { error: 'NO_WORKSPACE', message: 'User has no default workspace' },
@@ -53,19 +49,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Get workspace with Stripe customer ID
-    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
-
-    if (!workspaceDoc.exists) {
+    // 3. Get workspace
+    const workspace = await getWorkspaceByIdAdmin(workspaceId);
+    if (!workspace) {
       return NextResponse.json(
         { error: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found' },
         { status: 404 }
       );
     }
 
-    const workspaceData = workspaceDoc.data();
-    const stripeCustomerId = workspaceData?.billing?.stripeCustomerId;
-
+    const stripeCustomerId = workspace.billing?.stripeCustomerId;
     if (!stripeCustomerId) {
       return NextResponse.json(
         {
@@ -76,7 +69,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Validate customer ID format
     if (!isValidStripeCustomerId(stripeCustomerId)) {
       logger.error('Invalid Stripe customer ID: ' + stripeCustomerId);
       return NextResponse.json(
@@ -85,31 +77,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Get return URL from request body or use default
     const body = await request.json().catch(() => ({}));
     const returnUrl = body.returnUrl || getDefaultReturnUrl();
 
-    // 6. Create Stripe Customer Portal session
-    const portalSession = await createCustomerPortalSession(
-      stripeCustomerId,
-      returnUrl
-    );
+    const portalSession = await createCustomerPortalSession(stripeCustomerId, returnUrl);
 
-    // 7. Return portal URL
     return NextResponse.json({
       success: true,
       url: portalSession.url,
     });
-  } catch (error: any) {
-    logger.error('/api/billing/create-portal-session error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(
+      '/api/billing/create-portal-session error: ' + msg,
+      error instanceof Error ? error : new Error(msg)
+    );
 
-    // Handle Stripe API errors
-    if (error.type) {
+    const errType = (error as { type?: string }).type;
+    if (errType) {
       return NextResponse.json(
         {
           error: 'STRIPE_ERROR',
-          message: error.message || 'Failed to create portal session',
-          type: error.type,
+          message: msg || 'Failed to create portal session',
+          type: errType,
         },
         { status: 500 }
       );

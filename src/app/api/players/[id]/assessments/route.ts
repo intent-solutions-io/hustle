@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   createAssessmentAdmin,
   getAssessmentsAdmin,
   getAssessmentSummaryAdmin,
-} from '@/lib/firebase/admin-services/assessments';
+} from '@/lib/db/queries/assessments';
 import {
   fitnessAssessmentCreateSchema,
   fitnessAssessmentQuerySchema,

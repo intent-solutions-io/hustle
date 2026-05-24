@@ -12,19 +12,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Firebase configuration (public - safe to expose)
-      NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
-      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "hustleapp-production.firebaseapp.com"
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: "hustleapp-production"
-      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "hustleapp-production.firebasestorage.app"
-      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "335713777643"
-      NEXT_PUBLIC_FIREBASE_APP_ID: "1:335713777643:web:209e728afd5aee07c80bae"
       # E2E test mode - must be at job level for build-time embedding
       NEXT_PUBLIC_E2E_TEST_MODE: 'true'
-      # Firebase Admin (private - from secrets)
-      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-      FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-      FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
 
     steps:
       - name: Checkout code
@@ -62,19 +51,9 @@ jobs:
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
 
-      - name: Set up Java 21 (required by Firebase emulators)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
       - name: Run integration tests
-        run: npx firebase emulators:exec --only auth,firestore 'npm run test:integration'
-        continue-on-error: true  # New infrastructure — don't block CI while stabilizing
-        env:
-          FIREBASE_PROJECT_ID: hustle-test
-          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
-          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+        run: npm run test:integration
+        continue-on-error: true  # Re-stabilize integration tests on Postgres/Drizzle (post-migration)
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
@@ -82,7 +61,7 @@ jobs:
 
       - name: Run E2E tests
         run: npm run test:e2e -- --project=chromium
-        continue-on-error: true  # Requires real Firebase credentials — don't block CI until test infra is ready
+        continue-on-error: true  # Re-stabilize E2E on Postgres/local-FS (post-migration)
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:4000
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
@@ -128,8 +107,6 @@ jobs:
           # asserts post-deploy.
           docker run -d -p 8084:8084 --name test-app \
             -e NODE_ENV=production \
-            -e NEXT_PUBLIC_FIREBASE_PROJECT_ID=hustleapp-production \
-            -e FIREBASE_PROJECT_ID=hustleapp-production \
             hustle-app:${{ github.sha }}
           echo "Waiting for container startup..."
           sleep 15

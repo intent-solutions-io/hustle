@@ -7,3 +7,8 @@ README.md
 .git
 .gitignore
 claudes-docs
+
+# Phase 4.5g: vendored sub-projects at repo root with broken symlinks /
+# their own toolchains — exclude from the Next.js build context.
+nwsl
+mobile

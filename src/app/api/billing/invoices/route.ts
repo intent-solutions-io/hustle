@@ -3,32 +3,22 @@
  *
  * GET /api/billing/invoices
  *
- * Phase 7 Task 4: Customer Billing Portal & Invoice History
- *
  * Returns recent invoices for the authenticated user's workspace.
- * Used by the dashboard to display billing history.
+ * Phase 4.5 migration: workspace + user lookups moved off Firestore onto Drizzle.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authWithProfile } from '@/lib/auth';
-import { adminDb } from '@/lib/firebase/admin';
+import { getUserProfileAdmin } from '@/lib/db/queries/users';
+import { getWorkspaceByIdAdmin } from '@/lib/db/queries/workspaces';
 import { listRecentInvoices } from '@/lib/stripe/billing-portal';
-import type { Workspace } from '@/types/firestore';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/billing/invoices');
 
-/**
- * GET handler for invoice list
- *
- * Query params: limit (optional, default: 5)
- * Response: { invoices: InvoiceDTO[] }
- */
 export async function GET(request: NextRequest) {
   try {
-    // 0. Check billing feature switch (Phase 7 Task 6)
     const billingEnabled = process.env.BILLING_ENABLED !== 'false';
-
     if (!billingEnabled) {
       return NextResponse.json(
         {
@@ -39,9 +29,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 1. Authenticate user
     const dashboardUser = await authWithProfile();
-
     if (!dashboardUser) {
       return NextResponse.json(
         { error: 'UNAUTHORIZED', message: 'Authentication required' },
@@ -49,19 +37,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 2. Get user's default workspace
-    const userDoc = await adminDb.collection('users').doc(dashboardUser.uid).get();
-
-    if (!userDoc.exists) {
+    const user = await getUserProfileAdmin(dashboardUser.uid);
+    if (!user) {
       return NextResponse.json(
         { error: 'USER_NOT_FOUND', message: 'User document not found' },
         { status: 404 }
       );
     }
 
-    const userData = userDoc.data();
-    const workspaceId = userData?.defaultWorkspaceId;
-
+    const workspaceId = user.defaultWorkspaceId;
     if (!workspaceId) {
       return NextResponse.json(
         { error: 'NO_WORKSPACE', message: 'User has no default workspace' },
@@ -69,27 +53,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 3. Get workspace document
-    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
-
-    if (!workspaceDoc.exists) {
+    const workspace = await getWorkspaceByIdAdmin(workspaceId);
+    if (!workspace) {
       return NextResponse.json(
         { error: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found' },
         { status: 404 }
       );
     }
 
-    const workspaceData = workspaceDoc.data();
-    const workspace = {
-      id: workspaceDoc.id,
-      ...workspaceData,
-    } as unknown as Workspace;
-
-    // 4. Enforce workspace status
-    // Allowed: active, past_due, trial
-    // Blocked: canceled, suspended, deleted
     const blockedStatuses = ['canceled', 'suspended', 'deleted'];
-
     if (blockedStatuses.includes(workspace.status)) {
       return NextResponse.json(
         {
@@ -102,17 +74,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 5. Parse optional limit from query params
     const url = new URL(request.url);
     const limitParam = url.searchParams.get('limit');
     const limit = limitParam ? parseInt(limitParam, 10) : 5;
 
-    // 6. Get invoice list
     let invoices;
     try {
       invoices = await listRecentInvoices(workspace.id, limit);
-    } catch (error: any) {
-      logger.error('Invoice list retrieval failed: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(
+        'Invoice list retrieval failed: ' + msg,
+        error instanceof Error ? error : new Error(msg)
+      );
       return NextResponse.json(
         {
           error: 'INVOICE_LIST_FAILED',
@@ -122,18 +96,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 7. Return success response
     return NextResponse.json({ invoices });
-  } catch (error: any) {
-    logger.error('/api/billing/invoices error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(
+      '/api/billing/invoices error: ' + msg,
+      error instanceof Error ? error : new Error(msg)
+    );
 
-    // Handle Stripe API errors
-    if (error.type) {
+    const errType = (error as { type?: string }).type;
+    if (errType) {
       return NextResponse.json(
         {
           error: 'STRIPE_ERROR',
-          message: error.message || 'Stripe API error occurred',
-          type: error.type,
+          message: msg || 'Stripe API error occurred',
+          type: errType,
         },
         { status: 500 }
       );

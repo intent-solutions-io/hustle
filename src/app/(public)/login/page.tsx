@@ -1,107 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase/client';
-import { signInWithGoogle, checkRedirectResult } from '@/lib/firebase/google-auth';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Handle redirect result (when returning from signInWithRedirect on mobile)
-  useEffect(() => {
-    checkRedirectResult(auth).then(async (result) => {
-      if (result) {
-        setLoading(true);
-        try {
-          const idToken = await result.user.getIdToken();
-          const response = await fetch('/api/auth/set-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken }),
-          });
-          if (!response.ok) throw new Error('Failed to create session');
-          router.push('/dashboard');
-        } catch (err) {
-          console.error('Redirect sign-in error:', err);
-          setError('Failed to sign in with Google. Please try again.');
-        } finally {
-          setLoading(false);
-        }
-      }
-    });
-  }, [router]);
-
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await signInWithGoogle(auth, googleProvider);
-      const idToken = await result.user.getIdToken();
-
-      const response = await fetch('/api/auth/set-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
-
-      if (!response.ok) throw new Error('Failed to create session');
-
-      router.push('/dashboard');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg === 'REDIRECT_STARTED') return;
-      console.error('Google sign-in error:', err);
-      setError('Failed to sign in with Google. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+    });
 
-      if (!result.user.emailVerified) {
-        setError('Please verify your email before signing in.');
-        await auth.signOut();
-        return;
-      }
+    setLoading(false);
 
-      const idToken = await result.user.getIdToken();
-
-      const response = await fetch('/api/auth/set-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
-
-      if (!response.ok) throw new Error('Failed to create session');
-
-      router.push('/dashboard');
-    } catch (err: unknown) {
-      console.error('Email sign-in error:', err);
-      const firebaseError = err as { code?: string };
-      if (firebaseError.code === 'auth/invalid-credential') {
-        setError('Invalid email or password.');
-      } else if (firebaseError.code === 'auth/user-not-found') {
-        setError('No account found with this email.');
+    if (!result || result.error) {
+      const err = result?.error ?? '';
+      if (err.includes('EMAIL_NOT_VERIFIED')) {
+        setError('Please verify your email before signing in. Check your inbox for the verification link.');
       } else {
-        setError('Failed to sign in. Please try again.');
+        setError('Invalid email or password.');
       }
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    router.push(callbackUrl);
+    router.refresh();
   };
 
   return (
@@ -124,38 +61,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 border-2 border-zinc-200 rounded-full px-6 py-3 font-display font-semibold text-zinc-900 hover:bg-zinc-50 transition-colors mb-6 disabled:opacity-50"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
-            </svg>
-            {loading ? 'Signing in…' : 'Continue with Google'}
-          </button>
-
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex-1 h-px bg-zinc-200" />
-            <span className="font-body text-sm text-zinc-400">or</span>
-            <div className="flex-1 h-px bg-zinc-200" />
-          </div>
-
           <form onSubmit={handleEmailSignIn} className="space-y-4">
             <div>
               <label className="block text-sm font-body font-medium text-zinc-700 mb-1">
@@ -166,6 +71,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 className="w-full px-4 py-3 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-body placeholder:text-zinc-400"
                 placeholder="you@example.com"
               />
@@ -179,6 +85,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
                 className="w-full px-4 py-3 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-body placeholder:text-zinc-400"
                 placeholder="••••••••"
               />
@@ -212,5 +119,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

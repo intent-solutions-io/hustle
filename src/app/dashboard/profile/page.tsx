@@ -1,8 +1,8 @@
 import { authWithProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { getUserProfileAdmin } from '@/lib/firebase/admin-services/users';
-import { getPlayersAdmin } from '@/lib/firebase/admin-services/players';
-import { getWorkspaceByIdAdmin } from '@/lib/firebase/admin-services/workspaces';
+import { getUserProfileAdmin } from '@/lib/db/queries/users';
+import { getPlayersAdmin } from '@/lib/db/queries/players';
+import { getWorkspaceByIdAdmin } from '@/lib/db/queries/workspaces';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BackToDashboard } from '@/components/ui/back-to-dashboard';

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   createWorkoutLogAdmin,
   getWorkoutLogsAdmin,
-} from '@/lib/firebase/admin-services/workout-logs';
+} from '@/lib/db/queries/workout-logs';
 import { workoutLogCreateSchema, workoutLogQuerySchema } from '@/lib/validations/workout-log-schema';
 import type { WorkoutLogType } from '@/types/firestore';
 

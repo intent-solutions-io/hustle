@@ -36,15 +36,6 @@ jobs:
       - run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-          # Firebase NEXT_PUBLIC values needed for build-time SDK init. These match
-          # the Dockerfile inline defaults and will be stripped in Phase 3 (auth
-          # port to Lucia). Values are public per Firebase web SDK design.
-          NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "hustleapp-production.firebaseapp.com"
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "hustleapp-production"
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "hustleapp-production.firebasestorage.app"
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "335713777643"
-          NEXT_PUBLIC_FIREBASE_APP_ID: "1:335713777643:web:209e728afd5aee07c80bae"
 
   deploy:
     needs: build-gate

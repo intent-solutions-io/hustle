@@ -8,7 +8,7 @@ import {
 import {
   createScheduleEventAdmin,
   getScheduleEventsAdmin,
-} from '@/lib/firebase/admin-services/schedule-events';
+} from '@/lib/db/queries/schedule-events';
 
 const logger = createLogger('api/schedule');
 

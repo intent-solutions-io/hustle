@@ -1,18 +1,21 @@
 /**
  * Workspace Status Guards
  *
- * Phase 6 Task 1: Status-specific access enforcement utilities
+ * Granular assertion helpers per workspace state, for use at the start of
+ * API routes that need to enforce subscription compliance.
  *
- * These guards provide granular assertion helpers for different workspace states.
- * Use these at the start of API routes to enforce subscription compliance.
+ * Phase 4.5 migration: workspace lookup moved off Firestore onto Drizzle;
+ * WorkspaceAccessError relocated from src/lib/firebase/access-control to
+ * src/lib/workspaces/errors.
  */
 
-import { adminDb } from '@/lib/firebase/admin';
-import type { WorkspaceStatus, WorkspaceDocument } from '@/types/firestore';
-import { WorkspaceAccessError } from '@/lib/firebase/access-control';
+import { getWorkspaceByIdAdmin } from "@/lib/db/queries/workspaces";
+import type { WorkspaceStatus } from "@/types/firestore";
+import { WorkspaceAccessError } from "@/lib/workspaces/errors";
 
 /**
- * Workspace with full data for status checks
+ * Compact view of a workspace's status-relevant fields, hydrated from the
+ * Drizzle workspace row.
  */
 interface WorkspaceStatusCheck {
   id: string;
@@ -23,60 +26,36 @@ interface WorkspaceStatusCheck {
 }
 
 /**
- * Assert workspace is active OR trial (full write access)
- *
- * Use this for operations that require a paying or trial subscription.
- * Blocks: past_due, canceled, suspended, deleted
- *
- * @param workspaceId - Workspace document ID
- * @throws WorkspaceAccessError if not active or trial
- *
- * @example
- * ```typescript
- * await assertWorkspaceActiveOrTrial(workspace.id);
- * // Proceed with player/game creation
- * ```
+ * Assert workspace is active OR trial (full write access).
+ * Blocks: past_due, canceled, suspended, deleted.
  */
 export async function assertWorkspaceActiveOrTrial(workspaceId: string): Promise<void> {
   const workspace = await getWorkspaceStatus(workspaceId);
 
-  if (workspace.status !== 'active' && workspace.status !== 'trial') {
+  if (workspace.status !== "active" && workspace.status !== "trial") {
     throw new WorkspaceAccessError(
       getStatusErrorCode(workspace.status),
       workspace.status
     );
   }
 
-  // Additional trial expiration check
-  if (workspace.status === 'trial' && workspace.trialEndsAt) {
+  if (workspace.status === "trial" && workspace.trialEndsAt) {
     const now = new Date();
     if (now > workspace.trialEndsAt) {
-      throw new WorkspaceAccessError('TRIAL_EXPIRED', 'trial');
+      throw new WorkspaceAccessError("TRIAL_EXPIRED", "trial");
     }
   }
 }
 
 /**
- * Assert workspace is NOT canceled/suspended/deleted (grace period allowed)
- *
- * Use this for read operations that should allow past_due accounts.
- * Blocks: canceled, suspended, deleted
- * Allows: active, trial, past_due
- *
- * @param workspaceId - Workspace document ID
- * @throws WorkspaceAccessError if canceled/suspended/deleted
- *
- * @example
- * ```typescript
- * await assertWorkspaceNotTerminated(workspace.id);
- * // Allow viewing existing players/games during grace period
- * ```
+ * Assert workspace is NOT canceled/suspended/deleted (grace period allowed).
+ * Allows: active, trial, past_due.
  */
 export async function assertWorkspaceNotTerminated(workspaceId: string): Promise<void> {
   const workspace = await getWorkspaceStatus(workspaceId);
 
-  const terminatedStatuses: WorkspaceStatus[] = ['canceled', 'suspended', 'deleted'];
-  if (terminatedStatuses.includes(workspace.status)) {
+  const terminated: WorkspaceStatus[] = ["canceled", "suspended", "deleted"];
+  if (terminated.includes(workspace.status)) {
     throw new WorkspaceAccessError(
       getStatusErrorCode(workspace.status),
       workspace.status
@@ -85,26 +64,19 @@ export async function assertWorkspaceNotTerminated(workspaceId: string): Promise
 }
 
 /**
- * Assert workspace is NOT past_due (payment required)
- *
- * Use this for operations that should not allow grace period accounts.
- * Blocks: past_due, canceled, suspended, deleted
- * Allows: active, trial
- *
- * @param workspaceId - Workspace document ID
- * @throws WorkspaceAccessError if payment past due or worse
- *
- * @example
- * ```typescript
- * await assertWorkspacePaymentCurrent(workspace.id);
- * // Proceed with premium features (exports, uploads, etc.)
- * ```
+ * Assert workspace is NOT past_due (payment required).
+ * Allows: active, trial.
  */
 export async function assertWorkspacePaymentCurrent(workspaceId: string): Promise<void> {
   const workspace = await getWorkspaceStatus(workspaceId);
 
-  const paymentRequiredStatuses: WorkspaceStatus[] = ['past_due', 'canceled', 'suspended', 'deleted'];
-  if (paymentRequiredStatuses.includes(workspace.status)) {
+  const paymentRequired: WorkspaceStatus[] = [
+    "past_due",
+    "canceled",
+    "suspended",
+    "deleted",
+  ];
+  if (paymentRequired.includes(workspace.status)) {
     throw new WorkspaceAccessError(
       getStatusErrorCode(workspace.status),
       workspace.status
@@ -113,96 +85,70 @@ export async function assertWorkspacePaymentCurrent(workspaceId: string): Promis
 }
 
 /**
- * Get workspace status information
- *
- * @param workspaceId - Workspace document ID
- * @returns Workspace status check object
- * @throws WorkspaceAccessError if workspace not found
+ * Get workspace status information, normalised for guard checks.
  */
 async function getWorkspaceStatus(workspaceId: string): Promise<WorkspaceStatusCheck> {
-  const workspaceRef = adminDb.collection('workspaces').doc(workspaceId);
-  const workspaceSnap = await workspaceRef.get();
-
-  if (!workspaceSnap.exists) {
-    throw new WorkspaceAccessError('WORKSPACE_NOT_FOUND', 'unknown');
+  const ws = await getWorkspaceByIdAdmin(workspaceId);
+  if (!ws) {
+    throw new WorkspaceAccessError("WORKSPACE_NOT_FOUND", "unknown");
   }
 
-  const data = workspaceSnap.data() as WorkspaceDocument;
-
-  // Access trialEndsAt via type assertion (may or may not exist in document)
-  const trialEndsAt = (data as unknown as { trialEndsAt?: { toDate: () => Date } }).trialEndsAt;
   return {
-    id: workspaceSnap.id,
-    status: data.status,
-    plan: data.plan,
-    trialEndsAt: trialEndsAt?.toDate() || null,
-    currentPeriodEnd: data.billing?.currentPeriodEnd?.toDate() || null,
+    id: ws.id,
+    status: ws.status,
+    plan: ws.plan,
+    trialEndsAt: ws.trialEndsAt ?? null,
+    currentPeriodEnd: ws.billing?.currentPeriodEnd ?? null,
   };
 }
 
-/**
- * Map workspace status to error code
- */
 function getStatusErrorCode(status: WorkspaceStatus): string {
   switch (status) {
-    case 'past_due':
-      return 'PAYMENT_PAST_DUE';
-    case 'canceled':
-      return 'SUBSCRIPTION_CANCELED';
-    case 'suspended':
-      return 'ACCOUNT_SUSPENDED';
-    case 'deleted':
-      return 'WORKSPACE_DELETED';
-    case 'trial':
-      return 'TRIAL_EXPIRED';
+    case "past_due":
+      return "PAYMENT_PAST_DUE";
+    case "canceled":
+      return "SUBSCRIPTION_CANCELED";
+    case "suspended":
+      return "ACCOUNT_SUSPENDED";
+    case "deleted":
+      return "WORKSPACE_DELETED";
+    case "trial":
+      return "TRIAL_EXPIRED";
     default:
-      return 'ACCESS_DENIED';
+      return "ACCESS_DENIED";
   }
 }
 
 /**
- * Check if workspace status allows write operations
- *
- * This is a helper for client-side checks (non-throwing version).
- *
- * @param status - Workspace status
- * @returns true if write operations allowed
+ * Check if workspace status allows write operations (non-throwing).
  */
 export function canWriteWithStatus(status: WorkspaceStatus): boolean {
-  return status === 'active' || status === 'trial';
+  return status === "active" || status === "trial";
 }
 
 /**
- * Check if workspace status allows read operations
- *
- * This is a helper for client-side checks (non-throwing version).
- *
- * @param status - Workspace status
- * @returns true if read operations allowed
+ * Check if workspace status allows read operations (non-throwing).
  */
 export function canReadWithStatus(status: WorkspaceStatus): boolean {
-  return status === 'active' || status === 'trial' || status === 'past_due';
+  return status === "active" || status === "trial" || status === "past_due";
 }
 
 /**
- * Get user-friendly upgrade prompt based on workspace status
- *
- * @param status - Workspace status
- * @returns Upgrade prompt message
+ * Get user-friendly upgrade prompt based on workspace status.
  */
 export function getUpgradePrompt(status: WorkspaceStatus): string {
   switch (status) {
-    case 'past_due':
-      return 'Your payment is past due. Please update your payment method to continue creating content.';
-    case 'canceled':
-      return 'Your subscription has been canceled. Reactivate your subscription to continue using Hustle.';
-    case 'suspended':
-      return 'Your account has been suspended. Please contact support to resolve this issue.';
-    case 'deleted':
-      return 'This workspace has been deleted and is no longer accessible.';
-    case 'trial':
-      return 'Your trial has expired. Upgrade to a paid plan to continue using Hustle.';
+    case "past_due":
+      return "Your payment is past due. Please update your payment method to continue creating content.";
+    case "canceled":
+      return "Your subscription has been canceled. Reactivate your subscription to continue using Hustle.";
+    case "suspended":
+      return "Your account has been suspended. Please contact support to resolve this issue.";
+    case "deleted":
+      return "This workspace has been deleted and is no longer accessible.";
+    case "trial":
+      return "Your trial has expired. Upgrade to a paid plan to continue using Hustle.";
     default:
-      return 'Upgrade your subscription to access this feature.';
+      return "Upgrade your subscription to access this feature.";
   }
 }

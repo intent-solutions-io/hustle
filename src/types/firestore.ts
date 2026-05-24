@@ -12,7 +12,11 @@
  * /waitlist/{email}
  */
 
-import { Timestamp } from 'firebase/firestore';
+// Phase 4.5g: legacy Firestore document type aliases retained for source
+// compatibility across 90+ importers. The firebase Timestamp import is
+// dropped — every "document" field that used to be a Firestore Timestamp
+// is now a plain JS Date (which is also what the Drizzle schema returns).
+type Timestamp = Date;
 import type { LeagueCode } from './league';
 import type { PerformanceRating, GameEmotionTag } from './game';
 
@@ -703,8 +707,13 @@ export interface Workspace extends Omit<WorkspaceDocument, 'createdAt' | 'update
     stripeCustomerId: string | null;
     stripeSubscriptionId: string | null;
     currentPeriodEnd: Date | null;
+    // Phase 4.5 — additional Stripe fields hydrated from workspace table
+    subscriptionStatus?: string | null;
+    lastPaymentFailedAt?: Date | null;
+    canceledAt?: Date | null;
   };
   members: Array<Omit<WorkspaceMember, 'addedAt'> & { addedAt: Date }>;  // Convert Timestamp to Date
+  trialEndsAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;

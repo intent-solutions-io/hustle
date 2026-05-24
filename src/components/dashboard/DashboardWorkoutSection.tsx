@@ -21,8 +21,14 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { LogWorkoutModal } from '@/components/dashboard/LogWorkoutModal';
-import { getPlayers } from '@/lib/firebase/services/players';
 import type { Player, WorkoutLog } from '@/types/firestore';
+
+async function fetchPlayersViaApi(): Promise<Player[]> {
+  const res = await fetch('/api/players', { cache: 'no-store' });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { players?: Player[] };
+  return data.players ?? [];
+}
 
 interface DashboardWorkoutSectionProps {
   userId: string;
@@ -139,9 +145,9 @@ export function DashboardWorkoutSection({ userId, initialAthletes }: DashboardWo
 
     async function fetchData() {
       try {
-        // If initialAthletes are not provided, fetch them
+        // If initialAthletes are not provided, fetch them via the API.
         if (initialAthletes.length === 0) {
-          const fetchedAthletes = await getPlayers(userId);
+          const fetchedAthletes = await fetchPlayersViaApi();
           setAthletes(fetchedAthletes);
         }
 

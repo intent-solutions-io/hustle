@@ -4,12 +4,14 @@
  * Returns application health status, version, and environment.
  * Used by CI/CD pipelines, load balancers, and monitoring systems.
  *
- * Phase 5 Task 5: Go-Live Guardrails (basic version)
- * Phase 6 Task 4: Enhanced monitoring & alerting
+ * Phase 4.5 migration: Firestore ping replaced with a Drizzle/SQLite
+ * `select 1` round-trip. Critical env vars list dropped FIREBASE_* in
+ * favour of DATABASE_PATH (effectively optional with a default).
  */
 
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+import { sql } from 'drizzle-orm';
+import { db } from '@/lib/db';
 import { createLogger } from '@/lib/logger';
 import { withTimeout } from '@/lib/utils/timeout';
 
@@ -24,7 +26,7 @@ interface HealthCheckResult {
   environment: string;
   service: string;
   checks: {
-    firestore: {
+    database: {
       status: 'pass' | 'fail' | 'skipped';
       responseTime?: number;
       error?: string;
@@ -38,24 +40,6 @@ interface HealthCheckResult {
   latencyMs: number;
 }
 
-/**
- * GET /api/health
- *
- * Comprehensive health check with multiple validation points.
- *
- * Response codes:
- * - 200: All checks pass (healthy)
- * - 200: Some non-critical checks fail (degraded)
- * - 503: Critical checks fail (unhealthy)
- *
- * Cloud Monitoring Alert Condition:
- * - Alert if status !== 'healthy' for 2 consecutive checks (2 minutes)
- *
- * @example
- * ```bash
- * curl https://hustleapp-production.web.app/api/health
- * ```
- */
 export async function GET() {
   const startTime = Date.now();
 
@@ -66,7 +50,7 @@ export async function GET() {
     environment: process.env.NODE_ENV || 'development',
     service: 'hustle-api',
     checks: {
-      firestore: {
+      database: {
         status: 'pass',
       },
       environment: {
@@ -76,70 +60,61 @@ export async function GET() {
     latencyMs: 0,
   };
 
-  // Check 1: Firestore connectivity (production only)
+  // Check 1: SQLite database connectivity (production only)
   if (process.env.NODE_ENV === 'production') {
     try {
-      const firestoreStart = Date.now();
+      const dbStart = Date.now();
+      await withTimeout(
+        Promise.resolve(db.run(sql`select 1`)),
+        5000,
+        'Database health ping'
+      );
+      const dbResponseTime = Date.now() - dbStart;
 
-      // Attempt to read health check document (5s timeout prevents hang)
-      await withTimeout(adminDb.collection('_health').doc('ping').get(), 5000, 'Firestore health ping');
-
-      const firestoreResponseTime = Date.now() - firestoreStart;
-
-      result.checks.firestore = {
+      result.checks.database = {
         status: 'pass',
-        responseTime: firestoreResponseTime,
+        responseTime: dbResponseTime,
       };
 
-      // Warn if Firestore is slow (>1s is concerning)
-      if (firestoreResponseTime > 1000) {
+      if (dbResponseTime > 1000) {
         result.status = 'degraded';
-        logger.warn('Firestore health check slow', {
-          responseTime: firestoreResponseTime,
+        logger.warn('Database health check slow', {
+          responseTime: dbResponseTime,
           threshold: 1000,
         });
       }
-    } catch (error: any) {
-      result.checks.firestore = {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      result.checks.database = {
         status: 'fail',
-        error: error.message || 'Unknown error',
+        error: msg,
       };
       result.status = 'unhealthy';
-
-      logger.error('Firestore health check failed', error);
+      logger.error(
+        'Database health check failed',
+        error instanceof Error ? error : new Error(msg)
+      );
     }
   } else {
-    // Skip Firestore check in non-production
-    result.checks.firestore = {
+    result.checks.database = {
       status: 'skipped',
-      reason: 'Firestore ping disabled in non-production environments',
+      reason: 'Database ping disabled in non-production environments',
     };
   }
 
   // Check 2: Required environment variables
-  // Firebase auth: either FIREBASE_SERVICE_ACCOUNT_JSON or (FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY)
-  const hasFirebaseAuth =
-    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
-    (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY);
+  // Critical env vars — app won't function without these.
+  const criticalEnvVars: string[] = [];
 
-  // Critical env vars - app won't function without these
-  const criticalEnvVars = ['FIREBASE_PROJECT_ID'];
-
-  // Only check Stripe if billing is enabled
   if (process.env.BILLING_ENABLED !== 'false') {
     criticalEnvVars.push('STRIPE_SECRET_KEY');
   }
 
-  // Optional env vars - app can function without these (degraded mode)
+  // Optional env vars — app can function without these (degraded mode).
   const optionalEnvVars = ['RESEND_API_KEY', 'EMAIL_FROM'];
 
   const missingCritical = criticalEnvVars.filter((envVar) => !process.env[envVar]);
   const missingOptional = optionalEnvVars.filter((envVar) => !process.env[envVar]);
-
-  // Add Firebase auth check to critical
-  if (!hasFirebaseAuth) {
-    missingCritical.push('FIREBASE_SERVICE_ACCOUNT_JSON or (FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY)');
-  }
 
   if (missingCritical.length > 0) {
     result.checks.environment = {
@@ -150,25 +125,23 @@ export async function GET() {
     logger.error(`Missing critical environment variables: ${missingCritical.join(', ')}`);
   } else if (missingOptional.length > 0) {
     result.checks.environment = {
-      status: 'pass', // Pass but log warning - email is optional
+      status: 'pass',
     };
-    // Don't mark as degraded for missing email config - it's optional
-    logger.warn(`Missing optional environment variables (email disabled): ${missingOptional.join(', ')}`);
+    logger.warn(
+      `Missing optional environment variables (email disabled): ${missingOptional.join(', ')}`
+    );
   }
 
-  // Calculate total latency
   result.latencyMs = Date.now() - startTime;
 
-  // Determine HTTP status code
   const httpStatus = result.status === 'unhealthy' ? 503 : 200;
 
-  // Structured logging for monitoring
   logger.info('Health check completed', {
     event: 'health_check',
     status: result.status,
     duration: result.latencyMs,
-    firestoreStatus: result.checks.firestore.status,
-    firestoreResponseTime: result.checks.firestore.responseTime,
+    databaseStatus: result.checks.database.status,
+    databaseResponseTime: result.checks.database.responseTime,
     environmentStatus: result.checks.environment.status,
     timestamp: result.timestamp,
   });

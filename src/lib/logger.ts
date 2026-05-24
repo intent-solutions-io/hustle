@@ -1,15 +1,14 @@
 /**
  * Structured Logging Utility
  *
- * Production (Cloud Run): Emits structured JSON to stdout, which Cloud Run
- * auto-captures into Google Cloud Logging. Includes OTel trace context for
- * correlation with Cloud Trace spans.
+ * Production: Emits structured JSON to stdout. The container runtime
+ * (Docker on the VPS) captures stdout into the container log stream;
+ * downstream collectors can parse the JSON shape if needed.
  *
  * Development: Pretty console output with context and metadata.
  */
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT;
 
 export enum LogLevel {
   DEBUG = 'DEBUG',
@@ -30,9 +29,8 @@ interface LogMetadata {
 }
 
 /**
- * OTel trace context — disabled.
- * Auto-instrumentations deadlock Firebase Admin SDK outbound calls.
- * See src/instrumentation.ts for details.
+ * OTel trace context — currently disabled (no tracer wired in).
+ * Returns empty so callers can opt in later without touching the logger.
  */
 function getTraceContext(): { traceId?: string; spanId?: string } {
   return {};
@@ -82,9 +80,7 @@ export class Logger {
   }
 
   /**
-   * Production: structured JSON to stdout.
-   * Cloud Run captures this into Cloud Logging automatically.
-   * Cloud Error Reporting auto-detects entries with severity ERROR + @type field.
+   * Production: structured JSON to stdout. Container log driver captures it.
    */
   private writeStructuredJson(
     level: LogLevel,
@@ -102,29 +98,17 @@ export class Logger {
       ...metadata,
     };
 
-    // Cloud Trace correlation
-    if (traceId && PROJECT_ID) {
-      entry['logging.googleapis.com/trace'] =
-        `projects/${PROJECT_ID}/traces/${traceId}`;
-    }
-    if (spanId) {
-      entry['logging.googleapis.com/spanId'] = spanId;
-    }
+    if (traceId) entry.traceId = traceId;
+    if (spanId) entry.spanId = spanId;
 
-    // Error details + Cloud Error Reporting @type
     if (error) {
       entry.error = {
         name: error.name,
         message: error.message,
         stack: error.stack,
       };
-      if (level === LogLevel.ERROR || level === LogLevel.CRITICAL) {
-        entry['@type'] =
-          'type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent';
-      }
     }
 
-    // Single structured JSON line to stdout — Cloud Run ingests this
     const output = JSON.stringify(entry);
     if (level === LogLevel.ERROR || level === LogLevel.CRITICAL) {
       process.stderr.write(output + '\n');

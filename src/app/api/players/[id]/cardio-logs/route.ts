@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 import {
   createCardioLogAdmin,
   getCardioLogsAdmin,
-} from '@/lib/firebase/admin-services/cardio-logs';
+} from '@/lib/db/queries/cardio-logs';
 import { cardioLogCreateSchema, cardioLogQuerySchema } from '@/lib/validations/cardio-log-schema';
 import type { CardioActivityType } from '@/types/firestore';
 import { createLogger } from '@/lib/logger';

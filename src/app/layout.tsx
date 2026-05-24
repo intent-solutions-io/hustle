@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Fredoka, Quicksand } from 'next/font/google';
 import './globals.css';
+import { Providers } from './providers';
 
 const fredoka = Fredoka({
   subsets: ['latin'],
@@ -46,7 +47,9 @@ export default function RootLayout({
       lang="en"
       className={`${fredoka.variable} ${quicksand.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

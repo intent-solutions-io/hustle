@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createLogger } from '@/lib/logger';
 import { workoutLogCreateSchema, workoutLogQuerySchema } from '@/lib/validations/workout-log-schema';
-import { createWorkoutLogAdmin, getWorkoutLogsAdmin } from '@/lib/firebase/admin-services/workout-logs';
-import { getPlayerAdmin } from '@/lib/firebase/admin-services/players';
+import { createWorkoutLogAdmin, getWorkoutLogsAdmin } from '@/lib/db/queries/workout-logs';
+import { getPlayerAdmin } from '@/lib/db/queries/players';
 
 const logger = createLogger('api/workout-logs');
 

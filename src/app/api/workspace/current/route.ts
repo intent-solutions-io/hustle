@@ -3,21 +3,23 @@
  *
  * GET /api/workspace/current
  *
- * Returns the current user's default workspace data.
- * Used by useWorkspaceAccess() hook for client-side access checks.
+ * Returns the current user's default workspace data — client-safe fields
+ * only (no Stripe customer / subscription IDs).
+ *
+ * Phase 4.5 migration: user + workspace lookups moved off Firestore onto
+ * Drizzle.
  */
 
 import { authWithProfile } from '@/lib/auth';
-import { adminDb } from '@/lib/firebase/admin';
+import { getUserProfileAdmin } from '@/lib/db/queries/users';
+import { getWorkspaceByIdAdmin } from '@/lib/db/queries/workspaces';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('api/workspace/current');
 
 export async function GET() {
   try {
-    // 1. Authenticate user
     const dashboardUser = await authWithProfile();
-
     if (!dashboardUser) {
       return Response.json(
         { error: 'UNAUTHORIZED', message: 'Authentication required' },
@@ -25,19 +27,15 @@ export async function GET() {
       );
     }
 
-    // 2. Get user's default workspace ID
-    const userDoc = await adminDb.collection('users').doc(dashboardUser.uid).get();
-
-    if (!userDoc.exists) {
+    const user = await getUserProfileAdmin(dashboardUser.uid);
+    if (!user) {
       return Response.json(
         { error: 'USER_NOT_FOUND', message: 'User document not found' },
         { status: 404 }
       );
     }
 
-    const userData = userDoc.data();
-    const workspaceId = userData?.defaultWorkspaceId;
-
+    const workspaceId = user.defaultWorkspaceId;
     if (!workspaceId) {
       return Response.json(
         { error: 'NO_WORKSPACE', message: 'User has no default workspace' },
@@ -45,37 +43,38 @@ export async function GET() {
       );
     }
 
-    // 3. Fetch workspace document
-    const workspaceDoc = await adminDb.collection('workspaces').doc(workspaceId).get();
-
-    if (!workspaceDoc.exists) {
+    const workspace = await getWorkspaceByIdAdmin(workspaceId);
+    if (!workspace) {
       return Response.json(
         { error: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found' },
         { status: 404 }
       );
     }
 
-    const workspaceData = workspaceDoc.data();
-
-    // 4. Return workspace data (client-safe fields only)
     return Response.json({
       success: true,
       workspace: {
-        id: workspaceDoc.id,
-        name: workspaceData?.name,
-        plan: workspaceData?.plan,
-        status: workspaceData?.status,
+        id: workspace.id,
+        name: workspace.name,
+        plan: workspace.plan,
+        status: workspace.status,
         billing: {
-          currentPeriodEnd: workspaceData?.billing?.currentPeriodEnd?.toDate().toISOString() || null,
-          // Do NOT expose Stripe customer ID or subscription ID to client
+          currentPeriodEnd: workspace.billing.currentPeriodEnd
+            ? workspace.billing.currentPeriodEnd.toISOString()
+            : null,
+          // Do NOT expose Stripe customer ID or subscription ID to client.
         },
-        usage: workspaceData?.usage,
-        createdAt: workspaceData?.createdAt?.toDate().toISOString(),
-        updatedAt: workspaceData?.updatedAt?.toDate().toISOString(),
+        usage: workspace.usage,
+        createdAt: workspace.createdAt.toISOString(),
+        updatedAt: workspace.updatedAt.toISOString(),
       },
     });
-  } catch (error: any) {
-    logger.error('/api/workspace/current error: ' + error.message, error instanceof Error ? error : new Error(String(error)));
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error(
+      '/api/workspace/current error: ' + msg,
+      error instanceof Error ? error : new Error(msg)
+    );
     return Response.json(
       { error: 'INTERNAL_ERROR', message: 'Failed to fetch workspace' },
       { status: 500 }

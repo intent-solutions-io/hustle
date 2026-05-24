@@ -23,15 +23,15 @@ vi.mock('@/lib/auth', () => ({
   auth: mocks.auth,
 }));
 
-vi.mock('@/lib/firebase/admin-services/players', () => ({
+vi.mock('@/lib/db/queries/players', () => ({
   getPlayersAdmin: mocks.getPlayersAdmin,
 }));
 
-vi.mock('@/lib/firebase/admin-services/games', () => ({
+vi.mock('@/lib/db/queries/games', () => ({
   getUnverifiedGamesAdmin: mocks.getUnverifiedGamesAdmin,
 }));
 
-vi.mock('@/lib/firebase/admin-services/users', () => ({
+vi.mock('@/lib/db/queries/users', () => ({
   getUserProfileAdmin: mocks.getUserProfileAdmin,
 }));
 
