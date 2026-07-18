@@ -72,7 +72,7 @@ EMAIL_FROM="HUSTLE <noreply@intentsolutions.io>"
 **Missing Variables (9 critical):**
 ```env
 # CLIENT SDK (6 variables)
-NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
+NEXT_PUBLIC_FIREBASE_API_KEY="REDACTED_ROTATED_GOOGLE_KEY"
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="hustleapp-production.firebaseapp.com"
 NEXT_PUBLIC_FIREBASE_PROJECT_ID="hustleapp-production"
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="hustleapp-production.firebasestorage.app"
@@ -385,7 +385,7 @@ HEAD / 200 in 9647ms
 1. **Add Firebase Environment Variables**
    ```bash
    # Copy from .env.example to .env.local
-   NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
+   NEXT_PUBLIC_FIREBASE_API_KEY="REDACTED_ROTATED_GOOGLE_KEY"
    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="hustleapp-production.firebaseapp.com"
    NEXT_PUBLIC_FIREBASE_PROJECT_ID="hustleapp-production"
    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="hustleapp-production.firebasestorage.app"

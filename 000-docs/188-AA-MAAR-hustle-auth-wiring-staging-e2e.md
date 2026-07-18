@@ -81,7 +81,7 @@ cache-control: max-age=0
 **Firebase SDK Configuration:**
 ```typescript
 // From .env.example (production values)
-NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
+NEXT_PUBLIC_FIREBASE_API_KEY="REDACTED_ROTATED_GOOGLE_KEY"
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="hustleapp-production.firebaseapp.com"
 NEXT_PUBLIC_FIREBASE_PROJECT_ID="hustleapp-production"
 NEXT_PUBLIC_FIREBASE_APP_ID="1:335713777643:web:209e728afd5aee07c80bae"
@@ -501,7 +501,7 @@ https://console.firebase.google.com/project/hustleapp-production/firestore/datab
 1. **Add Firebase Secrets to GitHub Repository**
    ```bash
    # User must run these commands with appropriate values
-   gh secret set FIREBASE_API_KEY --body "AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
+   gh secret set FIREBASE_API_KEY --body "REDACTED_ROTATED_GOOGLE_KEY"
    gh secret set FIREBASE_AUTH_DOMAIN --body "hustleapp-production.firebaseapp.com"
    gh secret set FIREBASE_PROJECT_ID --body "hustleapp-production"
    gh secret set FIREBASE_STORAGE_BUCKET --body "hustleapp-production.firebasestorage.app"

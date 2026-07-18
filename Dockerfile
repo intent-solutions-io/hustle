@@ -26,7 +26,7 @@ COPY . .
 # These are NEXT_PUBLIC values (already exposed in client bundle) and exist
 # only so that build-time Firebase SDK initialization compiles. Phase 3
 # (auth port to Lucia) strips both these args and the Firebase code paths.
-ARG NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
+ARG NEXT_PUBLIC_FIREBASE_API_KEY="REDACTED_ROTATED_GOOGLE_KEY"
 ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="hustleapp-production.firebaseapp.com"
 ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID="hustleapp-production"
 ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="hustleapp-production.firebasestorage.app"
