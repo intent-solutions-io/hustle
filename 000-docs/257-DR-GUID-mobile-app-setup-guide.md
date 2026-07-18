@@ -44,7 +44,7 @@ cp .env.example .env
 Edit `.env` with production Firebase values:
 
 ```bash
-EXPO_PUBLIC_FIREBASE_API_KEY=AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo
+EXPO_PUBLIC_FIREBASE_API_KEY=REDACTED_ROTATED_GOOGLE_KEY
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=hustleapp-production.firebaseapp.com
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=hustleapp-production
 EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=hustleapp-production.firebasestorage.app

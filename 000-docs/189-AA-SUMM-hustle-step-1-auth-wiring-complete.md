@@ -155,7 +155,7 @@
 **Required Variables:**
 ```env
 # Client SDK (6 variables) - MISSING
-NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
+NEXT_PUBLIC_FIREBASE_API_KEY="REDACTED_ROTATED_GOOGLE_KEY"
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="hustleapp-production.firebaseapp.com"
 NEXT_PUBLIC_FIREBASE_PROJECT_ID="hustleapp-production"
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="hustleapp-production.firebasestorage.app"
@@ -503,7 +503,7 @@ npm run dev
 **Steps:**
 ```bash
 # Add client-side variables to GitHub Secrets
-gh secret set FIREBASE_API_KEY --body "AIzaSyDviqCSH3GDsT2zHScYV-fCzpc0UU__2Wo"
+gh secret set FIREBASE_API_KEY --body "REDACTED_ROTATED_GOOGLE_KEY"
 gh secret set FIREBASE_AUTH_DOMAIN --body "hustleapp-production.firebaseapp.com"
 gh secret set FIREBASE_PROJECT_ID --body "hustleapp-production"
 gh secret set FIREBASE_STORAGE_BUCKET --body "hustleapp-production.firebasestorage.app"
